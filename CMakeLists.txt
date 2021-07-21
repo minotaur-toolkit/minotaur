@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.8)
 include(ProcessorCount)
 
-project(Minitaur)
+project(Minotaur)
 
 if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Debug)
@@ -12,6 +12,11 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+set(CMAKE_CXX_FLAGS                "-Wall -Werror -march=native -fPIC ${CMAKE_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS_DEBUG          "-g -Og ${CMAKE_CXX_FLAGS_DEBUG}")
+set(CMAKE_CXX_FLAGS_RELEASE        "-O3 ${CMAKE_CXX_FLAGS_RELEASE}")
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELEASE} -g ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
 
 find_package(LLVM REQUIRED CONFIG)
 
@@ -37,16 +42,17 @@ set(SYNTHESIZER_SRC
   "lib/Slicing.cpp"
 )
 
-add_library(synth STATIC ${SYNTHESIZER_SRC})
-set(MINOTAUR_LIBS_LLVM synth ${ALIVE_LIBS_LLVM})
+add_library(synthesizer STATIC ${SYNTHESIZER_SRC})
 
-add_llvm_library(vectorsyn MODULE lib/Pass.cpp)
+set(MINOTAUR_LIBS_LLVM synthesizer ${ALIVE_LIBS} ${ALIVE_LIBS_LLVM})
+add_llvm_library(minotaur MODULE lib/Pass.cpp)
 
-target_link_libraries(vectorsyn PRIVATE ${VECTORSYNTH_LIBS_LLVM} ${Z3_LIBRARIES}
+find_package(Z3 4.8.5 REQUIRED)
+target_link_libraries(minotaur PRIVATE ${MINOTAUR_LIBS_LLVM} ${Z3_LIBRARIES}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 
 if(APPLE)
-    set_target_properties(vectorsyn PROPERTIES
+    set_target_properties(minotaur PROPERTIES
         LINK_FLAGS "-undefined dynamic_lookup"
     )
 endif(APPLE)
@@ -64,12 +70,12 @@ if (NOT DEFINED TEST_NTHREADS)
   endif()
 endif()
 
-add_custom_target("check-vectorsyn"
+add_custom_target("check"
                   COMMAND "python"
                           "${PROJECT_SOURCE_DIR}/tests/lit/lit.py"
                           "-s"
                           "${PROJECT_SOURCE_DIR}/tests"
                           "-j${TEST_NTHREADS}"
-                  DEPENDS "vectorsyn"
+                  DEPENDS "minotaur"
                   USES_TERMINAL
                  )

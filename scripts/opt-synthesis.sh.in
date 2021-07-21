@@ -2,4 +2,4 @@
 
 set -ex
 
-@LLVM_BINARY_DIR@/bin/opt -enable-new-pm=0 -load=@PROJECT_BINARY_DIR@/vectorsyn.so -so $@ -S -o -
+@LLVM_BINARY_DIR@/bin/opt -enable-new-pm=0 -load=@PROJECT_BINARY_DIR@/minotaur.so -so $@ -S -o -

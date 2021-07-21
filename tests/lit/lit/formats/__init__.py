@@ -4,4 +4,4 @@ from lit.formats.base import (  # noqa: F401
     OneCommandPerFileTest
 )
 
-from lit.formats.vectorsynthtest import VectorSynthTest
+from lit.formats.minotaurtest import MinotaurTest

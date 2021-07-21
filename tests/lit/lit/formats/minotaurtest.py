@@ -45,7 +45,7 @@ def readFile(path):
   return fd.read()
 
 
-class VectorSynthTest(TestFormat):
+class MinotaurTest(TestFormat):
   def __init__(self):
     self.regex_errs = re.compile(r";\s*(ERROR:.*)")
     self.regex_xfail = re.compile(r";\s*XFAIL:\s*(.*)")

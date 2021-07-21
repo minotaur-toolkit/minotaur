@@ -607,7 +607,8 @@ static void calculateAndInitConstants(Transform &t) {
           has_fncall |= true;
 
         if (auto *mi = dynamic_cast<const MemInstr *>(&i)) {
-          max_alloc_size  = max(max_alloc_size, mi->getMaxAllocSize());
+          auto [alloc, align] = mi->getMaxAllocSize();
+          max_alloc_size  = max(max_alloc_size, alloc);
           max_access_size = max(max_access_size, mi->getMaxAccessSize());
           cur_max_gep     = add_saturate(cur_max_gep, mi->getMaxGEPOffset());
           has_free       |= mi->canFree();
