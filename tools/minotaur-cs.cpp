@@ -1,7 +1,7 @@
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
 
-#include "lib/constantsynth.h"
+#include "ConstantSynthesis.h"
 #include "ir/type.h"
 #include "ir/instr.h"
 #include "ir/function.h"
@@ -23,6 +23,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/Signals.h"
+#include "llvm/Support/SourceMgr.h"
 
 #include <iostream>
 #include <unordered_set>
@@ -32,37 +33,37 @@ using namespace tools;
 using namespace util;
 using namespace std;
 
-static llvm::cl::OptionCategory opt_alive("Alive options");
+static llvm::cl::OptionCategory minotaur_cs("minotaur-cs options");
 
 static llvm::cl::opt<string>
 opt_file1(llvm::cl::Positional, llvm::cl::desc("first_bitcode_file"),
     llvm::cl::Required, llvm::cl::value_desc("filename"),
-    llvm::cl::cat(opt_alive));
+    llvm::cl::cat(minotaur_cs));
 
 static llvm::cl::opt<string>
 opt_file2(llvm::cl::Positional, llvm::cl::desc("second_bitcode_file"),
     llvm::cl::Required, llvm::cl::value_desc("filename"),
-    llvm::cl::cat(opt_alive));
+    llvm::cl::cat(minotaur_cs));
 
 static llvm::cl::opt<bool> opt_debug(
     "dbg", llvm::cl::desc("Alive: print debugging info"),
-    llvm::cl::cat(opt_alive), llvm::cl::init(false));
+    llvm::cl::cat(minotaur_cs), llvm::cl::init(false));
 
 static llvm::cl::opt<bool> opt_disable_undef("disable-undef-input",
-    llvm::cl::init(false), llvm::cl::cat(opt_alive),
+    llvm::cl::init(false), llvm::cl::cat(minotaur_cs),
     llvm::cl::desc("Alive: Assume inputs are not undef (default=false)"));
 
 static llvm::cl::opt<bool> opt_disable_poison("disable-poison-input",
-    llvm::cl::init(false), llvm::cl::cat(opt_alive),
+    llvm::cl::init(false), llvm::cl::cat(minotaur_cs),
     llvm::cl::desc("Alive: Assume inputs are not poison (default=false)"));
 
 static llvm::cl::opt<bool> opt_smt_verbose(
     "smt-verbose", llvm::cl::desc("Alive: SMT verbose mode"),
-    llvm::cl::cat(opt_alive), llvm::cl::init(false));
+    llvm::cl::cat(minotaur_cs), llvm::cl::init(false));
 
 static llvm::cl::opt<bool> opt_smt_stats(
     "smt-stats", llvm::cl::desc("Alive: show SMT statistics"),
-    llvm::cl::cat(opt_alive), llvm::cl::init(false));
+    llvm::cl::cat(minotaur_cs), llvm::cl::init(false));
 
 static llvm::ExitOnError ExitOnErr;
 
@@ -82,6 +83,8 @@ static std::unique_ptr<llvm::Module> openInputFile(llvm::LLVMContext &Context,
   return M;
 }
 
+void calculateAndInitConstants(Transform &t);
+
 int main(int argc, char **argv) {
   llvm::sys::PrintStackTraceOnErrorSignal(argv[0]);
   llvm::PrettyStackTraceProgram X(argc, argv);
@@ -90,7 +93,7 @@ int main(int argc, char **argv) {
   llvm::LLVMContext Context;
 
   llvm::cl::ParseCommandLineOptions(argc, argv,
-                                    "Alive2 stand-alone constant synthesizer\n");
+                                    "Minotaur stand-alone Constant Synthesizer\n");
 
   smt::solver_print_queries(opt_smt_verbose);
   //TODO:
@@ -144,12 +147,17 @@ int main(int argc, char **argv) {
   Transform t;
   t.src = move(*Func1);
   t.tgt = move(*Func2);
-  vectorsynth::ConstantSynth tv(t, false);
+
+  t.preprocess();
+  t.tgt.syncDataWithSrc(t.src);
+  ::calculateAndInitConstants(t);
+
+  minotaur::ConstantSynthesis S(t);
   TransformPrintOpts print_opts;
   t.print(cout, print_opts);
 
-  unordered_map<const IR::Input*, smt::expr> rmap;
-  Errors errs = tv.synthesize(rmap);
+  std::unordered_map<const IR::Value *, smt::expr> rmap;
+  Errors errs = S.synthesize(rmap);
   bool result(errs);
   if (result) {
     cerr << errs << endl;

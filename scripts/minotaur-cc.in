@@ -1,0 +1,44 @@
+#!/usr/bin/env perl
+
+# Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
+# Distributed under the MIT license that can be found in the LICENSE file.
+
+use warnings;
+use strict;
+use File::Temp;
+
+if ($0 =~ /minotaur-cc$/) {
+  unshift @ARGV, "@LLVM_BINARY_DIR@/bin/clang";
+} elsif ($0 =~ /minotaur-c\+\+$/) {
+  unshift @ARGV, "@LLVM_BINARY_DIR@/bin/clang++";
+} else {
+  die "Didn't expect minotuar-cc to be invoked as '$0'";
+}
+
+foreach my $arg (@ARGV) {
+  if ($arg eq "-help" || $arg eq "--help") {
+    print <<EOF;
+HELP MESSAGE TO BE ADDED
+EOF
+    exit(-1);
+  }
+}
+
+my $minotaur = 1;
+
+sub is_compiling() {
+  foreach my $arg (@ARGV) {
+    return 1 if ($arg =~ /\.c$|\.cpp$|\.CC$|\.c\+\+$|\.cc$|\.cxx$|\.C$|\.c\+$/);
+  }
+  return 0;
+}
+
+$minotaur = 0 unless is_compiling();
+
+if ($minotaur) {
+  push @ARGV, ("-fpass-plugin=@CACHE_EXPRS_PASS@");
+}
+
+
+print "@ARGV\n";
+exec @ARGV;

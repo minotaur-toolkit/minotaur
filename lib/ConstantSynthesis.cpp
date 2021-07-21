@@ -41,84 +41,11 @@ static expr preprocess(Transform &t, const set<expr> &qvars0,
   return expr::mkForAll(qvars, move(e));
 }
 
-static bool is_arbitrary(const expr &e) {
-  if (e.isConst())
-    return false;
-  return check_expr(expr::mkForAll(e.vars(), expr::mkVar("#someval", e) != e)).
-           isUnsat();
-}
+void print_varval(ostream &os, const State &st, const Model &m,
+                  const Value *var, const Type &type,
+                  const StateValue &val, unsigned child = 0);
 
-static void print_single_varval(ostream &os, State &st, const Model &m,
-                                const Value *var, const Type &type,
-                                const StateValue &val, unsigned child) {
-  if (!val.isValid()) {
-    os << "(invalid expr)";
-    return;
-  }
-
-  // if the model is partial, we don't know for sure if it's poison or not
-  // this happens if the poison constraint depends on an undef
-  // however, cexs are usually triggered by the worst case, which is poison
-  if (auto v = m.eval(val.non_poison);
-      (!v.isConst() || v.isFalse())) {
-    os << "poison";
-    return;
-  }
-
-  if (auto *in = dynamic_cast<const Input*>(var)) {
-    auto var = in->getUndefVar(type, child);
-    if (var.isValid() && m.eval(var, false).isAllOnes()) {
-      os << "undef";
-      return;
-    }
-  }
-
-  // TODO: detect undef bits (total or partial) with an SMT query
-
-  expr partial = m.eval(val.value);
-  if (is_arbitrary(partial)) {
-    os << "any";
-    return;
-  }
-
-  type.printVal(os, st, m.eval(val.value, true));
-
-  // undef variables may not have a model since each read uses a copy
-  // TODO: add intervals of possible values for ints at least?
-  if (!partial.isConst()) {
-    // some functions / vars may not have an interpretation because it's not
-    // needed, not because it's undef
-    for (auto &var : partial.vars()) {
-      if (isUndef(var)) {
-        os << "\t[based on undef value]";
-        break;
-      }
-    }
-  }
-}
-
-static void print_varval(ostream &os, State &st, const Model &m,
-                         const Value *var, const Type &type,
-                         const StateValue &val, unsigned child = 0) {
-  if (!type.isAggregateType()) {
-    print_single_varval(os, st, m, var, type, val, child);
-    return;
-  }
-
-  os << (type.isStructType() ? "{ " : "< ");
-  auto agg = type.getAsAggregateType();
-  for (unsigned i = 0, e = agg->numElementsConst(); i < e; ++i) {
-    if (i != 0)
-      os << ", ";
-    print_varval(os, st, m, var, agg->getChild(i), agg->extract(val, i),
-                 child + i);
-  }
-  os << (type.isStructType() ? " }" : " >");
-}
-
-using print_var_val_ty = function<void(ostream&, const Model&)>;
-
-namespace vectorsynth {
+namespace minotaur {
 
 Errors ConstantSynthesis::synthesize(unordered_map<const Value*, expr> &result) const {
   //  calculateAndInitConstants(t);
@@ -139,7 +66,7 @@ Errors ConstantSynthesis::synthesize(unordered_map<const Value*, expr> &result) 
 
   IR::State::ValTy sv = src_state.returnVal(), tv = tgt_state.returnVal();
 
-  auto uvars = sv.second;
+  auto uvars = sv.undef_vars;
   set<expr> qvars;
 
   Errors errs;
@@ -155,14 +82,14 @@ Errors ConstantSynthesis::synthesize(unordered_map<const Value*, expr> &result) 
     auto &ty = var->getType();
 
     if (ty.isIntType()) {
-      qvars.insert(val.first.value);
+      qvars.insert(val.val.value);
       continue;
     }
 
     if (ty.isVectorType() && ty.getAsAggregateType()->getChild(0).isIntType()) {
       auto aty = ty.getAsAggregateType();
       for (unsigned I = 0; I < aty->numElementsConst(); ++I) {
-        qvars.insert(aty->extract(val.first, I, false).value);
+        qvars.insert(aty->extract(val.val, I, false).value);
       }
       continue;
     }
@@ -170,8 +97,8 @@ Errors ConstantSynthesis::synthesize(unordered_map<const Value*, expr> &result) 
     config::dbg()<<"constant synthesizer now only supports synthesizing integers and vector of integers"<<std::endl;
     return errs;
   }
-  auto dom_a = src_state.returnDomain()();
-  auto dom_b = tgt_state.returnDomain()();
+  auto dom_a = sv.domain;
+  auto dom_b = tv.domain;
 
   expr dom = dom_a && dom_b;
 
@@ -191,12 +118,12 @@ Errors ConstantSynthesis::synthesize(unordered_map<const Value*, expr> &result) 
 
 
   const Type &ty = t.src.getType();
-  auto [poison_cnstr, value_cnstr] = ty.refines(src_state, tgt_state, sv.first, tv.first);
+  auto [poison_cnstr, value_cnstr] = ty.refines(src_state, tgt_state, sv.val, tv.val);
   if (config::debug) {
     config::dbg()<<"SV"<<std::endl;
-    config::dbg()<<sv.first<<std::endl;
+    config::dbg()<<sv.val<<std::endl;
     config::dbg()<<"TV"<<std::endl;
-    config::dbg()<<tv.first<<std::endl;
+    config::dbg()<<tv.val<<std::endl;
     config::dbg()<<"Value Constraints"<<std::endl;
     config::dbg()<<value_cnstr<<std::endl;
     config::dbg()<<"Poison Constraints"<<std::endl;
@@ -240,9 +167,9 @@ Errors ConstantSynthesis::synthesize(unordered_map<const Value*, expr> &result) 
 
     if (var->getName().rfind("%_reservedc", 0) == 0) {
       auto In = static_cast<const Input *>(var);
-      result[In] = m.eval(val.first.value);
+      result[In] = m.eval(val.val.value);
       s << *var << " = ";
-      print_varval(s, src_state, m, var, var->getType(), val.first);
+      print_varval(s, src_state, m, var, var->getType(), val.val);
       s << '\n';
     }
   }

@@ -5,7 +5,7 @@
 #include "ir/function.h"
 #include "tools/transform.h"
 
-namespace vectorsynth {
+namespace minotaur {
 
 class ConstantSynthesis {
   tools::Transform &t;

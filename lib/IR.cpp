@@ -6,7 +6,7 @@
 
 using namespace std;
 
-namespace vectorsynth {
+namespace minotaur {
 
 ostream& operator<<(ostream &os, const Inst &val) {
   val.print(os);
@@ -58,8 +58,25 @@ void BinOp::print(ostream &os) const {
   os << ")";
 }
 
+static string getOpName(X86IntrinBinOp::Op op) {
+  switch (op) {
+  case X86IntrinBinOp::sse2_psrl_w: return "x86.sse2.psrl.w";
+  case X86IntrinBinOp::sse2_psrl_d: return "x86.sse2.psrl.d";
+  case X86IntrinBinOp::sse2_psrl_q: return "x86.sse2.psrl.q";
+  case X86IntrinBinOp::avx2_psrl_w: return "x86.avx2.psrl.w";
+  case X86IntrinBinOp::avx2_psrl_d: return "x86.avx2.psrl.d";
+  case X86IntrinBinOp::avx2_psrl_q: return "x86.avx2.psrl.q";
+  case X86IntrinBinOp::sse2_pavg_w: return "x86.sse2.pavg.w";
+  case X86IntrinBinOp::avx2_pavg_b: return "x86.avx2.pavg.b";
+  case X86IntrinBinOp::avx2_pavg_w: return "x86.avx2.pavg.w";
+  case X86IntrinBinOp::avx2_pshuf_b: return "x86.avx2.pshuf.b";
+  case X86IntrinBinOp::ssse3_pshuf_b_128: return "x86.ssse3.pshuf.b.128";
+  }
+  UNREACHABLE();
+}
+
 void SIMDBinOpIntr::print(ostream &os) const {
-  os << "(" << IR::SIMDBinOp::getOpName(op) << " ";
+  os << "(" << getOpName(op) << " ";
   lhs->print(os);
   os << ", ";
   rhs->print(os);

@@ -30,25 +30,38 @@ include_directories(${LLVM_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+
 find_package(Alive2)
 include_directories(${ALIVE2_SOURCE_DIR})
 
+include_directories(include)
 set(SYNTHESIZER_SRC
   "lib/ConstantSynthesis.cpp"
   "lib/EnumerativeSynthesis.cpp"
   "lib/IR.cpp"
   "lib/LLVMGen.cpp"
-  "lib/SIMDBinOp.cpp"
-  "lib/Slicing.cpp"
 )
 
 add_library(synthesizer STATIC ${SYNTHESIZER_SRC})
-
+add_library(slice STATIC "lib/Slice.cpp")
 set(MINOTAUR_LIBS_LLVM synthesizer ${ALIVE_LIBS} ${ALIVE_LIBS_LLVM})
-add_llvm_library(minotaur MODULE lib/Pass.cpp)
 
 find_package(Z3 4.8.5 REQUIRED)
+
+add_llvm_library(minotaur MODULE pass/online.cpp)
+add_llvm_library(cache_exprs MODULE pass/cache-exprs.cpp)
+
 target_link_libraries(minotaur PRIVATE ${MINOTAUR_LIBS_LLVM} ${Z3_LIBRARIES}
+  $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
+target_link_libraries(cache_exprs PRIVATE slice
+  $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
+
+add_llvm_executable(minotaur-cs tools/minotaur-cs.cpp)
+add_llvm_executable(minotaur-slice tools/minotaur-slice.cpp)
+llvm_map_components_to_libnames(llvm_libs support core irreader analysis passes transformutils)
+target_link_libraries(minotaur-cs PRIVATE ${MINOTAUR_LIBS_LLVM} ${Z3_LIBRARIES} ${llvm_libs}
+  $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
+target_link_libraries(minotaur-slice PRIVATE slice ${llvm_libs}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 
 if(APPLE)
@@ -60,6 +73,18 @@ endif(APPLE)
 configure_file(
   ${PROJECT_SOURCE_DIR}/scripts/opt-synthesis.sh.in
   ${PROJECT_BINARY_DIR}/opt-synthesis-test.sh
+  @ONLY
+)
+
+set(CACHE_EXPRS_PASS ${CMAKE_BINARY_DIR}/cache_exprs${CMAKE_SHARED_LIBRARY_SUFFIX})
+configure_file(
+  ${PROJECT_SOURCE_DIR}/scripts/minotaur-cc.in
+  ${PROJECT_BINARY_DIR}/minotaur-cc
+  @ONLY
+)
+configure_file(
+  ${PROJECT_SOURCE_DIR}/scripts/minotaur-cc.in
+  ${PROJECT_BINARY_DIR}/minotaur-c++
   @ONLY
 )
 

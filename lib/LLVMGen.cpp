@@ -4,34 +4,32 @@
 #include "LLVMGen.h"
 
 #include "IR.h"
-#include "SIMDBinOp.h"
 
-#include "llvm/IR/IntrinsicsX86.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/IntrinsicsX86.h"
 
 #include <iostream>
 
 using namespace std;
 using namespace llvm;
-using namespace vectorsynth;
 
-namespace vectorsynth {
+namespace minotaur {
 
-llvm::Value* LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap,
-                        unordered_map<Argument *, Constant*> *constMap) {
-  if (auto V = dynamic_cast<Var*>(I)) {
+llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap,
+                              unordered_map<Argument *, Constant *> *constMap) {
+  if (auto V = dynamic_cast<Var *>(I)) {
     if (VMap.empty()) {
       return V->V();
     } else {
       return VMap[V->V()];
     }
-  } else if (auto P = dynamic_cast<Ptr*>(I)) {
+  } else if (auto P = dynamic_cast<Ptr *>(I)) {
     if (VMap.empty()) {
       return P->V();
     } else {
       return VMap[P->V()];
     }
-  } else if (auto U = dynamic_cast<UnaryOp*>(I)) {
+  } else if (auto U = dynamic_cast<UnaryOp *>(I)) {
     auto op0 = codeGen(U->Op0(), VMap, constMap);
     llvm::Value *r = nullptr;
     switch (U->K()) {
@@ -42,7 +40,7 @@ llvm::Value* LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap,
       UNREACHABLE();
     }
     return r;
-  } else if (auto B = dynamic_cast<BinOp*>(I)) {
+  } else if (auto B = dynamic_cast<BinOp *>(I)) {
     auto op0 = codeGen(B->L(), VMap, constMap);
     auto op1 = codeGen(B->R(), VMap, constMap);
     llvm::Value *r = nullptr;
@@ -89,12 +87,40 @@ llvm::Value* LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap,
     auto op1 = codeGen(B->R(), VMap, constMap);
     llvm::Function *decl = nullptr;
     switch (B->K()) {
-    case IR::SIMDBinOp::Op::x86_sse2_pavg_w:
+    case IR::X86IntrinBinOp::Op::sse2_psrl_w:
+      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_sse2_psrl_w);
+      break;
+    case IR::X86IntrinBinOp::Op::sse2_psrl_d:
+      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_sse2_psrl_d);
+      break;
+    case IR::X86IntrinBinOp::Op::sse2_psrl_q:
+      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_sse2_psrl_q);
+      break;
+    case IR::X86IntrinBinOp::Op::avx2_psrl_w:
+      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psrl_w);
+      break;
+    case IR::X86IntrinBinOp::Op::avx2_psrl_d:
+      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psrl_d);
+      break;
+    case IR::X86IntrinBinOp::Op::avx2_psrl_q:
+      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psrl_q);
+      break;
+    case IR::X86IntrinBinOp::Op::sse2_pavg_w:
       decl = Intrinsic::getDeclaration(M, Intrinsic::x86_sse2_pavg_w);
       break;
-    case IR::SIMDBinOp::Op::x86_ssse3_pshuf_b_128:
+    case IR::X86IntrinBinOp::Op::avx2_pavg_b:
+      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_pavg_b);
+      break;
+    case IR::X86IntrinBinOp::Op::avx2_pavg_w:
+      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_pavg_w);
+      break;
+    case IR::X86IntrinBinOp::Op::avx2_pshuf_b:
+      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_pshuf_b);
+      break;
+    case IR::X86IntrinBinOp::Op::ssse3_pshuf_b_128:
       decl = Intrinsic::getDeclaration(M, Intrinsic::x86_ssse3_pshuf_b_128);
       break;
+    /*
     case IR::SIMDBinOp::Op::x86_avx2_packssdw:
       decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_packssdw);
       break;
@@ -106,12 +132,6 @@ llvm::Value* LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap,
       break;
     case IR::SIMDBinOp::Op::x86_avx2_packuswb:
       decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_packuswb);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_pavg_b:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_pavg_b);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_pavg_w:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_pavg_w);
       break;
     case IR::SIMDBinOp::Op::x86_avx2_phadd_d:
       decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_phadd_d);
@@ -202,16 +222,13 @@ llvm::Value* LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap,
       break;
     case IR::SIMDBinOp::Op::x86_avx2_psrlv_q_256:
       decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psrlv_q_256);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_pshuf_b:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_pshuf_b);
-      break;
+      break; */
     default:
       UNREACHABLE();
     }
     IntrinsicDecls.insert(decl);
-    return CallInst::Create(decl, ArrayRef<llvm::Value *>({op0, op1}),
-                            "intr", cast<Instruction>(b.GetInsertPoint()));
+    return CallInst::Create(decl, ArrayRef<llvm::Value *>({op0, op1}), "intr",
+                            cast<Instruction>(b.GetInsertPoint()));
   } else if (auto RC = dynamic_cast<ReservedConst *>(I)) {
     if (!constMap) {
       return RC->getA();
@@ -219,20 +236,20 @@ llvm::Value* LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap,
       return (*constMap)[RC->getA()];
     }
 #if (false)
-  } else if (auto SV = dynamic_cast<vectorsynth::ShuffleVector*>(I)) {
+  } else if (auto SV = dynamic_cast<minotaur::ShuffleVector *>(I)) {
     // TODO
-    (void) SV;
+    (void)SV;
     auto op0 = codeGen(SV->L(), b, VMap, F, constMap);
     auto op1 = codeGen(SV->R(), b, VMap, F, constMap);
     auto M = codeGen(SV->M(), b, VMap, F, constMap);
     return b.CreateShuffleVector(op0, op1, M);
-  } 
-#endif
-  } else if (auto L = dynamic_cast<vectorsynth::Load*>(I)) {
-    auto op0 = codeGen(L->addr(), VMap, constMap);
-    return b.CreateLoad(L->elemTy(), op0);
   }
-  return nullptr;
+#endif
 }
-
+else if (auto L = dynamic_cast<minotaur::Load *>(I)) {
+  auto op0 = codeGen(L->addr(), VMap, constMap);
+  return b.CreateLoad(L->elemTy(), op0);
+}
+return nullptr;
+}
 }

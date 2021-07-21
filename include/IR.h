@@ -2,13 +2,14 @@
 // Distributed under the MIT license that can be found in the LICENSE file.
 #pragma once
 
-#include "SIMDBinOp.h"
-
 #include "llvm/IR/IRBuilder.h"
+#include "ir/instr.h"
 
 #include <vector>
 
-namespace vectorsynth {
+using namespace IR;
+
+namespace minotaur {
 
 class Inst {
   std::string name;
@@ -19,10 +20,7 @@ public:
   virtual ~Inst() {}
 };
 
-class VSValue : public Inst {
-};
-
-class Var final : public VSValue {
+class Var final : public Inst {
   llvm::Value *v;
 public:
   Var(llvm::Value *v) : v(v) {}
@@ -30,7 +28,7 @@ public:
   llvm::Value *V () { return v; }
 };
 
-class Ptr final : public VSValue {
+class Ptr final : public Inst {
   llvm::Value *v;
 public:
   Ptr(llvm::Value *v) : v(v) {}
@@ -38,7 +36,7 @@ public:
   llvm::Value *V () { return v; }
 };
 
-class ReservedConst final : public VSValue {
+class ReservedConst final : public Inst {
   // type?
   llvm::Type *type;
   llvm::Argument *A;
@@ -50,7 +48,7 @@ public:
   void setA (llvm::Argument *Arg) { A = Arg; }
 };
 
-class UnaryOp final : public VSValue {
+class UnaryOp final : public Inst {
 public:
   enum Op { copy };
 private:
@@ -64,7 +62,7 @@ public:
   Op K() { return op; }
 };
 
-class BinOp final : public VSValue {
+class BinOp final : public Inst {
 public:
   enum Op { band, bor, bxor, add, sub, mul, sdiv, udiv, lshr, ashr, shl};
 private:
@@ -82,7 +80,7 @@ public:
   }
 };
 
-class ICmpOp final : public VSValue {
+class ICmpOp final : public Inst {
 public:
   // syntactic pruning: less than/less equal only
   enum Cond { eq, ne, ult, ule, slt, sle};
@@ -98,7 +96,7 @@ public:
   Cond K() { return cond; }
 };
 
-class BitCastOp final : public VSValue {
+class BitCastOp final : public Inst {
   Inst *i;
   unsigned lanes_from, lanes_to;
   unsigned width_from, width_to;
@@ -109,23 +107,23 @@ public:
   Inst *I() { return i; }
 };
 
-class SIMDBinOpIntr final : public VSValue {
-  IR::SIMDBinOp::Op op;
+class SIMDBinOpIntr final : public Inst {
+  X86IntrinBinOp::Op op;
   Inst *lhs;
   Inst *rhs;
 public:
-  SIMDBinOpIntr(IR::SIMDBinOp::Op op, Inst &lhs, Inst &rhs)
+  SIMDBinOpIntr(X86IntrinBinOp::Op op, Inst &lhs, Inst &rhs)
     : op(op), lhs(&lhs), rhs(&rhs) {}
   void print(std::ostream &os) const override;
   Inst *L() { return lhs; }
   Inst *R() { return rhs; }
-  IR::SIMDBinOp::Op K() { return op; }
+  X86IntrinBinOp::Op K() { return op; }
 };
 
 class Hole : Inst {
 };
 
-class Load final : public VSValue {
+class Load final : public Inst {
   Ptr *ptr;
   llvm::Type *ety;
 public:

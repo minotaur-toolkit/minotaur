@@ -9,6 +9,6 @@ class Function;
 class TargetLibraryInfo;
 }
 
-namespace vectorsynth {
+namespace minotaur {
 bool synthesize (llvm::Function &F1, llvm::TargetLibraryInfo *TLI);
 };

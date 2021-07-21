@@ -10,7 +10,7 @@
 #include <unordered_set>
 #include <unordered_map>
 
-namespace vectorsynth {
+namespace minotaur {
 
 class LLVMGen {
   std::unordered_set<llvm::Function *> &IntrinsicDecls;
@@ -20,7 +20,7 @@ public:
   LLVMGen(llvm::Instruction *I, 
           std::unordered_set<llvm::Function *> &IDs)
     : IntrinsicDecls(IDs), b(llvm::IRBuilder<>(I)), M(I->getModule()) {};
-  llvm::Value *codeGen(vectorsynth::Inst *I,
+  llvm::Value *codeGen(minotaur::Inst *I,
                        llvm::ValueToValueMapTy &VMap,
                        std::unordered_map<llvm::Argument *,
                                           llvm::Constant *> *constMap);
