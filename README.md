@@ -21,6 +21,10 @@ To build Minotaur, use the following command.
     $ CC=gcc-10 CXX=g++-10 cmake .. -DALIVE2_SOURCE_DIR=$HOME/alive2-x86 -DALIVE2_BUILD_DIR=$HOME/alive2-x86/build -DCMAKE_PREFIX_PATH=$HOME/llvm/build -G Ninja
     $ ninja
 
+To run the test suite, use
+
+    $ ninja check
+
 To run the program synthesizer, use the folloing command
 
     $ $HOME/llvm/build/bin/opt  -enable-new-pm=0 -load $HOME/minotaur/build/minotaur.so -so -S <LLVM bitcode>
