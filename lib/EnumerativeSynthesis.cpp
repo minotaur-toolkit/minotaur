@@ -425,17 +425,10 @@ constantSynthesis(IR::Function &Func1, IR::Function &Func2,
 }
 
 static void cleanup(llvm::Function &F) {
-  llvm::LoopAnalysisManager LAM;
   llvm::FunctionAnalysisManager FAM;
-  llvm::CGSCCAnalysisManager CGAM;
-  llvm::ModuleAnalysisManager MAM;
 
   llvm::PassBuilder PB;
-  PB.registerModuleAnalyses(MAM);
-  PB.registerCGSCCAnalyses(CGAM);
   PB.registerFunctionAnalyses(FAM);
-  PB.registerLoopAnalyses(LAM);
-  PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
 
   llvm::FunctionPassManager FPM;
   FPM.addPass(llvm::DCEPass());
