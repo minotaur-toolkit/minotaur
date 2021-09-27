@@ -1,10 +1,19 @@
 # The Minotaur Program Synthesizer
 
+To fetch and build the Alive2 with X86 intrinsics, use the following command.
+
+    $ git clone --branch intrinsics-init git@github.com:zhengyang92/alive2 $HOME/alive2-x86
+    $ mkdir $HOME/alive2-x86/build && cd $HOME/alive2-x86/build
+    $ CC=gcc-10 CXX=g++-10 cmake -GNinja -DLLVM_DIR=$HOME/llvm/build/lib/cmake/llvm -DBUILD_TV=1 -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DCMAKE_BUILD_TYPE=Release ..
+    $ ninja
+
 To build Minotaur, use the following command.
 
-    $ cmake .. -DALIVE2_SOURCE_DIR=$HOME/alive2 -DALIVE2_BUILD_DIR=$HOME/alive2/build -DLLVM_DIR=~/llvm/build/lib/cmake/llvm -DCMAKE_BUILD_TYPE=Release -G Ninja
+    $ git clone git@github.com:zhengyang92/minotaur $HOME/minotaur
+    $ mkdir $HOME/minotaur/build && cd $HOME/minotaur/build
+    $ CC=gcc-10 CXX=g++-10 cmake .. -DALIVE2_SOURCE_DIR=$HOME/alive2-x86 -DALIVE2_BUILD_DIR=$HOME/alive2-x86/build -DCMAKE_PREFIX_PATH=$HOME/llvm/build -G Ninja
     $ ninja
 
 To run the program synthesizer, use the folloing command
 
-    $ ~/llvm/build/bin/opt -load minotaur.so -so -S <LLVM bitcode>
+    $ $HOME/llvm/build/bin/opt  -enable-new-pm=0 -load $HOME/minotaur/build/minotaur.so -so -S <LLVM bitcode>
