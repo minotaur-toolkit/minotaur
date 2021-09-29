@@ -129,7 +129,7 @@ int main(int argc, char **argv) {
     cerr << "ERROR: Could not translate '" << F1.getName().str()
          << "' to Alive IR\n";
     ++errorCount;
-    return true;
+    return 1;
   }
 
   auto Func2 = llvm_util::llvm2alive(F2, llvm::TargetLibraryInfoWrapperPass(targetTriple)
@@ -138,7 +138,7 @@ int main(int argc, char **argv) {
     cerr << "ERROR: Could not translate '" << F2.getName().str()
          << "' to Alive IR\n";
     ++errorCount;
-    return true;
+    return 1;
   }
 
   smt::smt_initializer smt_init;
@@ -158,14 +158,16 @@ int main(int argc, char **argv) {
 
   std::unordered_map<const IR::Value *, smt::expr> rmap;
   Errors errs = S.synthesize(rmap);
-  bool result(errs);
-  if (result) {
-    cerr << errs << endl;
-    ++errorCount;
-  }
 
   if (opt_smt_stats)
     smt::solver_print_stats(cerr);
 
-  return result;
+  bool result(errs);
+  if (result) {
+    cerr << errs << endl;
+    ++errorCount;
+    return 1;
+  }
+
+  return 0;
 }

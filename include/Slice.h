@@ -15,6 +15,7 @@ public:
   Slice(llvm::Function &f) : f(f) {
     ctx = std::make_unique<llvm::LLVMContext>();
     m = std::make_unique<llvm::Module>("jit", *ctx);
+    (void) f;
   }
   llvm::Function& extractExpr(llvm::Value &V);
 };

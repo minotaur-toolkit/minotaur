@@ -577,7 +577,7 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
           Src->eraseFromParent();
         }
         Tgt->eraseFromParent();
-        if (goodCount) {
+        if (result) {
           R = G;
           break;
         }
