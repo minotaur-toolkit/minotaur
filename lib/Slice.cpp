@@ -11,7 +11,7 @@
 using namespace llvm;
 using namespace std;
 
-/*
+
 static void cfgWalk(BasicBlock *bb) {
   vector<BasicBlock *> workList;
 
@@ -26,24 +26,26 @@ static void cfgWalk(BasicBlock *bb) {
     }
   }
 }
-*/
+
 
 namespace minotaur {
 
 Function &Slice::extractExpr(Value &v) {
+  // TODO: REMOVE ME
   (void) f;
+  assert(isa<Instruction>(&v));
+
   // SmallSetVector<const Value *, 8> Worklist;
   SmallVector<Type *, 4> ArgTys;
 
   unordered_set<Value *> visited;
 
   BasicBlock *BB = BasicBlock::Create(*ctx, "entry");
-/*
-  if (Instruction *i = dyn_cast<Instruction>(&v) {
-    cfgWalk(i->)
 
+  if (Instruction *i = dyn_cast<Instruction>(&v)) {
+    cfgWalk(i->getParent());
   }
-*/
+
   vector<Value *> worklist;
   worklist.push_back(&v);
   while (!worklist.empty()) {
