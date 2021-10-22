@@ -4,20 +4,21 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Value.h"
 
+#include <functional>
+#include <optional>
+
 namespace minotaur {
 
 class Slice {
   llvm::Function &f;
   std::unique_ptr<llvm::Module> m;
-  std::unique_ptr<llvm::LLVMContext> ctx;
 
 public:
   Slice(llvm::Function &f) : f(f) {
-    ctx = std::make_unique<llvm::LLVMContext>();
-    m = std::make_unique<llvm::Module>("jit", *ctx);
-    (void) f;
+    m = std::make_unique<llvm::Module>("exprs", f.getContext());
   }
-  llvm::Function& extractExpr(llvm::Value &V);
+  std::unique_ptr<llvm::Module> getNewModule() {return move(m);}
+  std::optional<std::reference_wrapper<llvm::Function>> extractExpr(llvm::Value &V);
 };
 
 } // namespace minotaur
