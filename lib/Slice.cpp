@@ -57,19 +57,17 @@ std::string getNameOrAsOperand(Value *v) {
 namespace minotaur {
 
 optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
-  assert(isa<Instruction>(&v));
+  assert(isa<Instruction>(&v) && "Expr to be extracted must be a Instruction");
+  Instruction *vi = cast<Instruction>(&v);
 
   LLVMContext &ctx = m->getContext();
   unordered_set<Value *> visited;
 
-  if (Instruction *i = dyn_cast<Instruction>(&v)) {
-    // cfgWalk(i->getParent());
-  }
-
   queue<Value *> worklist;
   ValueToValueMapTy vmap;
-  vector<Instruction *> copiedinsts;
-  set<BasicBlock *> blockstocopy;
+  vector<Instruction *> cloned_insts;
+  vector<Instruction *> insts;
+  set<BasicBlock *> blocks;
   worklist.push(&v);
 
   bool havePhi = false;
@@ -99,26 +97,22 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       }
 
       Instruction *c = i->clone();
-      blockstocopy.insert(i->getParent());
-
-      /*
-      BasicBlock *origBB = i->getParent();
-      BasicBlock *BB = nullptr;
-      if (!bmap.count(i->getParent())) {
-        BB = BasicBlock::Create(ctx, i->getParent()->getName());
-        bmap[origBB] = BB;
-      } else {
-        BB = bmap.at(i->getParent());
-      }*/
-      /*
-      if (i == &v) {
-        ReturnInst *ret = ReturnInst::Create(ctx, c);
-        BB->getInstList().push_front(ret);
-      }*/
-      copiedinsts.push_back(c);
+      insts.push_back(i);
+      cloned_insts.push_back(c);
       c->setName(getNameOrAsOperand(i) + ".copied");
       vmap[i] = c;
       // BB->getInstList().push_front(c);
+
+      BasicBlock *b = i->getParent();
+
+      bool never_visited = blocks.insert(b).second;
+      if (b != vi->getParent() && never_visited) {
+        Instruction *term = b->getTerminator();
+        assert(isa<BranchInst>(term) && "Unexpected terminator found");
+        BranchInst *bi = cast<BranchInst>(term);
+        if (bi->isConditional())
+          worklist.push(bi->getCondition());
+      }
 
       for (auto &op : i->operands()) {
         worklist.push(op);
@@ -132,40 +126,64 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   }
 
   // pass 2
-  // + copy blocks
-  set<BasicBlock *> blocks;
+  // + duplicate blocks
+  set<BasicBlock *> cloned_blocks;
   unordered_map<BasicBlock *, BasicBlock *> bmap;
-  // handle BBs
   if (havePhi) {
-    // pass 1;
+    // pass 2.1.1;
     // + duplicate BB;
-    for (BasicBlock *origBB : blockstocopy) {
-      BasicBlock *bb = BasicBlock::Create(ctx, origBB->getName());
-      bmap[origBB] = bb;
+    for (BasicBlock *orig_bb : blocks) {
+      BasicBlock *bb = BasicBlock::Create(ctx, orig_bb->getName());
+      bmap[orig_bb] = bb;
+      vmap[orig_bb] = bb;
+      cloned_blocks.insert(bb);
     }
-    // pass 2:
-    // wire branch
-    for (BasicBlock *origBB : blockstocopy) {
-      Instruction *term = origBB->getTerminator();
-      assert(isa<BranchInst>(term));
+    // pass 2.1.2:
+    // + wire branch
+    for (BasicBlock *orig_bb : blocks) {
+      if (orig_bb == vi->getParent())
+       continue;
+      Instruction *term = orig_bb->getTerminator();
+      assert(isa<BranchInst>(term) && "Unexpected terminator found");
+      BranchInst *bi = cast<BranchInst>(term);
 
-      
-
-      //BranchInst(BB)
+      BranchInst *cloned_bi = nullptr;
+      if (bi->isConditional()) {
+        //TODO: harvest conditional variable
+        cloned_bi = BranchInst::Create(bmap[bi->getSuccessor(0)],
+                                       bmap[bi->getSuccessor(1)],
+                                       bi->getCondition(),
+                                       bmap[orig_bb]);
+      } else {
+        cloned_bi = BranchInst::Create(bmap[bi->getSuccessor(0)],
+                                       bmap[orig_bb]);        
+      }
+      insts.push_back(bi);
+      cloned_insts.push_back(cloned_bi);
+      vmap[bi] = cloned_bi;
     }
-    //llvm::report_fatal_error("working");
+    // pass 2.1.3:
+    // + put in instructions
+    for (auto i : insts) {
+      if (isa<BranchInst>(i))
+        continue;
+      bmap[i->getParent()]->getInstList().push_front(cast<Instruction>(vmap[i]));
+    }
+
+    // create ret
+    ReturnInst *ret = ReturnInst::Create(ctx, vmap[&v]);
+    bmap[vi->getParent()]->getInstList().push_back(ret);
   } else {
-    // Phi free
+    // pass 2.2
+    // + phi free
     BasicBlock *bb = BasicBlock::Create(ctx, "entry");
-    for (auto i : copiedinsts) {
+    for (auto i : cloned_insts) {
       bb->getInstList().push_front(i);
     }
     ReturnInst *ret = ReturnInst::Create(ctx, vmap[&v]);
     bb->getInstList().push_back(ret);
-    blocks.insert(bb);
+    cloned_blocks.insert(bb);
   }
-
-
 
   // pass 3;
   // + remap the operands of duplicated instructions with vmap from pass 1
@@ -173,7 +191,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   SmallVector<Type *, 4> argTys;
   DenseMap<Value *, unsigned> argMap;
   unsigned idx = 0;
-  for (auto &i : copiedinsts) {
+  for (auto &i : cloned_insts) {
     RemapInstruction(i, vmap, RF_IgnoreMissingLocals);
     for (auto &op : i->operands()) {
       if (isa<Constant>(op)) {
@@ -182,7 +200,8 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
           argTys.push_back(op->getType());
           argMap[op.get()] = idx++;
       } else if (Instruction *op_i = dyn_cast<Instruction>(op)) {
-        if(find(copiedinsts.begin(), copiedinsts.end(), op_i) != copiedinsts.end())
+        auto unknown = find(cloned_insts.begin(), cloned_insts.end(), op_i);
+        if(unknown != cloned_insts.end())
           continue;
         if (!argMap.count(op.get())) {
           argTys.push_back(op->getType());
@@ -192,27 +211,14 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     }
   }
 
-  /*
-    for (auto &i : *BB) {
-      // copy declaration of callee if needed
-      if (CallInst *ci = dyn_cast<CallInst>(&i)) {
-        Function *callee = ci->getCalledFunction();
-        if (!callee->isIntrinsic()) {
-          return std::nullopt;
-        }
-
-      }
-    }
-  */
-
   // create function
   auto func_name = "sliced_" + v.getName();
   Function *F = Function::Create(FunctionType::get(v.getType(), argTys, false),
                                  GlobalValue::ExternalLinkage, func_name, *m);
 
-  // pass 3:
+  // pass 4:
   // + replace the use of unknown value with the function parameter
-  for (auto &i : copiedinsts) {
+  for (auto &i : cloned_insts) {
     for (auto &op : i->operands()) {
       if (argMap.count(op.get())) {
         op.set(F->getArg(argMap[op.get()]));
@@ -220,7 +226,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     }
   }
 
-  for (auto block : blocks) {
+  for (auto block : cloned_blocks) {
     block->insertInto(F);
   }
 
