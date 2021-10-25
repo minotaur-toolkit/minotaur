@@ -7,6 +7,7 @@
 #include "util/config.h"
 #include "util/errors.h"
 #include "util/symexec.h"
+#include "tools/transform.h"
 
 #include <map>
 #include <sstream>
@@ -40,10 +41,6 @@ static expr preprocess(Transform &t, const set<expr> &qvars0,
 
   return expr::mkForAll(qvars, move(e));
 }
-
-void print_varval(ostream &os, const State &st, const Model &m,
-                  const Value *var, const Type &type,
-                  const StateValue &val, unsigned child = 0);
 
 namespace minotaur {
 
@@ -169,7 +166,7 @@ Errors ConstantSynthesis::synthesize(unordered_map<const Value*, expr> &result) 
       auto In = static_cast<const Input *>(var);
       result[In] = m.eval(val.val.value);
       s << *var << " = ";
-      print_varval(s, src_state, m, var, var->getType(), val.val);
+      tools::print_model_val(s, src_state, m, var, var->getType(), val.val);
       s << '\n';
     }
   }

@@ -105,12 +105,12 @@ int main(int argc, char **argv) {
   auto M1 = openInputFile(Context, opt_file1);
   if (!M1.get())
     llvm::report_fatal_error(
-      "Could not read bitcode from '" + opt_file1 + "'");
+      llvm::Twine("Could not read bitcode from '" + opt_file1 + "'"));
 
   auto M2 = openInputFile(Context, opt_file2);
   if (!M2.get())
     llvm::report_fatal_error(
-      "Could not read bitcode from '" + opt_file2 + "'");
+      llvm::Twine("Could not read bitcode from '" + opt_file2 + "'"));
 
   if (M1.get()->getTargetTriple() != M2.get()->getTargetTriple())
     llvm::report_fatal_error("Modules have different target triple");
