@@ -27,21 +27,6 @@ using namespace std;
 // TODO: add search depth limitation
 // static constexpr unsigned slice_depth = 5;
 
-static void cfgWalk(BasicBlock *bb) {
-  vector<BasicBlock *> workList;
-
-  workList.push_back(bb);
-
-  while (!workList.empty()) {
-    auto b = workList.front();
-    workList.pop_back();
-
-    for (BasicBlock *pred : predecessors(b)) {
-      workList.push_back(pred);
-    }
-  }
-}
-
 namespace {
 std::string getNameOrAsOperand(Value *v) {
   if (!v->getName().empty())
@@ -92,7 +77,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
                                    callee->getAttributes());
 
         vmap[callee] = intrindecl.getCallee();
-      } else if (PHINode *phi = dyn_cast<PHINode>(i)) {
+      } else if (isa<PHINode>(i)) {
         havePhi = true;
       }
 
@@ -196,7 +181,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     for (auto &op : i->operands()) {
       if (isa<Constant>(op)) {
         continue;
-      } else if (Argument *op_i = dyn_cast<Argument>(op)) {
+      } else if (isa<Argument>(op)) {
           argTys.push_back(op->getType());
           argMap[op.get()] = idx++;
       } else if (Instruction *op_i = dyn_cast<Instruction>(op)) {
