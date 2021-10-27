@@ -50,8 +50,10 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
   Loop *loop = LI.getLoopFor(vbb);
   if (loop) {
-    llvm::errs() << "[INFO] value is in loop";
-    loop->dump();
+    llvm::errs() << "[INFO] value is in loop" << loop;
+    // loop->dump();
+    if (!loop->isLoopSimplifyForm())
+      llvm::errs() << "[INFO] loop is not in normal form";
   }
 
   LLVMContext &ctx = m->getContext();
@@ -86,10 +88,20 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
                                    callee->getAttributes());
 
         vmap[callee] = intrindecl.getCallee();
-      } else if (isa<PHINode>(i)) {
+      } else if (auto phi = dyn_cast<PHINode>(i)) {
+        bool phiHasExternalIncome = false;
+        if (loop) {
+          for (auto block : phi->blocks()) {
+            if (!loop->contains(block)) {
+              phiHasExternalIncome = true;
+            }
+          }
+
+          if (phiHasExternalIncome)
+            continue;
+        }
+
         havePhi = true;
-        i->dump();
-        llvm::errs() << "f3405439503495430<><><<>\n";
       }
 
       Instruction *c = i->clone();
@@ -114,7 +126,6 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
         worklist.push(op);
       }
     } else if (isa<GlobalValue>(w)) {
-      llvm::errs() << "<><><><>>\n";
     } else if (isa<Constant>(w) || isa<Argument>(w)) {
       continue;
     } else {
