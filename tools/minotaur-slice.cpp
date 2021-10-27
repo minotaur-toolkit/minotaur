@@ -8,6 +8,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
+#include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/FileSystem.h"
@@ -53,11 +54,18 @@ int main(int argc, char **argv) {
 
   auto M = openInputFile(Context, opt_file);
 
-  auto &LI = llvm::LoopInfoWrapperPass().getLoopInfo();
-
   for (auto &F : *M) {
     if (F.isDeclaration())
       continue;
+
+    llvm::PassBuilder PB;
+    llvm::FunctionAnalysisManager FAM;
+    PB.registerFunctionAnalyses(FAM);
+
+    //FAM.registerPass(llvm::LoopInfo());
+    LoopInfo &LI = FAM.getResult<LoopAnalysis>(F);
+
+
     Slice S(F, LI);
     for (auto &BB : F) {
       for (auto &I : BB) {

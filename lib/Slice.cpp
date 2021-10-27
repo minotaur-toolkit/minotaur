@@ -3,6 +3,7 @@
 #include "util/compiler.h"
 #include <Slice.h>
 
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Function.h"
@@ -42,8 +43,16 @@ std::string getNameOrAsOperand(Value *v) {
 namespace minotaur {
 
 optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
+  llvm::errs() << ">>> slicing value %" << v.getName() << " >>>\n";
   assert(isa<Instruction>(&v) && "Expr to be extracted must be a Instruction");
   Instruction *vi = cast<Instruction>(&v);
+  BasicBlock *vbb = vi->getParent();
+
+  Loop *loop = LI.getLoopFor(vbb);
+  if (loop) {
+    llvm::errs() << "[INFO] value is in loop";
+    loop->dump();
+  }
 
   LLVMContext &ctx = m->getContext();
   unordered_set<Value *> visited;
@@ -79,6 +88,8 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
         vmap[callee] = intrindecl.getCallee();
       } else if (isa<PHINode>(i)) {
         havePhi = true;
+        i->dump();
+        llvm::errs() << "f3405439503495430<><><<>\n";
       }
 
       Instruction *c = i->clone();
@@ -88,11 +99,11 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       vmap[i] = c;
       // BB->getInstList().push_front(c);
 
-      BasicBlock *b = i->getParent();
+      BasicBlock *ibb = i->getParent();
 
-      bool never_visited = blocks.insert(b).second;
-      if (b != vi->getParent() && never_visited) {
-        Instruction *term = b->getTerminator();
+      bool never_visited = blocks.insert(ibb).second;
+      if (ibb != vbb && never_visited) {
+        Instruction *term = ibb->getTerminator();
         assert(isa<BranchInst>(term) && "Unexpected terminator found");
         BranchInst *bi = cast<BranchInst>(term);
         if (bi->isConditional())
@@ -102,6 +113,8 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       for (auto &op : i->operands()) {
         worklist.push(op);
       }
+    } else if (isa<GlobalValue>(w)) {
+      llvm::errs() << "<><><><>>\n";
     } else if (isa<Constant>(w) || isa<Argument>(w)) {
       continue;
     } else {
@@ -126,22 +139,21 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     // pass 2.1.2:
     // + wire branch
     for (BasicBlock *orig_bb : blocks) {
-      if (orig_bb == vi->getParent())
-       continue;
+      if (orig_bb == vbb)
+        continue;
       Instruction *term = orig_bb->getTerminator();
       assert(isa<BranchInst>(term) && "Unexpected terminator found");
       BranchInst *bi = cast<BranchInst>(term);
 
       BranchInst *cloned_bi = nullptr;
       if (bi->isConditional()) {
-        //TODO: harvest conditional variable
-        cloned_bi = BranchInst::Create(bmap[bi->getSuccessor(0)],
-                                       bmap[bi->getSuccessor(1)],
-                                       bi->getCondition(),
-                                       bmap[orig_bb]);
+        // TODO: harvest conditional variable
+        cloned_bi = BranchInst::Create(bmap.at(bi->getSuccessor(0)),
+                                       bmap.at(bi->getSuccessor(1)),
+                                       bi->getCondition(), bmap.at(orig_bb));
       } else {
-        cloned_bi = BranchInst::Create(bmap[bi->getSuccessor(0)],
-                                       bmap[orig_bb]);        
+        cloned_bi =
+            BranchInst::Create(bmap.at(bi->getSuccessor(0)), bmap.at(orig_bb));
       }
       insts.push_back(bi);
       cloned_insts.push_back(cloned_bi);
@@ -152,12 +164,13 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     for (auto i : insts) {
       if (isa<BranchInst>(i))
         continue;
-      bmap[i->getParent()]->getInstList().push_front(cast<Instruction>(vmap[i]));
+      BasicBlock *ibb = i->getParent();
+      bmap.at(ibb)->getInstList().push_front(cast<Instruction>(vmap[i]));
     }
 
     // create ret
     ReturnInst *ret = ReturnInst::Create(ctx, vmap[&v]);
-    bmap[vi->getParent()]->getInstList().push_back(ret);
+    bmap.at(vbb)->getInstList().push_back(ret);
   } else {
     // pass 2.2
     // + phi free
@@ -177,16 +190,17 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   DenseMap<Value *, unsigned> argMap;
   unsigned idx = 0;
   for (auto &i : cloned_insts) {
+    i->dump();
     RemapInstruction(i, vmap, RF_IgnoreMissingLocals);
     for (auto &op : i->operands()) {
       if (isa<Constant>(op)) {
         continue;
       } else if (isa<Argument>(op)) {
-          argTys.push_back(op->getType());
-          argMap[op.get()] = idx++;
+        argTys.push_back(op->getType());
+        argMap[op.get()] = idx++;
       } else if (Instruction *op_i = dyn_cast<Instruction>(op)) {
         auto unknown = find(cloned_insts.begin(), cloned_insts.end(), op_i);
-        if(unknown != cloned_insts.end())
+        if (unknown != cloned_insts.end())
           continue;
         if (!argMap.count(op.get())) {
           argTys.push_back(op->getType());
@@ -215,7 +229,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     block->insertInto(F);
   }
 
-  llvm::errs() << ">>> slicing value %" << v.getName() << " >>>\n";
+  llvm::errs() << "... sliced function ...\n";
   F->dump();
 
   // validate the created function
