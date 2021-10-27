@@ -18,13 +18,15 @@ namespace {
 struct CacheExprsPass : PassInfoMixin<CacheExprsPass> {
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM) {
     //TargetLibraryInfo &TLI = FAM.getResult<TargetLibraryAnalysis>(F);
-
     PreservedAnalyses PA;
     PA.preserveSet<CFGAnalyses>();
+
+    LoopInfo &LI = FAM.getResult<LoopAnalysis>(F);
+    llvm::outs()<<LI.getLoopsInPreorder().size();
     if (F.isDeclaration())
       return PA;
 
-    Slice S(F);
+    Slice S(F, LI);
     for (auto &BB : F) {
       for (auto &I : BB) {
         if (I.getType()->isVoidTy())

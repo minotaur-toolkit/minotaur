@@ -2,6 +2,7 @@
 // Distributed under the MIT license that can be found in the LICENSE file.
 #include "Slice.h"
 
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/LLVMContext.h"
@@ -52,10 +53,12 @@ int main(int argc, char **argv) {
 
   auto M = openInputFile(Context, opt_file);
 
+  auto &LI = llvm::LoopInfoWrapperPass().getLoopInfo();
+
   for (auto &F : *M) {
     if (F.isDeclaration())
       continue;
-    Slice S(F);
+    Slice S(F, LI);
     for (auto &BB : F) {
       for (auto &I : BB) {
         if (I.getType()->isVoidTy())
