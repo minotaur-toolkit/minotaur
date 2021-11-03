@@ -276,8 +276,9 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   llvm::raw_string_ostream err_stream(err);
   bool illformed = llvm::verifyFunction(*F, &err_stream);
   if (illformed) {
-    llvm::errs() << "=== found errors in the generated function ===\n";
+    llvm::errs() << "[ERROR] found errors in the generated function\n";
     llvm::errs() << err << "\n";
+    llvm::report_fatal_error("illformed function generated");
   }
   llvm::errs() << "<<< end of %" << v.getName() << " <<<\n";
   return std::optional<std::reference_wrapper<Function>>(*F);
