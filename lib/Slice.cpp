@@ -76,6 +76,8 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   vector<Instruction *> cloned_insts;
   vector<Instruction *> insts;
   set<BasicBlock *> blocks;
+
+  set<pair<BasicBlock *, BasicBlock *>> phi_deps;
   worklist.push(&v);
 
   bool havePhi = false;
@@ -120,6 +122,15 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
           Loop *loopbb = LI.getLoopFor(block);
           if (loopv != loopbb) {
             phiHasExternalIncome = true;
+          }
+
+          Value *depv = phi->getIncomingValueForBlock(block);
+
+          if (Instruction *depi = dyn_cast<Instruction>(depv)) {
+            BasicBlock *dibb = depi->getParent();
+            if (dibb!= block) {
+              phi_deps.insert({dibb, block});
+            }
           }
         }
 
