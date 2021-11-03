@@ -82,6 +82,9 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   // pass 1;
   // + duplicate instructions, leave the operands untouched
   // + if there are intrinsic calls, create declares in the new module
+  // * if the def of a use is not copied, the use will be treated as unknown,
+  //   we will create an function argument for the def and replace the use
+  //   with the argument.
   while (!worklist.empty()) {
     auto *w = worklist.front();
     worklist.pop();
@@ -92,7 +95,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       BasicBlock *ibb = i->getParent();
       Loop *loopi = LI.getLoopFor(ibb);
 
-      // do not try to harvest instructions from different loop.
+      // do not try to harvest instructions beyond loop boundry.
       if (loopi != loopv) continue;
 
       if (CallInst *ci = dyn_cast<CallInst>(i)) {
@@ -115,7 +118,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
         }
 
         if (phiHasExternalIncome) {
-          llvm::errs()<<"[ERROR]"<<*phi<<" has external income\n";
+          llvm::errs()<<"[INFO]"<<*phi<<" has external income\n";
           continue;
         }
 
@@ -148,6 +151,11 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       llvm::errs() << "Unhandled value founded:" << w->getName() << "\n";
       UNREACHABLE();
     }
+  }
+
+  // if no instructions satisfied the criteria of cloning, return null.
+  if (cloned_insts.empty()) {
+    return std::nullopt;
   }
 
   // pass 2
