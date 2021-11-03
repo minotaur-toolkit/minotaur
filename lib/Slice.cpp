@@ -112,7 +112,13 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       } else if (auto phi = dyn_cast<PHINode>(i)) {
         bool phiHasExternalIncome = false;
         for (auto block : phi->blocks()) {
-          if (!loopv->contains(block)) {
+          // v is in loop l, block is not in l
+          if (loopv && !loopv->contains(block)) {
+            phiHasExternalIncome = true;
+          }
+          // v is in toplevel, block is in a loop
+          Loop *loopbb = LI.getLoopFor(block);
+          if (loopv != loopbb) {
             phiHasExternalIncome = true;
           }
         }
@@ -148,7 +154,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     } else if (isa<Constant>(w) || isa<Argument>(w)) {
       continue;
     } else {
-      llvm::errs() << "Unhandled value founded:" << w->getName() << "\n";
+      llvm::errs() << "[ERROR] Unhandled value founded:" << w->getName() << "\n";
       UNREACHABLE();
     }
   }
