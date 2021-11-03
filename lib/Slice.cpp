@@ -16,6 +16,7 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
+#include <optional>
 #include <queue>
 #include <set>
 #include <sstream>
@@ -42,17 +43,28 @@ std::string getNameOrAsOperand(Value *v) {
 
 namespace minotaur {
 
+//  * if a external value is outside the loop, and it does not dominates v,
+//    do not extract it
+
 optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
-  llvm::errs() << ">>> slicing value %" << v.getName() << " >>>\n";
+  if (Instruction *i = dyn_cast<Instruction>(&v)) {
+    if (CallInst *ci = dyn_cast<CallInst>(i)) {
+      Function *callee = ci->getCalledFunction();
+      if (!callee->isIntrinsic()) {
+        return {};
+      }
+    }
+  }
+
+  llvm::errs() << ">>> slicing value " << v << ">>>\n";
   assert(isa<Instruction>(&v) && "Expr to be extracted must be a Instruction");
   Instruction *vi = cast<Instruction>(&v);
   BasicBlock *vbb = vi->getParent();
 
-  Loop *loop = LI.getLoopFor(vbb);
-  if (loop) {
-    llvm::errs() << "[INFO] value is in loop" << loop;
-    // loop->dump();
-    if (!loop->isLoopSimplifyForm())
+  Loop *loopv = LI.getLoopFor(vbb);
+  if (loopv) {
+    llvm::errs() << "[INFO] value is in " << *loopv;
+    if (!loopv->isLoopSimplifyForm())
       llvm::errs() << "[INFO] loop is not in normal form";
   }
 
@@ -77,6 +89,12 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       continue;
 
     if (Instruction *i = dyn_cast<Instruction>(w)) {
+      BasicBlock *ibb = i->getParent();
+      Loop *loopi = LI.getLoopFor(ibb);
+
+      // do not try to harvest instructions from different loop.
+      if (loopi != loopv) continue;
+
       if (CallInst *ci = dyn_cast<CallInst>(i)) {
         Function *callee = ci->getCalledFunction();
         if (!callee->isIntrinsic()) {
@@ -90,15 +108,15 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
         vmap[callee] = intrindecl.getCallee();
       } else if (auto phi = dyn_cast<PHINode>(i)) {
         bool phiHasExternalIncome = false;
-        if (loop) {
-          for (auto block : phi->blocks()) {
-            if (!loop->contains(block)) {
-              phiHasExternalIncome = true;
-            }
+        for (auto block : phi->blocks()) {
+          if (!loopv->contains(block)) {
+            phiHasExternalIncome = true;
           }
+        }
 
-          if (phiHasExternalIncome)
-            continue;
+        if (phiHasExternalIncome) {
+          llvm::errs()<<"[ERROR]"<<*phi<<" has external income\n";
+          continue;
         }
 
         havePhi = true;
@@ -110,8 +128,6 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       c->setName(getNameOrAsOperand(i) + ".copied");
       vmap[i] = c;
       // BB->getInstList().push_front(c);
-
-      BasicBlock *ibb = i->getParent();
 
       bool never_visited = blocks.insert(ibb).second;
       if (ibb != vbb && never_visited) {
@@ -201,7 +217,6 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   DenseMap<Value *, unsigned> argMap;
   unsigned idx = 0;
   for (auto &i : cloned_insts) {
-    i->dump();
     RemapInstruction(i, vmap, RF_IgnoreMissingLocals);
     for (auto &op : i->operands()) {
       if (isa<Constant>(op)) {
@@ -240,7 +255,6 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     block->insertInto(F);
   }
 
-  llvm::errs() << "... sliced function ...\n";
   F->dump();
 
   // validate the created function
