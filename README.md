@@ -9,7 +9,7 @@ The Alive2 requires a LLVM compiled with RTTI and exceptions enabled, use the fo
 
 To fetch and build the Alive2 with X86 intrinsics, use the following command.
 
-    $ git clone --branch intrinsics-init git@github.com:zhengyang92/alive2 $HOME/alive2-x86
+    $ git clone git@github.com:zhengyang92/alive2-x86 $HOME/alive2-x86
     $ mkdir $HOME/alive2-x86/build && cd $HOME/alive2-x86/build
     $ CC=gcc-10 CXX=g++-10 cmake -GNinja -DLLVM_DIR=$HOME/llvm/build/lib/cmake/llvm -DBUILD_TV=1 -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
     $ ninja
