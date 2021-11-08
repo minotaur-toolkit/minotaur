@@ -3,6 +3,7 @@
 #include "Slice.h"
 
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/PostDominators.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/LLVMContext.h"
@@ -64,9 +65,10 @@ int main(int argc, char **argv) {
 
     //FAM.registerPass(llvm::LoopInfo());
     LoopInfo &LI = FAM.getResult<LoopAnalysis>(F);
+    DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
+    PostDominatorTree &PDT = FAM.getResult<PostDominatorTreeAnalysis>(F);
 
-
-    Slice S(F, LI);
+    Slice S(F, LI, DT, PDT);
     for (auto &BB : F) {
       for (auto &I : BB) {
         if (I.getType()->isVoidTy())

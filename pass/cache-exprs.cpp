@@ -21,12 +21,14 @@ struct CacheExprsPass : PassInfoMixin<CacheExprsPass> {
     PreservedAnalyses PA;
     PA.preserveSet<CFGAnalyses>();
 
-    LoopInfo &LI = FAM.getResult<LoopAnalysis>(F);
-    llvm::outs()<<LI.getLoopsInPreorder().size();
     if (F.isDeclaration())
       return PA;
 
-    Slice S(F, LI);
+    LoopInfo &LI = FAM.getResult<LoopAnalysis>(F);
+    DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
+    PostDominatorTree &PDT = FAM.getResult<PostDominatorTreeAnalysis>(F);
+
+    Slice S(F, LI, DT, PDT);
     for (auto &BB : F) {
       for (auto &I : BB) {
         if (I.getType()->isVoidTy())

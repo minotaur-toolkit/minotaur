@@ -65,7 +65,8 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   if (loopv) {
     llvm::errs() << "[INFO] value is in " << *loopv;
     if (!loopv->isLoopSimplifyForm())
-      llvm::errs() << "[INFO] loop is not in normal form";
+      llvm::errs() << "[INFO] loop is not in normal form\n";
+    return std::nullopt;
   }
 
   LLVMContext &ctx = m->getContext();
@@ -77,7 +78,6 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   vector<Instruction *> insts;
   set<BasicBlock *> blocks;
 
-  set<pair<BasicBlock *, BasicBlock *>> phi_deps;
   worklist.push(&v);
 
   bool havePhi = false;
@@ -117,20 +117,13 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
           // v is in loop l, block is not in l
           if (loopv && !loopv->contains(block)) {
             phiHasExternalIncome = true;
+            break;
           }
           // v is in toplevel, block is in a loop
           Loop *loopbb = LI.getLoopFor(block);
           if (loopv != loopbb) {
             phiHasExternalIncome = true;
-          }
-
-          Value *depv = phi->getIncomingValueForBlock(block);
-
-          if (Instruction *depi = dyn_cast<Instruction>(depv)) {
-            BasicBlock *dibb = depi->getParent();
-            if (dibb!= block) {
-              phi_deps.insert({dibb, block});
-            }
+            break;
           }
         }
 
@@ -138,7 +131,6 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
           llvm::errs()<<"[INFO]"<<*phi<<" has external income\n";
           continue;
         }
-
         havePhi = true;
       }
 
@@ -176,11 +168,42 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   }
 
   // pass 2
+  // + find missed immediate blocks
+  map<BasicBlock *, set<BasicBlock *>> bb_deps;
+
+  for (auto inst : insts) {
+    auto preds = predecessors(inst->getParent());
+    for (auto &op : inst->operands()) {
+      if (!isa<Instruction>(op)) continue;
+
+      Instruction *op_i = cast<Instruction>(op);
+      BasicBlock *bb_i = op_i->getParent();
+      if (find(preds.begin(), preds.end(), bb_i) != preds.end()) continue;
+      bb_deps[inst->getParent()].insert(bb_i);
+    }
+  }
+
+  for (auto &[bb, deps] : bb_deps) {
+    SmallVector<BasicBlock *, 4> bb_pred_sv;
+    PDT.getDescendants(bb, bb_pred_sv);
+    set<BasicBlock *> bb_preds(bb_pred_sv.begin(), bb_pred_sv.end());
+    for (auto &dep : deps) {
+      SmallVector<BasicBlock *, 4> dep_descs;
+      DT.getDescendants(dep, dep_descs);
+      for (auto &dep_desc : dep_descs) {
+        if (bb_preds.count(dep_desc)) {
+          blocks.insert(dep_desc);
+        }
+      }
+    }
+  }
+
+  // pass 3
   // + duplicate blocks
   set<BasicBlock *> cloned_blocks;
   unordered_map<BasicBlock *, BasicBlock *> bmap;
   if (havePhi) {
-    // pass 2.1.1;
+    // pass 3.1.1;
     // + duplicate BB;
     for (BasicBlock *orig_bb : blocks) {
       BasicBlock *bb = BasicBlock::Create(ctx, orig_bb->getName());
@@ -188,7 +211,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       vmap[orig_bb] = bb;
       cloned_blocks.insert(bb);
     }
-    // pass 2.1.2:
+    // pass 3.1.2:
     // + wire branch
     for (BasicBlock *orig_bb : blocks) {
       if (orig_bb == vbb)
@@ -211,7 +234,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       cloned_insts.push_back(cloned_bi);
       vmap[bi] = cloned_bi;
     }
-    // pass 2.1.3:
+    // pass 3.1.3:
     // + put in instructions
     for (auto i : insts) {
       if (isa<BranchInst>(i))
@@ -224,7 +247,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     ReturnInst *ret = ReturnInst::Create(ctx, vmap[&v]);
     bmap.at(vbb)->getInstList().push_back(ret);
   } else {
-    // pass 2.2
+    // pass 3.2
     // + phi free
     BasicBlock *bb = BasicBlock::Create(ctx, "entry");
     for (auto i : cloned_insts) {
@@ -235,7 +258,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     cloned_blocks.insert(bb);
   }
 
-  // pass 3;
+  // pass 4;
   // + remap the operands of duplicated instructions with vmap from pass 1
   // + if a operand value is unknown, reserve a function parameter for it
   SmallVector<Type *, 4> argTys;
@@ -266,7 +289,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   Function *F = Function::Create(FunctionType::get(v.getType(), argTys, false),
                                  GlobalValue::ExternalLinkage, func_name, *m);
 
-  // pass 4:
+  // pass 5:
   // + replace the use of unknown value with the function parameter
   for (auto &i : cloned_insts) {
     for (auto &op : i->operands()) {
