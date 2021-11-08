@@ -168,7 +168,22 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   }
 
   // pass 2
-  // + find missed immediate blocks
+  // + find missed intermidiate blocks
+  // For example,
+  //     S
+  //    / \
+  //   A   B
+  //   |   |
+  //   |   I
+  //    \  /
+  //     T
+  // Suppose an instruction in T uses values defined in A and B, if we harvest
+  // values by simply backward-traversing def/use tree, Block I will be missed.
+  // To solve this issue,  we identify all such missed block by checking
+  // dominance and postdominance relationship.
+  //
+  // In particular, we collect all the blocks that satisfies
+  //   isDominatedBy(def) && isPostDominatedBy(use)
   map<BasicBlock *, set<BasicBlock *>> bb_deps;
 
   for (auto inst : insts) {
