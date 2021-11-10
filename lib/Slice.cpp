@@ -112,22 +112,30 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
         vmap[callee] = intrindecl.getCallee();
       } else if (auto phi = dyn_cast<PHINode>(i)) {
-        bool phiHasExternalIncome = false;
-        for (auto block : phi->blocks()) {
+        bool phiHasUnknownIncome = false;
+
+        unsigned incomes = phi->getNumIncomingValues();
+        for (unsigned i = 0; i < incomes; i ++) {
+          BasicBlock *block = phi->getIncomingBlock(i);
+          // FIXME: unhandled phi ([non inst, block], ...)
+          if (!isa<Instruction>(phi->getIncomingValue(i))) {
+            phiHasUnknownIncome = true;
+            break;
+          }
           // v is in loop l, block is not in l
           if (loopv && !loopv->contains(block)) {
-            phiHasExternalIncome = true;
+            phiHasUnknownIncome = true;
             break;
           }
           // v is in toplevel, block is in a loop
           Loop *loopbb = LI.getLoopFor(block);
           if (loopv != loopbb) {
-            phiHasExternalIncome = true;
+            phiHasUnknownIncome = true;
             break;
           }
         }
 
-        if (phiHasExternalIncome) {
+        if (phiHasUnknownIncome) {
           llvm::errs()<<"[INFO]"<<*phi<<" has external income\n";
           continue;
         }
@@ -170,13 +178,15 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   // pass 2
   // + find missed intermidiate blocks
   // For example,
-  //     S
-  //    / \
-  //   A   B
-  //   |   |
-  //   |   I
-  //    \  /
-  //     T
+  /*
+         S
+        / \
+       A   B
+       |   |
+       |   I
+        \  /
+         T
+  */
   // Suppose an instruction in T uses values defined in A and B, if we harvest
   // values by simply backward-traversing def/use tree, Block I will be missed.
   // To solve this issue,  we identify all such missed block by checking
@@ -212,6 +222,23 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       }
     }
   }
+
+#if(false)
+  // locate entry block
+  set<BasicBlock *> bb_no_preds;
+  for (auto block : blocks) {
+    auto preds = predecessors(block);
+    if (preds.empty())
+      bb_no_preds.insert(block);
+  }
+
+  if (bb_no_preds.size() != 1) {
+    llvm::errs()<<"[INFO] multiple blocks have no predecessors\n";
+    for (auto b : bb_no_preds) {
+      llvm::errs()<<*b<<"\n";
+    }
+  }
+#endif
 
   // pass 3
   // + duplicate blocks
