@@ -64,9 +64,10 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   Loop *loopv = LI.getLoopFor(vbb);
   if (loopv) {
     llvm::errs() << "[INFO] value is in " << *loopv;
-    if (!loopv->isLoopSimplifyForm())
+    if (!loopv->isLoopSimplifyForm()) {
       llvm::errs() << "[INFO] loop is not in normal form\n";
-    return std::nullopt;
+      return std::nullopt;
+    }
   }
 
   LLVMContext &ctx = m->getContext();
@@ -172,6 +173,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
   // if no instructions satisfied the criteria of cloning, return null.
   if (cloned_insts.empty()) {
+    llvm::errs()<<"no instruction can be harvested\n";
     return std::nullopt;
   }
 
