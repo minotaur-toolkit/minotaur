@@ -95,6 +95,11 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       continue;
 
     if (Instruction *i = dyn_cast<Instruction>(w)) {
+      bool useglobal = false;
+      for (auto &op : i->operands()) {
+        if(isa<GlobalValue>(op)) useglobal = true;
+      }
+      if (useglobal) continue;
       BasicBlock *ibb = i->getParent();
       Loop *loopi = LI.getLoopFor(ibb);
 
@@ -162,7 +167,6 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       for (auto &op : i->operands()) {
         worklist.push(op);
       }
-    } else if (isa<GlobalValue>(w)) {
     } else if (isa<Constant>(w) || isa<Argument>(w)) {
       continue;
     } else {
