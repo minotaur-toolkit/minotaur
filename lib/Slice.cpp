@@ -1,6 +1,7 @@
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
 #include "util/compiler.h"
+#include "util/sort.h"
 #include <Slice.h>
 
 #include "llvm/Analysis/LoopInfo.h"
@@ -20,6 +21,7 @@
 #include <queue>
 #include <set>
 #include <sstream>
+#include <stack>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -40,6 +42,64 @@ std::string getNameOrAsOperand(Value *v) {
   return "v" + OS.str().substr(1);
 }
 } // namespace
+
+using edgesTy = std::vector<std::unordered_set<unsigned>>;
+// simple Tarjan topological sort ignoring loops
+static vector<unsigned> top_sort(const edgesTy &edges) {
+  vector<unsigned> sorted;
+  vector<unsigned char> marked;
+  marked.resize(edges.size());
+
+  function<void(unsigned)> visit = [&](unsigned v) {
+    if (marked[v])
+      return;
+    marked[v] = true;
+
+    for (auto child : edges[v]) {
+      visit(child);
+    }
+    sorted.emplace_back(v);
+  };
+
+  for (unsigned i = 1, e = edges.size(); i < e; ++i)
+    visit(i);
+  if (!edges.empty())
+    visit(0);
+
+  reverse(sorted.begin(), sorted.end());
+  return sorted;
+}
+
+static vector<Instruction*> schedule_insts(const vector<Instruction*> &iis) {
+  edgesTy edges(iis.size());
+  unordered_map<const Instruction*, unsigned> inst_map;
+
+  unsigned i = 0;
+  for (auto ii : iis) {
+    inst_map.emplace(ii, i++);
+  }
+
+  i = 0;
+  for (auto ii : iis) {
+    for (auto &op : ii->operands()) {
+      if (!isa<Instruction>(op))
+        continue;
+      auto dst_I = inst_map.find(cast<Instruction>(&op));
+      if (dst_I != inst_map.end())
+        edges[dst_I->second].emplace(i);
+    }
+    ++i;
+  }
+
+  vector<Instruction*> sorted_iis;
+  sorted_iis.reserve(iis.size());
+  for (auto v : top_sort(edges)) {
+    sorted_iis.emplace_back(iis[v]);
+  }
+
+  assert(sorted_iis.size() == bbs.size());
+  return sorted_iis;
+}
 
 namespace minotaur {
 
@@ -77,6 +137,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   ValueToValueMapTy vmap;
   vector<Instruction *> cloned_insts;
   vector<Instruction *> insts;
+  map<BasicBlock *, vector<Instruction *>> bb_insts;
   set<BasicBlock *> blocks;
 
   worklist.push(&v);
@@ -151,6 +212,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       Instruction *c = i->clone();
       insts.push_back(i);
       cloned_insts.push_back(c);
+      bb_insts[ibb].push_back(i);
       c->setName(getNameOrAsOperand(i) + ".copied");
       vmap[i] = c;
       // BB->getInstList().push_front(c);
@@ -280,15 +342,18 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       }
       insts.push_back(bi);
       cloned_insts.push_back(cloned_bi);
+      bb_insts[orig_bb].push_back(bi);
       vmap[bi] = cloned_bi;
     }
     // pass 3.1.3:
     // + put in instructions
-    for (auto i : insts) {
-      if (isa<BranchInst>(i))
-        continue;
-      BasicBlock *ibb = i->getParent();
-      bmap.at(ibb)->getInstList().push_front(cast<Instruction>(vmap[i]));
+    for (auto bis : bb_insts) {
+      auto is = schedule_insts(bis.second);
+      for (Instruction *inst : is) {
+        if (isa<BranchInst>(inst))
+          continue;
+        bmap.at(bis.first)->getInstList().push_back(cast<Instruction>(vmap[inst]));
+      }
     }
 
     // create ret
@@ -298,8 +363,9 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     // pass 3.2
     // + phi free
     BasicBlock *bb = BasicBlock::Create(ctx, "entry");
-    for (auto i : cloned_insts) {
-      bb->getInstList().push_front(i);
+    auto is = schedule_insts(insts);
+    for (auto inst : is) {
+      bb->getInstList().push_back(cast<Instruction>(vmap[inst]));
     }
     ReturnInst *ret = ReturnInst::Create(ctx, vmap[&v]);
     bb->getInstList().push_back(ret);
