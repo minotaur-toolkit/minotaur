@@ -11,20 +11,32 @@
 #include "llvm/Passes/PassPlugin.h"
 
 using namespace llvm;
+using namespace minotaur;
 
 namespace {
 
 struct CacheExprsPass : PassInfoMixin<CacheExprsPass> {
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM) {
-    TargetLibraryInfo &TLI = FAM.getResult<TargetLibraryAnalysis>(F);
-    // smt::solver_print_queries(opt_smt_verbose);
-    // return minotaur::synthesize(F, TLI);
-    (void)TLI;
-    F.setName(F.getName() + ".foo");
-    F.dump();
-
+    //TargetLibraryInfo &TLI = FAM.getResult<TargetLibraryAnalysis>(F);
     PreservedAnalyses PA;
     PA.preserveSet<CFGAnalyses>();
+
+    if (F.isDeclaration())
+      return PA;
+
+    LoopInfo &LI = FAM.getResult<LoopAnalysis>(F);
+    DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
+    PostDominatorTree &PDT = FAM.getResult<PostDominatorTreeAnalysis>(F);
+
+    Slice S(F, LI, DT, PDT);
+    for (auto &BB : F) {
+      for (auto &I : BB) {
+        if (I.getType()->isVoidTy())
+          continue;
+        auto fs = S.extractExpr(I);
+        (void)fs;
+      }
+    }
     return PA;
   }
 };

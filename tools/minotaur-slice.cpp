@@ -2,12 +2,17 @@
 // Distributed under the MIT license that can be found in the LICENSE file.
 #include "Slice.h"
 
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/PostDominators.h"
+#include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
+#include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Error.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/Signals.h"
 #include "llvm/Support/SourceMgr.h"
@@ -28,7 +33,7 @@ static llvm::ExitOnError ExitOnErr;
 static std::unique_ptr<Module> openInputFile(LLVMContext &Context,
                                              string InputFilename) {
   auto MB = ExitOnErr(errorOrToExpected(MemoryBuffer::getFile(InputFilename)));
-  SMDiagnostic Diag;
+  llvm::SMDiagnostic Diag;
   auto M = getLazyIRModule(move(MB), Diag, Context,
                            /*ShouldLazyLoadMetadata=*/true);
   if (!M) {
@@ -40,27 +45,46 @@ static std::unique_ptr<Module> openInputFile(LLVMContext &Context,
 }
 
 int main(int argc, char **argv) {
-  sys::PrintStackTraceOnErrorSignal(argv[0]);
-  PrettyStackTraceProgram X(argc, argv);
-  EnableDebugBuffering = true;
-  llvm_shutdown_obj llvm_shutdown; // Call llvm_shutdown() on exit.
-  LLVMContext Context;
+  llvm::sys::PrintStackTraceOnErrorSignal(argv[0]);
+  llvm::PrettyStackTraceProgram X(argc, argv);
+  llvm::EnableDebugBuffering = true;
+  llvm::llvm_shutdown_obj llvm_shutdown; // Call llvm_shutdown() on exit.
+  llvm::LLVMContext Context;
 
-  cl::ParseCommandLineOptions(argc, argv, "Minotaur Program Slicer\n");
+  llvm::cl::ParseCommandLineOptions(argc, argv, "Minotaur Program Slicer\n");
 
   auto M = openInputFile(Context, opt_file);
 
   for (auto &F : *M) {
-    Slice S(F);
+    if (F.isDeclaration())
+      continue;
+
+    llvm::PassBuilder PB;
+    llvm::FunctionAnalysisManager FAM;
+    PB.registerFunctionAnalyses(FAM);
+
+    //FAM.registerPass(llvm::LoopInfo());
+    LoopInfo &LI = FAM.getResult<LoopAnalysis>(F);
+    DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
+    PostDominatorTree &PDT = FAM.getResult<PostDominatorTreeAnalysis>(F);
+
+    Slice S(F, LI, DT, PDT);
     for (auto &BB : F) {
       for (auto &I : BB) {
         if (I.getType()->isVoidTy())
           continue;
-        auto &fs = S.extractExpr(I);
-        fs.dump();
+        auto fs = S.extractExpr(I);
+        (void)fs;
+        // fs.dump();
       }
     }
+    std::error_code EC;
+    string filename = "slice_" + string(F.getName()) + ".bc";
+    llvm::raw_fd_ostream OS(filename, EC, sys::fs::OpenFlags::OF_None);
+    WriteBitcodeToFile(*S.getNewModule(), OS);
+    OS.flush();
   }
+  // M->dump();
 
   return 0;
 }

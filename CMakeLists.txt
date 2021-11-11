@@ -58,7 +58,7 @@ target_link_libraries(cache_exprs PRIVATE slice
 
 add_llvm_executable(minotaur-cs tools/minotaur-cs.cpp)
 add_llvm_executable(minotaur-slice tools/minotaur-slice.cpp)
-llvm_map_components_to_libnames(llvm_libs support core irreader analysis passes transformutils)
+llvm_map_components_to_libnames(llvm_libs support core irreader analysis passes transformutils bitwriter)
 target_link_libraries(minotaur-cs PRIVATE ${MINOTAUR_LIBS_LLVM} ${Z3_LIBRARIES} ${llvm_libs}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 target_link_libraries(minotaur-slice PRIVATE slice ${llvm_libs}

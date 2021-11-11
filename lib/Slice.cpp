@@ -1,77 +1,435 @@
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
+#include "util/compiler.h"
+#include "util/sort.h"
 #include <Slice.h>
 
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalValue.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/Verifier.h"
+#include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils/Local.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
 
+#include <optional>
+#include <queue>
+#include <set>
+#include <sstream>
+#include <stack>
+#include <unordered_map>
 #include <unordered_set>
 
 using namespace llvm;
 using namespace std;
 
+// TODO: add search depth limitation
+// static constexpr unsigned slice_depth = 5;
 
-static void cfgWalk(BasicBlock *bb) {
-  vector<BasicBlock *> workList;
+namespace {
+std::string getNameOrAsOperand(Value *v) {
+  if (!v->getName().empty())
+    return std::string(v->getName());
 
-  workList.push_back(bb);
+  std::string BBName;
+  raw_string_ostream OS(BBName);
+  v->printAsOperand(OS, false);
+  return "v" + OS.str().substr(1);
+}
+} // namespace
 
-  while (!workList.empty()) {
-    auto b = workList.front();
-    workList.pop_back();
+using edgesTy = std::vector<std::unordered_set<unsigned>>;
+// simple Tarjan topological sort ignoring loops
+static vector<unsigned> top_sort(const edgesTy &edges) {
+  vector<unsigned> sorted;
+  vector<unsigned char> marked;
+  marked.resize(edges.size());
 
-    for (BasicBlock *pred : predecessors(b)) {
-      workList.push_back(pred);
+  function<void(unsigned)> visit = [&](unsigned v) {
+    if (marked[v])
+      return;
+    marked[v] = true;
+
+    for (auto child : edges[v]) {
+      visit(child);
     }
-  }
+    sorted.emplace_back(v);
+  };
+
+  for (unsigned i = 1, e = edges.size(); i < e; ++i)
+    visit(i);
+  if (!edges.empty())
+    visit(0);
+
+  reverse(sorted.begin(), sorted.end());
+  return sorted;
 }
 
+static vector<Instruction*> schedule_insts(const vector<Instruction*> &iis) {
+  edgesTy edges(iis.size());
+  unordered_map<const Instruction*, unsigned> inst_map;
+
+  unsigned i = 0;
+  for (auto ii : iis) {
+    inst_map.emplace(ii, i++);
+  }
+
+  i = 0;
+  for (auto ii : iis) {
+    for (auto &op : ii->operands()) {
+      if (!isa<Instruction>(op))
+        continue;
+      auto dst_I = inst_map.find(cast<Instruction>(&op));
+      if (dst_I != inst_map.end())
+        edges[dst_I->second].emplace(i);
+    }
+    ++i;
+  }
+
+  vector<Instruction*> sorted_iis;
+  sorted_iis.reserve(iis.size());
+  for (auto v : top_sort(edges)) {
+    sorted_iis.emplace_back(iis[v]);
+  }
+
+  assert(sorted_iis.size() == bbs.size());
+  return sorted_iis;
+}
 
 namespace minotaur {
 
-Function &Slice::extractExpr(Value &v) {
-  // TODO: REMOVE ME
-  (void) f;
-  assert(isa<Instruction>(&v));
+//  * if a external value is outside the loop, and it does not dominates v,
+//    do not extract it
 
-  // SmallSetVector<const Value *, 8> Worklist;
-  SmallVector<Type *, 4> ArgTys;
-
-  unordered_set<Value *> visited;
-
-  BasicBlock *BB = BasicBlock::Create(*ctx, "entry");
-
+optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   if (Instruction *i = dyn_cast<Instruction>(&v)) {
-    cfgWalk(i->getParent());
+    if (CallInst *ci = dyn_cast<CallInst>(i)) {
+      Function *callee = ci->getCalledFunction();
+      if (!callee->isIntrinsic()) {
+        return {};
+      }
+    }
   }
 
-  vector<Value *> worklist;
-  worklist.push_back(&v);
+  llvm::errs() << ">>> slicing value " << v << ">>>\n";
+  assert(isa<Instruction>(&v) && "Expr to be extracted must be a Instruction");
+  Instruction *vi = cast<Instruction>(&v);
+  BasicBlock *vbb = vi->getParent();
+
+  Loop *loopv = LI.getLoopFor(vbb);
+  if (loopv) {
+    llvm::errs() << "[INFO] value is in " << *loopv;
+    if (!loopv->isLoopSimplifyForm()) {
+      llvm::errs() << "[INFO] loop is not in normal form\n";
+      return std::nullopt;
+    }
+  }
+
+  LLVMContext &ctx = m->getContext();
+  unordered_set<Value *> visited;
+
+  queue<Value *> worklist;
+  ValueToValueMapTy vmap;
+  vector<Instruction *> cloned_insts;
+  vector<Instruction *> insts;
+  map<BasicBlock *, vector<Instruction *>> bb_insts;
+  set<BasicBlock *> blocks;
+
+  worklist.push(&v);
+
+  bool havePhi = false;
+  // pass 1;
+  // + duplicate instructions, leave the operands untouched
+  // + if there are intrinsic calls, create declares in the new module
+  // * if the def of a use is not copied, the use will be treated as unknown,
+  //   we will create an function argument for the def and replace the use
+  //   with the argument.
   while (!worklist.empty()) {
     auto *w = worklist.front();
-    worklist.pop_back();
+    worklist.pop();
     if (!visited.insert(w).second)
       continue;
 
     if (Instruction *i = dyn_cast<Instruction>(w)) {
-      Instruction *c = i->clone();
-      BB->getInstList().push_back(c);
-
-      for (auto &u : i->operands()) {
-        worklist.push_back(u);
+      bool useglobal = false;
+      for (auto &op : i->operands()) {
+        if(isa<GlobalValue>(op)) useglobal = true;
       }
+      if (useglobal) continue;
+      BasicBlock *ibb = i->getParent();
+      Loop *loopi = LI.getLoopFor(ibb);
+
+      // do not try to harvest instructions beyond loop boundry.
+      if (loopi != loopv) continue;
+
+      if (CallInst *ci = dyn_cast<CallInst>(i)) {
+        Function *callee = ci->getCalledFunction();
+        if (!callee->isIntrinsic()) {
+          llvm::errs() << "unknown callee found " << callee->getName() << "\n";
+          continue;
+        }
+        FunctionCallee intrindecl =
+            m->getOrInsertFunction(callee->getName(), callee->getFunctionType(),
+                                   callee->getAttributes());
+
+        vmap[callee] = intrindecl.getCallee();
+      } else if (auto phi = dyn_cast<PHINode>(i)) {
+        bool phiHasUnknownIncome = false;
+
+        unsigned incomes = phi->getNumIncomingValues();
+        for (unsigned i = 0; i < incomes; i ++) {
+          BasicBlock *block = phi->getIncomingBlock(i);
+          // FIXME: unhandled phi ([non inst, block], ...)
+          if (!isa<Instruction>(phi->getIncomingValue(i))) {
+            phiHasUnknownIncome = true;
+            break;
+          }
+          // v is in loop l, block is not in l
+          if (loopv && !loopv->contains(block)) {
+            phiHasUnknownIncome = true;
+            break;
+          }
+          // v is in toplevel, block is in a loop
+          Loop *loopbb = LI.getLoopFor(block);
+          if (loopv != loopbb) {
+            phiHasUnknownIncome = true;
+            break;
+          }
+        }
+
+        if (phiHasUnknownIncome) {
+          llvm::errs()<<"[INFO]"<<*phi<<" has external income\n";
+          continue;
+        }
+        havePhi = true;
+      }
+
+      Instruction *c = i->clone();
+      insts.push_back(i);
+      cloned_insts.push_back(c);
+      bb_insts[ibb].push_back(i);
+      c->setName(getNameOrAsOperand(i) + ".copied");
+      vmap[i] = c;
+      // BB->getInstList().push_front(c);
+
+      bool never_visited = blocks.insert(ibb).second;
+      if (ibb != vbb && never_visited) {
+        Instruction *term = ibb->getTerminator();
+        assert(isa<BranchInst>(term) && "Unexpected terminator found");
+        BranchInst *bi = cast<BranchInst>(term);
+        if (bi->isConditional())
+          worklist.push(bi->getCondition());
+      }
+
+      for (auto &op : i->operands()) {
+        worklist.push(op);
+      }
+    } else if (isa<Constant>(w) || isa<Argument>(w)) {
+      continue;
     } else {
-      // Handle other type of values, such as llvm::Argument
+      llvm::errs() << "[ERROR] Unhandled value founded:" << w->getName() << "\n";
+      UNREACHABLE();
     }
   }
 
-  // Create a new function with MyArgs as arguments
-  Function *F = Function::Create(FunctionType::get(v.getType(), ArgTys, false),
-                                 GlobalValue::ExternalLinkage, v.getName(), *m);
+  // if no instructions satisfied the criteria of cloning, return null.
+  if (cloned_insts.empty()) {
+    llvm::errs()<<"no instruction can be harvested\n";
+    return std::nullopt;
+  }
 
-  BB->insertInto(F);
-  return *F;
+  // pass 2
+  // + find missed intermidiate blocks
+  // For example,
+  /*
+         S
+        / \
+       A   B
+       |   |
+       |   I
+        \  /
+         T
+  */
+  // Suppose an instruction in T uses values defined in A and B, if we harvest
+  // values by simply backward-traversing def/use tree, Block I will be missed.
+  // To solve this issue,  we identify all such missed block by checking
+  // dominance and postdominance relationship.
+  //
+  // In particular, we collect all the blocks that satisfies
+  //   isDominatedBy(def) && isPostDominatedBy(use)
+  map<BasicBlock *, set<BasicBlock *>> bb_deps;
+
+  for (auto inst : insts) {
+    auto preds = predecessors(inst->getParent());
+    for (auto &op : inst->operands()) {
+      if (!isa<Instruction>(op)) continue;
+
+      Instruction *op_i = cast<Instruction>(op);
+      BasicBlock *bb_i = op_i->getParent();
+      if (find(preds.begin(), preds.end(), bb_i) != preds.end()) continue;
+      bb_deps[inst->getParent()].insert(bb_i);
+    }
+  }
+
+  for (auto &[bb, deps] : bb_deps) {
+    SmallVector<BasicBlock *, 4> bb_pred_sv;
+    PDT.getDescendants(bb, bb_pred_sv);
+    set<BasicBlock *> bb_preds(bb_pred_sv.begin(), bb_pred_sv.end());
+    for (auto &dep : deps) {
+      SmallVector<BasicBlock *, 4> dep_descs;
+      DT.getDescendants(dep, dep_descs);
+      for (auto &dep_desc : dep_descs) {
+        if (bb_preds.count(dep_desc)) {
+          blocks.insert(dep_desc);
+        }
+      }
+    }
+  }
+
+#if(false)
+  // locate entry block
+  set<BasicBlock *> bb_no_preds;
+  for (auto block : blocks) {
+    auto preds = predecessors(block);
+    if (preds.empty())
+      bb_no_preds.insert(block);
+  }
+
+  if (bb_no_preds.size() != 1) {
+    llvm::errs()<<"[INFO] multiple blocks have no predecessors\n";
+    for (auto b : bb_no_preds) {
+      llvm::errs()<<*b<<"\n";
+    }
+  }
+#endif
+
+  // pass 3
+  // + duplicate blocks
+  set<BasicBlock *> cloned_blocks;
+  unordered_map<BasicBlock *, BasicBlock *> bmap;
+  if (havePhi) {
+    // pass 3.1.1;
+    // + duplicate BB;
+    for (BasicBlock *orig_bb : blocks) {
+      BasicBlock *bb = BasicBlock::Create(ctx, orig_bb->getName());
+      bmap[orig_bb] = bb;
+      vmap[orig_bb] = bb;
+      cloned_blocks.insert(bb);
+    }
+    // pass 3.1.2:
+    // + wire branch
+    for (BasicBlock *orig_bb : blocks) {
+      if (orig_bb == vbb)
+        continue;
+      Instruction *term = orig_bb->getTerminator();
+      assert(isa<BranchInst>(term) && "Unexpected terminator found");
+      BranchInst *bi = cast<BranchInst>(term);
+
+      BranchInst *cloned_bi = nullptr;
+      if (bi->isConditional()) {
+        // TODO: harvest conditional variable
+        cloned_bi = BranchInst::Create(bmap.at(bi->getSuccessor(0)),
+                                       bmap.at(bi->getSuccessor(1)),
+                                       bi->getCondition(), bmap.at(orig_bb));
+      } else {
+        cloned_bi =
+            BranchInst::Create(bmap.at(bi->getSuccessor(0)), bmap.at(orig_bb));
+      }
+      insts.push_back(bi);
+      cloned_insts.push_back(cloned_bi);
+      bb_insts[orig_bb].push_back(bi);
+      vmap[bi] = cloned_bi;
+    }
+    // pass 3.1.3:
+    // + put in instructions
+    for (auto bis : bb_insts) {
+      auto is = schedule_insts(bis.second);
+      for (Instruction *inst : is) {
+        if (isa<BranchInst>(inst))
+          continue;
+        bmap.at(bis.first)->getInstList().push_back(cast<Instruction>(vmap[inst]));
+      }
+    }
+
+    // create ret
+    ReturnInst *ret = ReturnInst::Create(ctx, vmap[&v]);
+    bmap.at(vbb)->getInstList().push_back(ret);
+  } else {
+    // pass 3.2
+    // + phi free
+    BasicBlock *bb = BasicBlock::Create(ctx, "entry");
+    auto is = schedule_insts(insts);
+    for (auto inst : is) {
+      bb->getInstList().push_back(cast<Instruction>(vmap[inst]));
+    }
+    ReturnInst *ret = ReturnInst::Create(ctx, vmap[&v]);
+    bb->getInstList().push_back(ret);
+    cloned_blocks.insert(bb);
+  }
+
+  // pass 4;
+  // + remap the operands of duplicated instructions with vmap from pass 1
+  // + if a operand value is unknown, reserve a function parameter for it
+  SmallVector<Type *, 4> argTys;
+  DenseMap<Value *, unsigned> argMap;
+  unsigned idx = 0;
+  for (auto &i : cloned_insts) {
+    RemapInstruction(i, vmap, RF_IgnoreMissingLocals);
+    for (auto &op : i->operands()) {
+      if (isa<Constant>(op)) {
+        continue;
+      } else if (isa<Argument>(op)) {
+        argTys.push_back(op->getType());
+        argMap[op.get()] = idx++;
+      } else if (Instruction *op_i = dyn_cast<Instruction>(op)) {
+        auto unknown = find(cloned_insts.begin(), cloned_insts.end(), op_i);
+        if (unknown != cloned_insts.end())
+          continue;
+        if (!argMap.count(op.get())) {
+          argTys.push_back(op->getType());
+          argMap[op.get()] = idx++;
+        }
+      }
+    }
+  }
+
+  // create function
+  auto func_name = "sliced_" + v.getName();
+  Function *F = Function::Create(FunctionType::get(v.getType(), argTys, false),
+                                 GlobalValue::ExternalLinkage, func_name, *m);
+
+  // pass 5:
+  // + replace the use of unknown value with the function parameter
+  for (auto &i : cloned_insts) {
+    for (auto &op : i->operands()) {
+      if (argMap.count(op.get())) {
+        op.set(F->getArg(argMap[op.get()]));
+      }
+    }
+  }
+
+  for (auto block : cloned_blocks) {
+    block->insertInto(F);
+  }
+
+  F->dump();
+
+  // validate the created function
+  string err;
+  llvm::raw_string_ostream err_stream(err);
+  bool illformed = llvm::verifyFunction(*F, &err_stream);
+  if (illformed) {
+    llvm::errs() << "[ERROR] found errors in the generated function\n";
+    llvm::errs() << err << "\n";
+    llvm::report_fatal_error("illformed function generated");
+  }
+  llvm::errs() << "<<< end of %" << v.getName() << " <<<\n";
+  return std::optional<std::reference_wrapper<Function>>(*F);
 }
 
 } // namespace minotaur
