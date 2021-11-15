@@ -28,13 +28,14 @@ struct CacheExprsPass : PassInfoMixin<CacheExprsPass> {
     DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
     PostDominatorTree &PDT = FAM.getResult<PostDominatorTreeAnalysis>(F);
 
-    Slice S(F, LI, DT, PDT);
+
     for (auto &BB : F) {
       for (auto &I : BB) {
         if (I.getType()->isVoidTy())
           continue;
-        auto fs = S.extractExpr(I);
-        (void)fs;
+        Slice S(F, LI, DT, PDT);
+        S.extractExpr(I);
+        S.getNewModule();
       }
     }
     return PA;

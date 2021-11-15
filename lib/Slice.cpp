@@ -29,7 +29,8 @@ using namespace llvm;
 using namespace std;
 
 // TODO: add search depth limitation
-// static constexpr unsigned slice_depth = 5;
+static constexpr unsigned MAX_DEPTH = 5;
+static constexpr unsigned MAX_NUM_BLOCKS = 10;
 
 namespace {
 std::string getNameOrAsOperand(Value *v) {
@@ -70,6 +71,7 @@ static vector<unsigned> top_sort(const edgesTy &edges) {
   return sorted;
 }
 
+// place instructions within a basicblock with topology sort
 static vector<Instruction*> schedule_insts(const vector<Instruction*> &iis) {
   edgesTy edges(iis.size());
   unordered_map<const Instruction*, unsigned> inst_map;
@@ -91,6 +93,18 @@ static vector<Instruction*> schedule_insts(const vector<Instruction*> &iis) {
     ++i;
   }
 
+  i = 0;
+  for (auto ii : iis) {
+    unsigned j = 0;
+    for (auto jj : iis) {
+      if (isa<PHINode>(ii) && !isa<PHINode>(jj)) {
+        edges[i].emplace(j);
+      }
+      ++j;
+    }
+    ++i;
+  }
+
   vector<Instruction*> sorted_iis;
   sorted_iis.reserve(iis.size());
   for (auto v : top_sort(edges)) {
@@ -105,13 +119,14 @@ namespace minotaur {
 
 //  * if a external value is outside the loop, and it does not dominates v,
 //    do not extract it
-
 optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   if (Instruction *i = dyn_cast<Instruction>(&v)) {
     if (CallInst *ci = dyn_cast<CallInst>(i)) {
       Function *callee = ci->getCalledFunction();
+      if (!callee)
+        return nullopt;
       if (!callee->isIntrinsic()) {
-        return {};
+        return nullopt;
       }
     }
   }
@@ -123,24 +138,28 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
   Loop *loopv = LI.getLoopFor(vbb);
   if (loopv) {
+    // TODO: why non innermost loops are returned?
+    if(!loopv->isInnermost()) return nullopt;
     llvm::errs() << "[INFO] value is in " << *loopv;
     if (!loopv->isLoopSimplifyForm()) {
+      // TODO: continue harvesting within loop boundary, even loop is not in
+      // normal form.
       llvm::errs() << "[INFO] loop is not in normal form\n";
-      return std::nullopt;
+      return nullopt;
     }
   }
 
   LLVMContext &ctx = m->getContext();
   unordered_set<Value *> visited;
 
-  queue<Value *> worklist;
+  queue<pair<Value *, unsigned>> worklist;
   ValueToValueMapTy vmap;
   vector<Instruction *> cloned_insts;
   vector<Instruction *> insts;
   map<BasicBlock *, vector<Instruction *>> bb_insts;
   set<BasicBlock *> blocks;
 
-  worklist.push(&v);
+  worklist.push({&v, 0});
 
   bool havePhi = false;
   // pass 1;
@@ -150,17 +169,14 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   //   we will create an function argument for the def and replace the use
   //   with the argument.
   while (!worklist.empty()) {
-    auto *w = worklist.front();
+    auto &[w, depth] = worklist.front();
     worklist.pop();
+    if (depth > MAX_DEPTH) 
+      continue;
     if (!visited.insert(w).second)
       continue;
 
     if (Instruction *i = dyn_cast<Instruction>(w)) {
-      bool useglobal = false;
-      for (auto &op : i->operands()) {
-        if(isa<GlobalValue>(op)) useglobal = true;
-      }
-      if (useglobal) continue;
       BasicBlock *ibb = i->getParent();
       Loop *loopi = LI.getLoopFor(ibb);
 
@@ -169,8 +185,13 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
       if (CallInst *ci = dyn_cast<CallInst>(i)) {
         Function *callee = ci->getCalledFunction();
+        if (!callee) {
+          llvm::errs() << "[INFO] indirect call found" << "\n";
+          continue;
+        }
         if (!callee->isIntrinsic()) {
-          llvm::errs() << "unknown callee found " << callee->getName() << "\n";
+          llvm::errs() << "[INFO] unknown callee found "
+                       << callee->getName() << "\n";
           continue;
         }
         FunctionCallee intrindecl =
@@ -184,11 +205,9 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
         unsigned incomes = phi->getNumIncomingValues();
         for (unsigned i = 0; i < incomes; i ++) {
           BasicBlock *block = phi->getIncomingBlock(i);
-          // FIXME: unhandled phi ([non inst, block], ...)
-          if (!isa<Instruction>(phi->getIncomingValue(i))) {
-            phiHasUnknownIncome = true;
-            break;
-          }
+
+          if (!isa<Instruction>(phi->getIncomingValue(i)))
+            return nullopt;
           // v is in loop l, block is not in l
           if (loopv && !loopv->contains(block)) {
             phiHasUnknownIncome = true;
@@ -206,30 +225,39 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
           llvm::errs()<<"[INFO]"<<*phi<<" has external income\n";
           continue;
         }
+
+        for (unsigned i = 0; i < incomes; i ++) {
+          BasicBlock *incomebb =  phi->getIncomingBlock(i);
+
+          if (blocks.insert(incomebb).second) {
+            Instruction *term = incomebb->getTerminator();
+            assert(isa<BranchInst>(term) && "Unexpected terminator found");
+            BranchInst *bi = cast<BranchInst>(term);
+            if (bi->isConditional())
+              worklist.push({bi->getCondition(), 0});
+          }
+        }
         havePhi = true;
       }
 
-      Instruction *c = i->clone();
       insts.push_back(i);
-      cloned_insts.push_back(c);
       bb_insts[ibb].push_back(i);
-      c->setName(getNameOrAsOperand(i) + ".copied");
-      vmap[i] = c;
+      
       // BB->getInstList().push_front(c);
 
       bool never_visited = blocks.insert(ibb).second;
       if (ibb != vbb && never_visited) {
         Instruction *term = ibb->getTerminator();
-        assert(isa<BranchInst>(term) && "Unexpected terminator found");
+        assert(!isa<BranchInst>(term) && "Unexpected terminator found");
         BranchInst *bi = cast<BranchInst>(term);
         if (bi->isConditional())
-          worklist.push(bi->getCondition());
+          worklist.push({bi->getCondition(), 0});
       }
 
       for (auto &op : i->operands()) {
-        worklist.push(op);
+        worklist.push({op, depth + 1});
       }
-    } else if (isa<Constant>(w) || isa<Argument>(w)) {
+    } else if (isa<Constant>(w) || isa<Argument>(w) || isa<Operator>(w) || isa<GlobalValue>(w)) {
       continue;
     } else {
       llvm::errs() << "[ERROR] Unhandled value founded:" << w->getName() << "\n";
@@ -238,9 +266,9 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   }
 
   // if no instructions satisfied the criteria of cloning, return null.
-  if (cloned_insts.empty()) {
+  if (insts.empty()) {
     llvm::errs()<<"no instruction can be harvested\n";
-    return std::nullopt;
+    return nullopt;
   }
 
   // pass 2
@@ -257,59 +285,75 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   */
   // Suppose an instruction in T uses values defined in A and B, if we harvest
   // values by simply backward-traversing def/use tree, Block I will be missed.
-  // To solve this issue,  we identify all such missed block by checking
-  // dominance and postdominance relationship.
-  //
-  // In particular, we collect all the blocks that satisfies
-  //   isDominatedBy(def) && isPostDominatedBy(use)
-  map<BasicBlock *, set<BasicBlock *>> bb_deps;
+  // To solve this issue,  we identify all such missed block by searching.
+  {
+    map<BasicBlock *, set<BasicBlock *>> bb_deps;
 
-  for (auto inst : insts) {
-    auto preds = predecessors(inst->getParent());
-    for (auto &op : inst->operands()) {
-      if (!isa<Instruction>(op)) continue;
+    for (auto inst : insts) {
+      auto preds = predecessors(inst->getParent());
+      for (auto &op : inst->operands()) {
+        if (!isa<Instruction>(op)) continue;
 
-      Instruction *op_i = cast<Instruction>(op);
-      BasicBlock *bb_i = op_i->getParent();
-      if (find(preds.begin(), preds.end(), bb_i) != preds.end()) continue;
-      bb_deps[inst->getParent()].insert(bb_i);
+        Instruction *op_i = cast<Instruction>(op);
+        BasicBlock *bb_i = op_i->getParent();
+        if (find(preds.begin(), preds.end(), bb_i) != preds.end()) continue;
+        bb_deps[inst->getParent()].insert(bb_i);
+      }
     }
-  }
 
-  for (auto &[bb, deps] : bb_deps) {
-    SmallVector<BasicBlock *, 4> bb_pred_sv;
-    PDT.getDescendants(bb, bb_pred_sv);
-    set<BasicBlock *> bb_preds(bb_pred_sv.begin(), bb_pred_sv.end());
-    for (auto &dep : deps) {
-      SmallVector<BasicBlock *, 4> dep_descs;
-      DT.getDescendants(dep, dep_descs);
-      for (auto &dep_desc : dep_descs) {
-        if (bb_preds.count(dep_desc)) {
-          blocks.insert(dep_desc);
+    for (auto &[bb, deps] : bb_deps) {
+      queue<pair<unordered_set<BasicBlock *>, BasicBlock *>> worklist;
+      worklist.push({{bb}, bb});
+
+      while (!worklist.empty()) {
+        auto [path, ibb] = worklist.front();
+        worklist.pop();
+
+        if (deps.count(ibb)) {
+          blocks.insert(path.begin(), path.end());
+        }
+
+        auto preds = predecessors(ibb);
+        for (BasicBlock *pred : preds) {
+          //if (!DT.dominates(bb, pred))
+          //  continue;
+          // always harvest inside loop
+          if (loopv && !loopv->contains(pred))
+            continue;
+
+          // do not allow loop
+          if (path.count(pred))
+            continue;
+
+          unordered_set<BasicBlock*> new_path(path);
+          new_path.insert(pred);
+          worklist.push({move(new_path), pred});
         }
       }
     }
   }
 
-#if(false)
-  // locate entry block
-  set<BasicBlock *> bb_no_preds;
-  for (auto block : blocks) {
-    auto preds = predecessors(block);
-    if (preds.empty())
-      bb_no_preds.insert(block);
+  // FIXME: Do not handle switch for now
+  for (BasicBlock *orig_bb : blocks) {
+    Instruction *term = orig_bb->getTerminator();
+    if (isa<SwitchInst>(term))
+      return nullopt;
   }
 
-  if (bb_no_preds.size() != 1) {
-    llvm::errs()<<"[INFO] multiple blocks have no predecessors\n";
-    for (auto b : bb_no_preds) {
-      llvm::errs()<<*b<<"\n";
-    }
+  // clone instructions
+  set<Value *> inst_set(insts.begin(), insts.end());
+  for (auto inst : insts) {
+    Instruction *c = inst->clone();
+    vmap[inst] = c;
+    c->setName(getNameOrAsOperand(inst) + ".copied");
+    cloned_insts.push_back(c);
   }
-#endif
 
   // pass 3
   // + duplicate blocks
+  BasicBlock *sinkbb = BasicBlock::Create(ctx, "sink");
+  new UnreachableInst(ctx, sinkbb);
+
   set<BasicBlock *> cloned_blocks;
   unordered_map<BasicBlock *, BasicBlock *> bmap;
   if (havePhi) {
@@ -320,6 +364,17 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       bmap[orig_bb] = bb;
       vmap[orig_bb] = bb;
       cloned_blocks.insert(bb);
+    }
+
+    // pass 3.1.2:
+    // + put in instructions
+    for (auto bis : bb_insts) {
+      auto is = schedule_insts(bis.second);
+      for (Instruction *inst : is) {
+        if (isa<BranchInst>(inst))
+          continue;
+        bmap.at(bis.first)->getInstList().push_back(cast<Instruction>(vmap[inst]));
+      }
     }
     // pass 3.1.2:
     // + wire branch
@@ -332,9 +387,16 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
       BranchInst *cloned_bi = nullptr;
       if (bi->isConditional()) {
-        // TODO: harvest conditional variable
-        cloned_bi = BranchInst::Create(bmap.at(bi->getSuccessor(0)),
-                                       bmap.at(bi->getSuccessor(1)),
+        BasicBlock *truebb, *falsebb;
+        if(bmap.count(bi->getSuccessor(0)))
+          truebb = bmap.at(bi->getSuccessor(0));
+        else
+          truebb = sinkbb;
+        if(bmap.count(bi->getSuccessor(1)))
+          falsebb = bmap.at(bi->getSuccessor(1));
+        else
+          falsebb = sinkbb;
+        cloned_bi = BranchInst::Create(truebb, falsebb,
                                        bi->getCondition(), bmap.at(orig_bb));
       } else {
         cloned_bi =
@@ -342,18 +404,8 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       }
       insts.push_back(bi);
       cloned_insts.push_back(cloned_bi);
-      bb_insts[orig_bb].push_back(bi);
+      //bb_insts[orig_bb].push_back(bi);
       vmap[bi] = cloned_bi;
-    }
-    // pass 3.1.3:
-    // + put in instructions
-    for (auto bis : bb_insts) {
-      auto is = schedule_insts(bis.second);
-      for (Instruction *inst : is) {
-        if (isa<BranchInst>(inst))
-          continue;
-        bmap.at(bis.first)->getInstList().push_back(cast<Instruction>(vmap[inst]));
-      }
     }
 
     // create ret
@@ -381,11 +433,11 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   for (auto &i : cloned_insts) {
     RemapInstruction(i, vmap, RF_IgnoreMissingLocals);
     for (auto &op : i->operands()) {
-      if (isa<Constant>(op)) {
-        continue;
-      } else if (isa<Argument>(op)) {
+      if (isa<Argument>(op) || isa<Operator>(op) || isa<GlobalValue>(op)) {
         argTys.push_back(op->getType());
         argMap[op.get()] = idx++;
+      } else if (isa<Constant>(op)) {
+        continue;
       } else if (Instruction *op_i = dyn_cast<Instruction>(op)) {
         auto unknown = find(cloned_insts.begin(), cloned_insts.end(), op_i);
         if (unknown != cloned_insts.end())
@@ -397,7 +449,8 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       }
     }
   }
-
+  // argument for switch
+  argTys.push_back(Type::getInt64Ty(ctx));
   // create function
   auto func_name = "sliced_" + v.getName();
   Function *F = Function::Create(FunctionType::get(v.getType(), argTys, false),
@@ -413,9 +466,43 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     }
   }
 
+  set<BasicBlock *> block_without_preds;
   for (auto block : cloned_blocks) {
-    block->insertInto(F);
+    auto preds = predecessors(block);
+    if (preds.empty()) { 
+      block_without_preds.insert(block);
+    }
   }
+  if (block_without_preds.size() == 0) {
+    for (auto block : cloned_blocks) {
+      block->insertInto(F);
+    }
+    sinkbb->insertInto(F);
+    return nullopt;
+    //llvm::report_fatal_error("[ERROR] no entry block found");
+  } if (block_without_preds.size() == 1) {
+    BasicBlock *entry = *block_without_preds.begin();
+    entry->insertInto(F);
+    for (auto block : cloned_blocks) {
+      if (block == entry)
+        continue;
+      block->insertInto(F);
+    }
+  } else {
+    BasicBlock *entry =  BasicBlock::Create(ctx, "entry");
+    SwitchInst *sw = SwitchInst::Create(F->getArg(idx), sinkbb, 
+                                        1, entry);
+
+    unsigned idx  = 0;
+    for (BasicBlock *no_pred : block_without_preds) {
+      sw->addCase(ConstantInt::get(IntegerType::get(ctx, 64), idx ++), no_pred);
+    }
+    entry->insertInto(F);
+    for (auto block : cloned_blocks) {
+      block->insertInto(F);
+    }
+  }
+  sinkbb->insertInto(F);
 
   F->dump();
 
