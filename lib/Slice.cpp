@@ -30,7 +30,8 @@ using namespace std;
 
 // TODO: add search depth limitation
 static constexpr unsigned MAX_DEPTH = 5;
-static constexpr unsigned MAX_NUM_BLOCKS = 10;
+static constexpr unsigned MAX_WORKLIST = 100;
+static constexpr unsigned MAX_PHI = 3;
 
 namespace {
 std::string getNameOrAsOperand(Value *v) {
@@ -139,7 +140,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   Loop *loopv = LI.getLoopFor(vbb);
   if (loopv) {
     // TODO: why non innermost loops are returned?
-    if(!loopv->isInnermost()) return nullopt;
+    //if(!loopv->isInnermost()) return nullopt;
     llvm::errs() << "[INFO] value is in " << *loopv;
     if (!loopv->isLoopSimplifyForm()) {
       // TODO: continue harvesting within loop boundary, even loop is not in
@@ -160,6 +161,8 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   set<BasicBlock *> blocks;
 
   worklist.push({&v, 0});
+
+  unsigned numPhi = 0;
 
   bool havePhi = false;
   // pass 1;
@@ -238,6 +241,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
           }
         }
         havePhi = true;
+        if (numPhi++ > MAX_PHI) return nullopt;
       }
 
       insts.push_back(i);
@@ -292,42 +296,51 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     for (auto inst : insts) {
       auto preds = predecessors(inst->getParent());
       for (auto &op : inst->operands()) {
-        if (!isa<Instruction>(op)) continue;
+        if (!isa<Instruction>(op))
+          continue;
 
         Instruction *op_i = cast<Instruction>(op);
         BasicBlock *bb_i = op_i->getParent();
-        if (find(preds.begin(), preds.end(), bb_i) != preds.end()) continue;
+        if (find(preds.begin(), preds.end(), bb_i) != preds.end())
+          continue;
         bb_deps[inst->getParent()].insert(bb_i);
       }
     }
 
     for (auto &[bb, deps] : bb_deps) {
-      queue<pair<unordered_set<BasicBlock *>, BasicBlock *>> worklist;
-      worklist.push({{bb}, bb});
+      for (auto dep : deps) {
+        queue<pair<unordered_set<BasicBlock *>, BasicBlock *>> worklist;
+        worklist.push({{bb}, bb});
 
-      while (!worklist.empty()) {
-        auto [path, ibb] = worklist.front();
-        worklist.pop();
+        while (!worklist.empty()) {
+          // TODO: scale up the algorithm
+          if (worklist.size() > MAX_WORKLIST)
+            return nullopt;
+          auto [path, ibb] = worklist.front();
+          worklist.pop();
 
-        if (deps.count(ibb)) {
-          blocks.insert(path.begin(), path.end());
-        }
-
-        auto preds = predecessors(ibb);
-        for (BasicBlock *pred : preds) {
-          //if (!DT.dominates(bb, pred))
-          //  continue;
-          // always harvest inside loop
-          if (loopv && !loopv->contains(pred))
+          if (dep == ibb) {
+            blocks.insert(path.begin(), path.end());
             continue;
+          }
 
-          // do not allow loop
-          if (path.count(pred))
-            continue;
+          auto preds = predecessors(ibb);
+          for (BasicBlock *pred : preds) {
+            // always harvest inside loop
+            if (loopv && !loopv->contains(pred))
+              continue;
 
-          unordered_set<BasicBlock*> new_path(path);
-          new_path.insert(pred);
-          worklist.push({move(new_path), pred});
+            // do not allow loop
+            if (path.count(pred))
+              continue;
+
+            if (!DT.dominates(dep, pred))
+              continue;
+
+            unordered_set<BasicBlock*> new_path(path);
+            new_path.insert(pred);
+            worklist.push({move(new_path), pred});
+          }
         }
       }
     }
