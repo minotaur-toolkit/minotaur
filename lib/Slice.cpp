@@ -400,7 +400,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
       BranchInst *cloned_bi = nullptr;
       if (bi->isConditional()) {
-        BasicBlock *truebb, *falsebb;
+        BasicBlock *truebb = nullptr, *falsebb = nullptr;
         if(bmap.count(bi->getSuccessor(0)))
           truebb = bmap.at(bi->getSuccessor(0));
         else
@@ -412,8 +412,14 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
         cloned_bi = BranchInst::Create(truebb, falsebb,
                                        bi->getCondition(), bmap.at(orig_bb));
       } else {
+        // TODO: investigate me
+        BasicBlock *jumpbb = nullptr;
+        if(bmap.count(bi->getSuccessor(0)))
+          jumpbb = bmap.at(bi->getSuccessor(0));
+        else
+          jumpbb = sinkbb;
         cloned_bi =
-            BranchInst::Create(bmap.at(bi->getSuccessor(0)), bmap.at(orig_bb));
+            BranchInst::Create(jumpbb, bmap.at(orig_bb));
       }
       insts.push_back(bi);
       cloned_insts.push_back(cloned_bi);
