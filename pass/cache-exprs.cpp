@@ -3,15 +3,20 @@
 #include "Slice.h"
 
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
+#include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/raw_ostream.h"
+#include "hiredis.h"
 
 using namespace llvm;
 using namespace minotaur;
+using namespace std;
 
 namespace {
 
@@ -28,16 +33,30 @@ struct CacheExprsPass : PassInfoMixin<CacheExprsPass> {
     DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
     PostDominatorTree &PDT = FAM.getResult<PostDominatorTreeAnalysis>(F);
 
-
+    redisContext *c = redisConnect("127.0.0.1", 6379);
+    if (c == NULL || c->err) {
+      if (c) {
+        printf("Error: %s\n", c->errstr);
+        llvm::report_fatal_error("Cannot establish connection to redis");
+      } else {
+        printf("Can't allocate redis context\n");
+      }
+    }
     for (auto &BB : F) {
       for (auto &I : BB) {
         if (I.getType()->isVoidTy())
           continue;
         Slice S(F, LI, DT, PDT);
         S.extractExpr(I);
-        S.getNewModule();
+        auto m = S.getNewModule();
+        string bytecode;
+        llvm::raw_string_ostream ss(bytecode);
+        WriteBitcodeToFile(*m, ss);
+        ss.flush();
+        void *reply = redisCommand(c, "SET %s %s", bytecode.c_str(), "UNKNOWN");
       }
     }
+    redisFree(c);
     return PA;
   }
 };
