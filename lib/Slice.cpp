@@ -32,6 +32,7 @@ using namespace std;
 static constexpr unsigned MAX_DEPTH = 5;
 static constexpr unsigned MAX_WORKLIST = 100;
 static constexpr unsigned MAX_PHI = 3;
+static constexpr unsigned DEBUG_LEVEL = 0;
 
 namespace {
 std::string getNameOrAsOperand(Value *v) {
@@ -132,7 +133,10 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     }
   }
 
-  llvm::errs() << ">>> slicing value " << v << ">>>\n";
+  if(DEBUG_LEVEL > 0) {
+    llvm::errs() << ">>> slicing value " << v << ">>>\n";
+  }
+
   assert(isa<Instruction>(&v) && "Expr to be extracted must be a Instruction");
   Instruction *vi = cast<Instruction>(&v);
   BasicBlock *vbb = vi->getParent();
@@ -141,11 +145,15 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   if (loopv) {
     // TODO: why non innermost loops are returned?
     //if(!loopv->isInnermost()) return nullopt;
-    llvm::errs() << "[INFO] value is in " << *loopv;
+    if(DEBUG_LEVEL > 0) {
+      llvm::errs() << "[INFO] value is in " << *loopv;
+    }
     if (!loopv->isLoopSimplifyForm()) {
       // TODO: continue harvesting within loop boundary, even loop is not in
       // normal form.
-      llvm::errs() << "[INFO] loop is not in normal form\n";
+      if(DEBUG_LEVEL > 0) {
+        llvm::errs() << "[INFO] loop is not in normal form\n";
+      }
       return nullopt;
     }
   }
@@ -189,12 +197,16 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       if (CallInst *ci = dyn_cast<CallInst>(i)) {
         Function *callee = ci->getCalledFunction();
         if (!callee) {
-          llvm::errs() << "[INFO] indirect call found" << "\n";
+          if(DEBUG_LEVEL > 0) {
+            llvm::errs() << "[INFO] indirect call found" << "\n";
+          }
           continue;
         }
         if (!callee->isIntrinsic()) {
-          llvm::errs() << "[INFO] unknown callee found "
-                       << callee->getName() << "\n";
+          if(DEBUG_LEVEL > 0) {
+            llvm::errs() << "[INFO] unknown callee found "
+                         << callee->getName() << "\n";
+          }
           continue;
         }
         FunctionCallee intrindecl =
@@ -225,7 +237,9 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
         }
 
         if (phiHasUnknownIncome) {
-          llvm::errs()<<"[INFO]"<<*phi<<" has external income\n";
+          if(DEBUG_LEVEL > 0) {
+            llvm::errs()<<"[INFO]"<<*phi<<" has external income\n";
+          }
           continue;
         }
 
@@ -264,14 +278,15 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     } else if (isa<Constant>(w) || isa<Argument>(w) || isa<Operator>(w) || isa<GlobalValue>(w)) {
       continue;
     } else {
-      llvm::errs() << "[ERROR] Unhandled value founded:" << w->getName() << "\n";
-      UNREACHABLE();
+      llvm::report_fatal_error("[ERROR] Unknown value:" + w->getName() + "\n");
     }
   }
 
   // if no instructions satisfied the criteria of cloning, return null.
   if (insts.empty()) {
-    llvm::errs()<<"no instruction can be harvested\n";
+    if(DEBUG_LEVEL > 0) {
+      llvm::errs()<<"[INFO] no instruction can be harvested\n";
+    }
     return nullopt;
   }
 
@@ -523,7 +538,9 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   }
   sinkbb->insertInto(F);
 
-  F->dump();
+  if (DEBUG_LEVEL > 0) {
+    F->dump();
+  }
 
   // validate the created function
   string err;
@@ -534,7 +551,9 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     llvm::errs() << err << "\n";
     llvm::report_fatal_error("illformed function generated");
   }
-  llvm::errs() << "<<< end of %" << v.getName() << " <<<\n";
+  if (DEBUG_LEVEL > 0) {
+    llvm::errs() << "<<< end of %" << v.getName() << " <<<\n";
+  }
   return std::optional<std::reference_wrapper<Function>>(*F);
 }
 
