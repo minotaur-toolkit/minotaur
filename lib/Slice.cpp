@@ -373,7 +373,12 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   for (auto inst : insts) {
     Instruction *c = inst->clone();
     vmap[inst] = c;
-    c->setName(getNameOrAsOperand(inst) + ".copied");
+    c->setValueName(nullptr);
+    SmallVector<std::pair<unsigned, MDNode *>, 8> ClonedMeta;
+    c->getAllMetadata(ClonedMeta);
+    for (size_t i = 0; i < ClonedMeta.size(); ++i) {
+      c->setMetadata(ClonedMeta[i].first, NULL);
+    }
     cloned_insts.push_back(c);
   }
 

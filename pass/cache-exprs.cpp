@@ -51,9 +51,11 @@ struct CacheExprsPass : PassInfoMixin<CacheExprsPass> {
         auto m = S.getNewModule();
         string bytecode;
         llvm::raw_string_ostream ss(bytecode);
+        //m->print(ss, nullptr, false, false);
         WriteBitcodeToFile(*m, ss);
         ss.flush();
-        void *reply = redisCommand(c, "SET %s %s", bytecode.c_str(), "UNKNOWN");
+        const char *s = bytecode.c_str();
+        redisCommand(c, "SET %b UNKNOWN", s, bytecode.size());
       }
     }
     redisFree(c);

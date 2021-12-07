@@ -23,7 +23,7 @@ public:
   Slice(llvm::Function &f, llvm::LoopInfo &LI, llvm::DominatorTree &DT,
         llvm::PostDominatorTree &PDT)
       : f(f), LI(LI), DT(DT), PDT(PDT) {
-    m = std::make_unique<llvm::Module>("exprs", f.getContext());
+    m = std::make_unique<llvm::Module>("", f.getContext());
   }
   std::unique_ptr<llvm::Module> getNewModule() {return move(m); }
   std::optional<std::reference_wrapper<llvm::Function>>
