@@ -98,6 +98,12 @@ configure_file(
   @ONLY
 )
 
+configure_file(
+  ${PROJECT_SOURCE_DIR}/scripts/cache-dump.in
+  ${PROJECT_BINARY_DIR}/cache-dump
+  @ONLY
+)
+
 if (NOT DEFINED TEST_NTHREADS)
   ProcessorCount(TEST_NTHREADS)
   if (TEST_NTHREADS EQUAL 0)

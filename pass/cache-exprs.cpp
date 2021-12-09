@@ -55,7 +55,7 @@ struct CacheExprsPass : PassInfoMixin<CacheExprsPass> {
         WriteBitcodeToFile(*m, ss);
         ss.flush();
         const char *s = bytecode.c_str();
-        redisCommand(c, "SET %b UNKNOWN", s, bytecode.size());
+        redisCommand(c, "HSET %b rewrite (NULL)", s, bytecode.size());
       }
     }
     redisFree(c);
