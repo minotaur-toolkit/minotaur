@@ -34,18 +34,6 @@ static constexpr unsigned MAX_WORKLIST = 100;
 static constexpr unsigned MAX_PHI = 3;
 static constexpr unsigned DEBUG_LEVEL = 0;
 
-namespace {
-std::string getNameOrAsOperand(Value *v) {
-  if (!v->getName().empty())
-    return std::string(v->getName());
-
-  std::string BBName;
-  raw_string_ostream OS(BBName);
-  v->printAsOperand(OS, false);
-  return "v" + OS.str().substr(1);
-}
-} // namespace
-
 using edgesTy = std::vector<std::unordered_set<unsigned>>;
 // simple Tarjan topological sort ignoring loops
 static vector<unsigned> top_sort(const edgesTy &edges) {
