@@ -41,13 +41,11 @@ Options:
   -sort=size|sprofile|dprofile|combined
                 Sort optimizations by increasing size (default), decreasing
                 static profile count, or decreasing dynamic profile count
-  -raw          Dump all keys and values and exit, ignoring all other options
   -verbose
 END
     exit -1;
 }
 
-my $RAW = 0;
 my $REDISPORT = 6379;
 my $NOOPTS = 0;
 my $SORT = "size";
@@ -60,7 +58,6 @@ GetOptions(
     "parse" => \$PARSE,
     "redis-port=i" => \$REDISPORT,
     "sort=s" => \$SORT,
-    "raw"  => \$RAW,
     "verbose" => \$VERBOSE,
     ) or usage();
 usage() unless ($SORT eq "size" || $SORT eq "sprofile" || $SORT eq "dprofile" ||
@@ -86,19 +83,6 @@ my @all_keys = $r->keys('*');
 foreach my $opt (@all_keys) {
     $sprofiles{$opt} = 0;
     $dprofiles{$opt} = 0;
-}
-
-if ($RAW) {
-    foreach my $opt (sort @all_keys) {
-        my %h = $r->hgetall($opt);
-        print "<$opt>\n";
-        foreach my $kk (sort keys %h) {
-            print "  <$kk> <$h{$kk}>\n";
-        }
-        my $result = $h{"rewrite"};
-        print "------------------------------------------------------\n\n";
-    }
-    exit 0;
 }
 
 print "; Inspecting ".scalar(@all_keys)." Redis values\n";
