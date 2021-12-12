@@ -1,6 +1,7 @@
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
 #include "IR.h"
+#include "ir/instr.h"
 
 #include <string>
 
@@ -60,17 +61,53 @@ void BinOp::print(ostream &os) const {
 
 static string getOpName(X86IntrinBinOp::Op op) {
   switch (op) {
-  case X86IntrinBinOp::sse2_psrl_w: return "x86.sse2.psrl.w";
-  case X86IntrinBinOp::sse2_psrl_d: return "x86.sse2.psrl.d";
-  case X86IntrinBinOp::sse2_psrl_q: return "x86.sse2.psrl.q";
-  case X86IntrinBinOp::avx2_psrl_w: return "x86.avx2.psrl.w";
-  case X86IntrinBinOp::avx2_psrl_d: return "x86.avx2.psrl.d";
-  case X86IntrinBinOp::avx2_psrl_q: return "x86.avx2.psrl.q";
-  case X86IntrinBinOp::sse2_pavg_w: return "x86.sse2.pavg.w";
-  case X86IntrinBinOp::avx2_pavg_b: return "x86.avx2.pavg.b";
-  case X86IntrinBinOp::avx2_pavg_w: return "x86.avx2.pavg.w";
-  case X86IntrinBinOp::avx2_pshuf_b: return "x86.avx2.pshuf.b";
-  case X86IntrinBinOp::ssse3_pshuf_b_128: return "x86.ssse3.pshuf.b.128";
+  case X86IntrinBinOp::sse2_psrl_w:        return "x86.sse2.psrl.w";
+  case X86IntrinBinOp::sse2_psrl_d:        return "x86.sse2.psrl.d";
+  case X86IntrinBinOp::sse2_psrl_q:        return "x86.sse2.psrl.q";
+  case X86IntrinBinOp::avx2_psrl_w:        return "x86.avx2.psrl.w";
+  case X86IntrinBinOp::avx2_psrl_d:        return "x86.avx2.psrl.d";
+  case X86IntrinBinOp::avx2_psrl_q:        return "x86.avx2.psrl.q";
+  case X86IntrinBinOp::sse2_pavg_w:        return "x86.sse2.pavg.w";
+  case X86IntrinBinOp::avx2_pavg_b:        return "x86.avx2.pavg.b";
+  case X86IntrinBinOp::avx2_pavg_w:        return "x86.avx2.pavg.w";
+  case X86IntrinBinOp::avx2_pshuf_b:       return "x86.avx2.pshuf.b";
+  case X86IntrinBinOp::ssse3_pshuf_b_128:  return "x86.ssse3.pshuf.b.128";
+  case X86IntrinBinOp::mmx_padd_b:         return "x86.mmx.padd.b";
+  case X86IntrinBinOp::mmx_padd_w:         return "x86.mmx.padd.w";
+  case X86IntrinBinOp::mmx_padd_d:         return "x86.mmx.padd.d";
+  case X86IntrinBinOp::mmx_punpckhbw:      return "x86.mmx.punpckhbw";
+  case X86IntrinBinOp::mmx_punpckhwd:      return "x86.mmx.punpckhwd";
+  case X86IntrinBinOp::mmx_punpckhdq:      return "x86.mmx.punpckhdq";
+  case X86IntrinBinOp::mmx_punpcklbw:      return "x86.mmx.punpcklbw";
+  case X86IntrinBinOp::mmx_punpcklwd:      return "x86.mmx.punpcklwd";
+  case X86IntrinBinOp::mmx_punpckldq:      return "x86.mmx.punpckldq";
+  case X86IntrinBinOp::sse2_psrai_w:       return "x86.sse2.psrai.w";
+  case X86IntrinBinOp::sse2_psrai_d:       return "x86.sse2.psrai.d";
+  case X86IntrinBinOp::avx2_psrai_w:       return "x86.avx2.psrai.w";
+  case X86IntrinBinOp::avx2_psrai_d:       return "x86.avx2.psrai.d";
+  case X86IntrinBinOp::avx512_psrai_w_512: return "x86.avx512.psrai.w.512";
+  case X86IntrinBinOp::avx512_psrai_d_512: return "x86.avx512.psrai.d.512";
+  case X86IntrinBinOp::avx512_psrai_q_128: return "x86.avx512.psrai.q.128";
+  case X86IntrinBinOp::avx512_psrai_q_256: return "x86.avx512.psrai.q.256";
+  case X86IntrinBinOp::avx512_psrai_q_512: return "x86.avx512.psrai.q.512";
+  case X86IntrinBinOp::sse2_psrli_w:       return "x86.sse2.psrli.w";
+  case X86IntrinBinOp::sse2_psrli_d:       return "x86.sse2.psrli.d";
+  case X86IntrinBinOp::sse2_psrli_q:       return "x86.sse2.psrli.q";
+  case X86IntrinBinOp::avx2_psrli_w:       return "x86.avx2.psrli.w";
+  case X86IntrinBinOp::avx2_psrli_d:       return "x86.avx2.psrli.d";
+  case X86IntrinBinOp::avx2_psrli_q:       return "x86.avx2.psrli.q";
+  case X86IntrinBinOp::avx512_psrli_w_512: return "x86.avx512.psrli.w.512";
+  case X86IntrinBinOp::avx512_psrli_d_512: return "x86.avx512.psrli.d.512";
+  case X86IntrinBinOp::avx512_psrli_q_512: return "x86.avx512.psrli.q.512";
+  case X86IntrinBinOp::sse2_pslli_w:       return "x86.sse2.pslli.w";
+  case X86IntrinBinOp::sse2_pslli_d:       return "x86.sse2.pslli.d";
+  case X86IntrinBinOp::sse2_pslli_q:       return "x86.sse2.pslli.q";
+  case X86IntrinBinOp::avx2_pslli_w:       return "x86.avx2.pslli.w";
+  case X86IntrinBinOp::avx2_pslli_d:       return "x86.avx2.pslli.d";
+  case X86IntrinBinOp::avx2_pslli_q:       return "x86.avx2.pslli.q";
+  case X86IntrinBinOp::avx512_pslli_w_512: return "x86.avx512.pslli.w.512";
+  case X86IntrinBinOp::avx512_pslli_d_512: return "x86.avx512.pslli.d.512";
+  case X86IntrinBinOp::avx512_pslli_q_512: return "x86.avx512.pslli.q.512";
   }
   UNREACHABLE();
 }

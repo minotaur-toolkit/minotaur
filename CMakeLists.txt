@@ -86,7 +86,7 @@ configure_file(
   @ONLY
 )
 
-set(CACHE_EXPRS_PASS ${CMAKE_BINARY_DIR}/cache_exprs${CMAKE_SHARED_LIBRARY_SUFFIX})
+set(CACHE_EXPRS_PASS ${CMAKE_BINARY_DIR}/cache-exprs${CMAKE_SHARED_LIBRARY_SUFFIX})
 configure_file(
   ${PROJECT_SOURCE_DIR}/scripts/minotaur-cc.in
   ${PROJECT_BINARY_DIR}/minotaur-cc
