@@ -37,7 +37,6 @@ Options:
   -tag                      add this tag to cache entries, and skip entries with it
   -separate-files           put each souper invocation's output into its own output file
   -souper-debug-level       pass this integer debug level to Souper
-  -max-insns                max instructions for enumerative synthesis (default=1)
   -verbose                  print extra output
   -unix			    talk to Redis using UNIX domain sockets
 END
@@ -103,12 +102,13 @@ sub infer($) {
 
     my $ok = 0;
     my $failed = 0;
-    while (my $line = <$INF>) {
-        if ($line =~ /Failed/) {
+    my @lines = <$INF>;
+    for (@lines) {
+        if ($_ =~ /Failed/) {
             $failed = 1;
             next;
         }
-        if ($line =~ /successfully/) {
+        if ($_ =~ /successfully/) {
             $ok = 1;
             next;
         }
@@ -127,6 +127,11 @@ sub infer($) {
     $red->hset($k, "cache-infer-tag" => $tag);
 
     if ($ok) {
+        open(FH, '>', "rewrite-${pid}") or die $!;
+        for(@lines) {
+          print FH $_;
+        }
+        close(FH);
         exit 0;
     } else {
         exit 1;
