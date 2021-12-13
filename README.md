@@ -1,6 +1,6 @@
 # The Minotaur Program Synthesizer
 
-The Alive2 requires a LLVM compiled with RTTI and exceptions enabled, use the following command to fetch and build LLVM. The project requires `cmake`, `ninja-build`, `gcc-10`, `g++-10`, `z3`, `redis`, `libhiredis-dev`, `libredis-perl`, and `re2c` as dependencies.
+The Alive2 requires a LLVM compiled with RTTI and exceptions enabled, use the following command to fetch and build LLVM. The project requires `cmake`, `ninja-build`, `gcc-10`, `g++-10`, `z3`, `redis`, `libhiredis-dev`, `libbsd-resource-perl`, `libredis-perl`, and `re2c` as dependencies.
 
     $ git clone git@github.com:llvm/llvm-project $HOME/llvm
     $ mkdir $HOME/llvm/build && cd $HOME/llvm/build

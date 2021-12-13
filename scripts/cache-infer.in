@@ -1,0 +1,249 @@
+#!/usr/bin/env perl
+
+# Copyright 2014 The Souper Authors. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+use warnings;
+use strict;
+use Redis;
+use Getopt::Long;
+use File::Temp;
+use Time::HiRes;
+use BSD::Resource;
+
+eval { require Sys::CPU; Sys::CPU->import(); };
+
+my $NPROCS = 40;
+$NPROCS = Sys::CPU::cpu_count() if defined(&Sys::CPU::cpu_count);
+
+my $CPU_LIMIT = 15 * 60;
+my $RAM_LIMIT = 4 * 1024 * 1024 * 1024;
+
+sub usage() {
+    print <<"END";
+Options:
+  -n                        number of CPUs to use (default=$NPROCS)
+  -tag                      add this tag to cache entries, and skip entries with it
+  -separate-files           put each souper invocation's output into its own output file
+  -souper-debug-level       pass this integer debug level to Souper
+  -max-insns                max instructions for enumerative synthesis (default=1)
+  -verbose                  print extra output
+  -unix			    talk to Redis using UNIX domain sockets
+END
+    exit -1;
+}
+
+my $tag = "x";
+my $VERBOSE = 0;
+my $SAVE_TEMPS;
+my $UNIX = 0;
+
+GetOptions(
+    "n=i" => \$NPROCS,
+    "tag=s" => \$tag,
+    "verbose" => \$VERBOSE,
+    "unix" => \$UNIX,
+    "separate-files" => \$SAVE_TEMPS,
+    ) or usage();
+
+my $REDISPORT = 6379;
+
+my $OPTS = "";
+
+
+my $MINOTAUR = "@CMAKE_BINARY_DIR@/opt-synthesis-test.sh";
+
+my $r;
+if ($UNIX) {
+    $r = Redis->new(sock => "@CMAKE_BINARY_DIR@/cache.sock");
+} else {
+    $r = Redis->new(server => "localhost:" . $REDISPORT);
+}
+$r->ping || die "no server?";
+my @keys = $r->keys('*');
+
+sub infer($) {
+    (my $k) = @_;
+    (my $fh, my $tmpfn) = File::Temp::tempfile();
+    print $fh $k;
+    my $cmd = "${MINOTAUR} $OPTS";
+    #print STDERR "\n$k\n\n";
+    print STDERR "$cmd\n";
+    $fh->flush();
+    open(my $foo, '>>', 'fail.txt');
+
+    my $pid = $$;
+    my $INF;
+    if ($SAVE_TEMPS) {
+        my $OFN;
+        if (1) {
+            $OFN = "tmp_${pid}.log";
+            system "$cmd < $tmpfn > $OFN 2>&1";
+            open my $OF, ">>$OFN" or die;
+            print $OF "\n\n$cmd\n\n";
+            print $OF "$k\n\n";
+            close $OF;
+        }
+
+        open $INF, "<$OFN" or die;
+    } else {
+        open $INF, "$cmd < $tmpfn |" or print $foo "$k\n";
+    }
+
+    my $ok = 0;
+    my $failed = 0;
+    while (my $line = <$INF>) {
+        if ($line =~ /Failed/) {
+            $failed = 1;
+            next;
+        }
+        if ($line =~ /successfully/) {
+            $ok = 1;
+            next;
+        }
+    }
+    close $INF;
+    close $fh;
+    unlink $tmpfn;
+
+    my $red;
+    if ($UNIX) {
+	$red = Redis->new(sock => "@CMAKE_BINARY_DIR@/cache.sock");
+    } else {
+	$red = Redis->new(server => "localhost:" . $REDISPORT);
+    }
+    $red->ping || die "no server?";
+    $red->hset($k, "cache-infer-tag" => $tag);
+
+    if ($ok) {
+        exit 0;
+    } else {
+        exit 1;
+    }
+}
+
+my $num_running = 0;
+my $good = 0;
+my $fail = 0;
+
+sub wait_for_one() {
+    my $xpid = wait();
+    die if $xpid == -1;
+    $num_running--;
+    my $result = $? >> 8;
+    if ($result == 0) {
+        $good++;
+    } else {
+        $fail++;
+    }
+}
+
+my $status_cnt;
+my $status_opct;
+my $status_total;
+
+sub reset_status($) {
+    (my $t) = @_;
+    $status_total = $t;
+    $status_opct = 0;
+    $status_cnt = 0;
+}
+
+sub status() {
+    print ".";
+    $status_cnt++;
+    my $pct = int(100.0 * $status_cnt/$status_total);
+    if ($pct > $status_opct) {
+        $status_opct = $pct;
+        print "$pct %\n";
+    }
+}
+
+my $opid = $$;
+my $skip = 0;
+
+reset_status(scalar(@keys)) if $VERBOSE;
+
+my %sprofile;
+my %dprofile;
+
+foreach my $opt (@keys) {
+    $sprofile{$opt} = 0;
+    $dprofile{$opt} = 0;
+}
+
+foreach my $opt (@keys) {
+    my %h = $r->hgetall($opt);
+    foreach my $kk (keys %h) {
+        if ($kk =~ /^sprofile (.*)$/) {
+            my $count = $h{$kk};
+            $sprofile{$opt} += $count;
+        }
+        if ($kk =~ /^dprofile (.*)$/) {
+            my $count = $h{$kk};
+            $dprofile{$opt} += $count;
+        }
+    }
+}
+
+my %sprofile_rank;
+my %dprofile_rank;
+
+my $n=0;
+foreach my $opt (sort { $sprofile{$b} <=> $sprofile{$a} } @keys) {
+    $sprofile_rank{$opt} = $n;
+    $n++;
+    # print "$sprofile{$opt} $opt\n\n";
+}
+
+$n=0;
+foreach my $opt (sort { $dprofile{$b} <=> $dprofile{$a} } @keys) {
+    $dprofile_rank{$opt} = $n;
+    $n++;
+    # print "$dprofile{$opt} $opt\n\n";
+}
+
+sub byrank {
+    return
+        ($sprofile_rank{$a} + $dprofile_rank{$a}) <=>
+        ($sprofile_rank{$b} + $dprofile_rank{$b});
+}
+
+foreach my $k (sort byrank @keys) {
+    status() if $VERBOSE;
+    my $result = $r->hget($k, "cache-infer-tag");
+    if (defined $result && $result eq $tag) {
+        $skip++;
+        next;
+    }
+    wait_for_one() unless $num_running < $NPROCS;
+    die unless $num_running < $NPROCS;
+    my $pid = fork();
+    die unless $pid >= 0;
+    if ($pid == 0) {
+	die "setrlimit RSS" unless setrlimit(RLIMIT_RSS, $RAM_LIMIT, $RAM_LIMIT);
+	die "setrlimit VMEM" unless setrlimit(RLIMIT_VMEM, $RAM_LIMIT, $RAM_LIMIT);
+	infer ($k);
+	# not reachable
+    }
+    # make sure we're in the parent
+    die unless $$ == $opid;
+    $num_running++;
+}
+
+wait_for_one() while ($num_running > 0);
+
+print "$good optimizations\n";
+print "$fail not-optimizations\n";
+print "$skip skipped due to tag match\n";

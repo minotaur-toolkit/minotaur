@@ -103,6 +103,11 @@ configure_file(
   ${PROJECT_BINARY_DIR}/cache-dump
   @ONLY
 )
+configure_file(
+  ${PROJECT_SOURCE_DIR}/scripts/cache-infer.in
+  ${PROJECT_BINARY_DIR}/cache-infer
+  @ONLY
+)
 
 if (NOT DEFINED TEST_NTHREADS)
   ProcessorCount(TEST_NTHREADS)
