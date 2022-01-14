@@ -31,60 +31,60 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap,
     } else {
       return VMap[P->V()];
     }
-  } else if (auto U = dynamic_cast<UnaryOp *>(I)) {
+  } else if (auto U = dynamic_cast<UnaryInst *>(I)) {
     auto op0 = codeGen(U->Op0(), VMap, constMap);
     llvm::Value *r = nullptr;
     switch (U->K()) {
-    case UnaryOp::copy:
+    case UnaryInst::copy:
       r = op0;
       break;
     default:
       UNREACHABLE();
     }
     return r;
-  } else if (auto B = dynamic_cast<BinOp *>(I)) {
+  } else if (auto B = dynamic_cast<BinaryInst *>(I)) {
     auto op0 = codeGen(B->L(), VMap, constMap);
     auto op1 = codeGen(B->R(), VMap, constMap);
     llvm::Value *r = nullptr;
     switch (B->K()) {
-    case BinOp::band:
+    case BinaryInst::band:
       r = b.CreateAnd(op0, op1, "and");
       break;
-    case BinOp::bor:
+    case BinaryInst::bor:
       r = b.CreateOr(op0, op1, "or");
       break;
-    case BinOp::bxor:
+    case BinaryInst::bxor:
       r = b.CreateXor(op0, op1, "xor");
       break;
-    case BinOp::add:
+    case BinaryInst::add:
       r = b.CreateAdd(op0, op1, "add");
       break;
-    case BinOp::sub:
+    case BinaryInst::sub:
       r = b.CreateSub(op0, op1, "sub");
       break;
-    case BinOp::mul:
+    case BinaryInst::mul:
       r = b.CreateMul(op0, op1, "mul");
       break;
-    case BinOp::sdiv:
+    case BinaryInst::sdiv:
       r = b.CreateSDiv(op0, op1, "sdiv");
       break;
-    case BinOp::udiv:
+    case BinaryInst::udiv:
       r = b.CreateUDiv(op0, op1, "udiv");
       break;
-    case BinOp::lshr:
+    case BinaryInst::lshr:
       r = b.CreateLShr(op0, op1, "lshr");
       break;
-    case BinOp::ashr:
+    case BinaryInst::ashr:
       r = b.CreateAShr(op0, op1, "ashr");
       break;
-    case BinOp::shl:
+    case BinaryInst::shl:
       r = b.CreateShl(op0, op1, "shl");
       break;
     default:
       UNREACHABLE();
     }
     return r;
-  } else if (auto B = dynamic_cast<SIMDBinOpIntr *>(I)) {
+  } else if (auto B = dynamic_cast<SIMDBinOpInst *>(I)) {
     auto op0 = codeGen(B->L(), VMap, constMap);
     auto op1 = codeGen(B->R(), VMap, constMap);
     llvm::Function *decl = nullptr;
@@ -343,21 +343,23 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap,
     } else {
       return (*constMap)[RC->getA()];
     }
-#if (false)
-  } else if (auto SV = dynamic_cast<minotaur::ShuffleVector *>(I)) {
+  } else if (auto SV = dynamic_cast<minotaur::ShuffleVectorInst *>(I)) {
     // TODO
-    (void)SV;
-    auto op0 = codeGen(SV->L(), b, VMap, F, constMap);
-    auto op1 = codeGen(SV->R(), b, VMap, F, constMap);
-    auto M = codeGen(SV->M(), b, VMap, F, constMap);
-    return b.CreateShuffleVector(op0, op1, M);
+    std::vector<llvm::Type*> Doubles(Args.size(),
+                              Type::getDoubleTy(getGlobalContext()));
+    FunctionType *FT = FunctionType::get(Type::getDoubleTy(getGlobalContext()),
+                                        Doubles, false);
+
+    Function *F = Function::Create(FT, Function::ExternalLinkage, Name, TheModule);
+    auto op0 = codeGen(SV->L(), VMap, constMap);
+    auto op1 = codeGen(SV->R(), VMap, constMap);
+    auto M = codeGen(SV->M(), VMap, constMap);
+    return b.CreateCall(op0, op1, M, "syn");
   }
-#endif
-}
-else if (auto L = dynamic_cast<minotaur::Load *>(I)) {
-  auto op0 = codeGen(L->addr(), VMap, constMap);
-  return b.CreateLoad(L->elemTy(), op0);
-}
-return nullptr;
+  else if (auto L = dynamic_cast<minotaur::Load *>(I)) {
+    auto op0 = codeGen(L->addr(), VMap, constMap);
+    return b.CreateLoad(L->elemTy(), op0);
+  }
+  return nullptr;
 }
 }

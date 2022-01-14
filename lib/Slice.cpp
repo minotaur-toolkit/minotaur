@@ -238,8 +238,8 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
             Instruction *term = incomebb->getTerminator();
             assert(isa<BranchInst>(term) && "Unexpected terminator found");
             BranchInst *bi = cast<BranchInst>(term);
-            if (bi->isConditional())
-              worklist.push({bi->getCondition(), 0});
+            /*if (bi->isConditional())
+              worklist.push({bi->getCondition(), 0});*/
           }
         }
         havePhi = true;
@@ -256,8 +256,8 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
         Instruction *term = ibb->getTerminator();
         assert(!isa<BranchInst>(term) && "Unexpected terminator found");
         BranchInst *bi = cast<BranchInst>(term);
-        if (bi->isConditional())
-          worklist.push({bi->getCondition(), 0});
+        /*if (bi->isConditional())
+          worklist.push({bi->getCondition(), 0});*/
       }
 
       for (auto &op : i->operands()) {

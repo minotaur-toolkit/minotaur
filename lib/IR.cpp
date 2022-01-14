@@ -27,7 +27,7 @@ void ReservedConst::print(ostream &os) const {
   os << str;
 }
 
-void UnaryOp::print(ostream &os) const {
+void UnaryInst::print(ostream &os) const {
   const char *str = nullptr;
   switch (op) {
   case copy:       str = "copy"; break;
@@ -37,7 +37,7 @@ void UnaryOp::print(ostream &os) const {
   os << ")";
 }
 
-void BinOp::print(ostream &os) const {
+void BinaryInst::print(ostream &os) const {
   const char *str = nullptr;
   switch (op) {
   case band:       str = "and"; break;
@@ -57,6 +57,10 @@ void BinOp::print(ostream &os) const {
   os << ", ";
   rhs->print(os);
   os << ")";
+}
+
+static llvm::Type& llvmType() {
+
 }
 
 static string getOpName(X86IntrinBinOp::Op op) {
@@ -112,11 +116,21 @@ static string getOpName(X86IntrinBinOp::Op op) {
   UNREACHABLE();
 }
 
-void SIMDBinOpIntr::print(ostream &os) const {
+void SIMDBinOpInst::print(ostream &os) const {
   os << "(" << getOpName(op) << " ";
   lhs->print(os);
   os << ", ";
   rhs->print(os);
+  os << ")";
+}
+
+void ShuffleVectorInst::print(ostream &os) const {
+  os << "(shufflevector ";
+  lhs->print(os);
+  os << ", ";
+  rhs->print(os);
+  os << ", ";
+  mask->print(os);
   os << ")";
 }
 

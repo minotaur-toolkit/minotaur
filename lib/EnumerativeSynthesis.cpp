@@ -88,7 +88,7 @@ static bool getSketches(llvm::Value *V,
 
   llvm::Type *ty = V->getType();
   // Unary operators
-  for (unsigned K = UnaryOp::Op::copy; K <= UnaryOp::Op::copy; ++K) {
+  for (unsigned K = UnaryInst::Op::copy; K <= UnaryInst::Op::copy; ++K) {
     for (auto Op = Comps.begin(); Op != Comps.end(); ++Op) {
       set<unique_ptr<ReservedConst>> RCs;
       Inst *I = nullptr;
@@ -100,16 +100,16 @@ static bool getSketches(llvm::Value *V,
         // TODO;
         continue;
       }
-      UnaryOp::Op op = static_cast<UnaryOp::Op>(K);
-      auto UO = make_unique<UnaryOp>(op, *I);
+      UnaryInst::Op op = static_cast<UnaryInst::Op>(K);
+      auto UO = make_unique<UnaryInst>(op, *I);
       R.push_back(make_pair(move(UO), move(RCs)));
     }
   }
 
-  for (unsigned K = BinOp::Op::band; K <= BinOp::Op::mul; ++K) {
-    BinOp::Op Op = static_cast<BinOp::Op>(K);
+  for (unsigned K = BinaryInst::Op::band; K <= BinaryInst::Op::mul; ++K) {
+    BinaryInst::Op Op = static_cast<BinaryInst::Op>(K);
     for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
-      auto Op1 = BinOp::isCommutative(Op) ? Op0 : Comps.begin();
+      auto Op1 = BinaryInst::isCommutative(Op) ? Op0 : Comps.begin();
       for (; Op1 != Comps.end(); ++Op1) {
         Inst *I = nullptr, *J = nullptr;
         set<unique_ptr<ReservedConst>> RCs;
@@ -124,7 +124,7 @@ static bool getSketches(llvm::Value *V,
             I = T.get();
             RCs.insert(move(T));
             J = R;
-            if (BinOp::isCommutative(Op)) {
+            if (BinaryInst::isCommutative(Op)) {
               swap(I, J);
             }
           } else continue;
@@ -133,7 +133,7 @@ static bool getSketches(llvm::Value *V,
         else if (dynamic_cast<ReservedConst *>(*Op1)) {
           if (auto L = dynamic_cast<Var *>(*Op0)) {
             // do not generate (- x 3) which can be represented as (+ x -3)
-            if (Op == BinOp::Op::sub)
+            if (Op == BinaryInst::Op::sub)
               continue;
             if (L->V()->getType() != ty)
               continue;
@@ -156,7 +156,7 @@ static bool getSketches(llvm::Value *V,
           I = *Op0;
           J = *Op1;
         }
-        auto BO = make_unique<BinOp>(Op, *I, *J);
+        auto BO = make_unique<BinaryInst>(Op, *I, *J);
         R.push_back(make_pair(move(BO), move(RCs)));
       }
     }
@@ -240,67 +240,64 @@ static bool getSketches(llvm::Value *V,
             I = *Op0;
             J = *Op1;
           }
-
-          auto BO = make_unique<SIMDBinOpIntr>(op, *I, *J);
+          auto BO = make_unique<SIMDBinOpInst>(op, *I, *J);
           R.push_back(make_pair(move(BO), move(RCs)));
         }
       }
     }
   }
 
-  // ShuffleVector
-#if (false)
-  for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
-    for (auto Op1 = Comps.begin(); Op1 != Comps.end(); ++Op1) {
-      if (!V->getType()->isVectorTy())
-        continue;
-      auto vty = llvm::cast<llvm::VectorType>(V->getType());
+  // shufflevector
+  if (V->getType()->isVectorTy()) {
+    for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
+      for (auto Op1 = Comps.begin(); Op1 != Comps.end(); ++Op1) {
+        auto vty = llvm::cast<llvm::VectorType>(V->getType());
 
-      Inst *I = nullptr, *J = nullptr;
-      set<unique_ptr<ReservedConst>> RCs;
-      // (shufflevecttor rc, var, mask)
-      if (dynamic_cast<ReservedConst *>(*Op0)) {
-        if (dynamic_cast<Var *>(*Op1))
-          continue;
-      }
-      // (shufflevector var, rc, mask)
-      else if (dynamic_cast<ReservedConst *>(*Op1)) {
-        if (auto L = dynamic_cast<Var *>(*Op0)) {
-          if (!L->V()->getType()->isVectorTy())
+        Inst *I = nullptr, *J = nullptr;
+        set<unique_ptr<ReservedConst>> RCs;
+
+        // (shufflevecttor rc, *, *), skip
+        if (dynamic_cast<ReservedConst *>(*Op0)) {
             continue;
-          auto lvty = llvm::cast<llvm::VectorType>(L->V()->getType());
-          if (lvty->getElementType() != vty->getElementType())
-            continue;
-          I = L;
-          auto T = make_unique<ReservedConst>(L->V()->getType());
-          J = T.get();
-          RCs.insert(move(T));
-        } else continue;
-      }
-      // (shufflevector, var, var, mask)
-      else {
-        if (auto L = dynamic_cast<Var *>(*Op0)) {
-          if (auto R = dynamic_cast<Var *>(*Op1)) {
-            if (L->V()->getType() != R->V()->getType())
-              continue;
+        }
+        // (shufflevector var, rc, mask)
+        else if (dynamic_cast<ReservedConst *>(*Op1)) {
+          if (auto L = dynamic_cast<Var *>(*Op0)) {
             if (!L->V()->getType()->isVectorTy())
               continue;
             auto lvty = llvm::cast<llvm::VectorType>(L->V()->getType());
             if (lvty->getElementType() != vty->getElementType())
               continue;
+            I = L;
+            auto T = make_unique<ReservedConst>(L->V()->getType());
+            J = T.get();
+            RCs.insert(move(T));
+          } else continue;
+        }
+        // (shufflevector, var, var, mask)
+        else {
+          if (auto L = dynamic_cast<Var *>(*Op0)) {
+            if (auto R = dynamic_cast<Var *>(*Op1)) {
+              if (L->getType() != R->V()->getType())
+                continue;
+              if (!L->getType()->isVectorTy())
+                continue;
+              auto lvty = llvm::cast<llvm::VectorType>(L->V()->getType());
+              if (lvty->getElementType() != vty->getElementType())
+                continue;
+            };
           };
-        };
-        I = *Op0;
-        J = *Op1;
+          I = *Op0;
+          J = *Op1;
+        }
+        auto mty = llvm::VectorType::get(llvm::Type::getInt32Ty(V->getContext()), vty->getElementCount());
+        auto mask = make_unique<ReservedConst>(mty);
+        auto SVI = make_unique<ShuffleVectorInst>(*I, *J, *mask.get());
+        RCs.insert(move(mask));
+        R.push_back(make_pair(move(SVI), move(RCs)));
       }
-      auto mty = llvm::VectorType::get(llvm::Type::getInt32Ty(V->getContext()), vty->getElementCount());
-      auto mask = make_unique<ReservedConst>(mty);
-      auto BO = make_unique<ShuffleVector>(*I, *J, *mask.get());
-      RCs.insert(move(mask));
-      R.push_back(make_pair(move(BO), move(RCs)));
     }
   }
-#endif
 
   for (auto &I : Inputs) {
     if (I->V()->getType() != V->getType())
