@@ -5,6 +5,7 @@
 #include "IR.h"
 #include "LLVMGen.h"
 
+#include "Type.h"
 #include "ir/globals.h"
 #include "smt/smt.h"
 #include "tools/transform.h"
@@ -40,7 +41,7 @@ namespace minotaur {
 
 static void findInputs(llvm::Value *Root,
                        set<unique_ptr<Var>> &Cands,
-                       set<unique_ptr<Ptr>> &Pointers,
+                       /*set<unique_ptr<Ptr>> &Pointers,*/
                        unsigned Max) {
   // breadth-first search
   unordered_set<llvm::Value *> Visited;
@@ -63,8 +64,8 @@ static void findInputs(llvm::Value *Root,
         continue;
       if (V->getType()->isIntOrIntVectorTy())
         Cands.insert(make_unique<Var>(V));
-      else if (V->getType()->isPointerTy())
-        Pointers.insert(make_unique<Ptr>(V));
+      /*else if (V->getType()->isPointerTy())
+        Pointers.insert(make_unique<Ptr>(V));*/
       if (Cands.size() >= Max)
         return;
     }
@@ -73,7 +74,7 @@ static void findInputs(llvm::Value *Root,
 
 static bool getSketches(llvm::Value *V,
                         set<unique_ptr<Var>> &Inputs,
-                        set<unique_ptr<Ptr>> &Pointers,
+                        //set<unique_ptr<Ptr>> &Pointers,
                         vector<pair<unique_ptr<Inst>,
                         set<unique_ptr<ReservedConst>>>> &R) {
   auto &Ctx = V->getContext();
@@ -83,7 +84,7 @@ static bool getSketches(llvm::Value *V,
     Comps.emplace_back(I.get());
   }
 
-  auto RC1 = make_unique<ReservedConst>(nullptr);
+  auto RC1 = make_unique<ReservedConst>(type(-1, -1));
   Comps.emplace_back(RC1.get());
 
   llvm::Type *ty = V->getType();
@@ -120,7 +121,7 @@ static bool getSketches(llvm::Value *V,
             // ignore icmp temporarily
             if (R->V()->getType() != ty)
               continue;
-            auto T = make_unique<ReservedConst>(R->V()->getType());
+            auto T = make_unique<ReservedConst>(R->getType());
             I = T.get();
             RCs.insert(move(T));
             J = R;
@@ -138,7 +139,7 @@ static bool getSketches(llvm::Value *V,
             if (L->V()->getType() != ty)
               continue;
             I = L;
-            auto T = make_unique<ReservedConst>(L->V()->getType());
+            auto T = make_unique<ReservedConst>(L->getType());
             J = T.get();
             RCs.insert(move(T));
           } else continue;
@@ -160,7 +161,7 @@ static bool getSketches(llvm::Value *V,
         R.push_back(make_pair(move(BO), move(RCs)));
       }
     }
-    
+
     // BinaryIntrinsics
     for (unsigned K =  X86IntrinBinOp::Op::sse2_psrl_w;
                   K <= X86IntrinBinOp::Op::ssse3_pshuf_b_128;
@@ -278,9 +279,9 @@ static bool getSketches(llvm::Value *V,
         else {
           if (auto L = dynamic_cast<Var *>(*Op0)) {
             if (auto R = dynamic_cast<Var *>(*Op1)) {
-              if (L->getType() != R->V()->getType())
+              if (L->getType() != R->getType())
                 continue;
-              if (!L->getType()->isVectorTy())
+              if (!L->getType().isVector())
                 continue;
               auto lvty = llvm::cast<llvm::VectorType>(L->V()->getType());
               if (lvty->getElementType() != vty->getElementType())
@@ -307,6 +308,7 @@ static bool getSketches(llvm::Value *V,
     R.push_back(make_pair(move(V), move(RCs)));
   }
 
+  /*
   // Load
   for (auto &P : Pointers) {
     auto elemTy = llvm::cast<llvm::PointerType>(P->V()->getType())->getElementType();
@@ -315,7 +317,7 @@ static bool getSketches(llvm::Value *V,
     set<unique_ptr<ReservedConst>> RCs;
     auto V = make_unique<Load>(*P, elemTy);
     R.push_back(make_pair(move(V), move(RCs)));
-  }
+  }*/
   return true;
 }
 
@@ -459,11 +461,11 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
         continue;
       unordered_map<llvm::Argument *, llvm::Constant *> constMap;
       set<unique_ptr<Var>> Inputs;
-      set<unique_ptr<Ptr>> Pointers;
-      findInputs(&*I, Inputs, Pointers, 20);
+      //set<unique_ptr<Ptr>> Pointers;
+      findInputs(&*I, Inputs,/* Pointers,*/ 20);
 
       vector<pair<unique_ptr<Inst>,set<unique_ptr<ReservedConst>>>> Sketches;
-      getSketches(&*I, Inputs, Pointers, Sketches);
+      getSketches(&*I, Inputs, /*Pointers,*/ Sketches);
 
       if (Sketches.empty()) continue;
 
@@ -494,9 +496,9 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
         for (auto I: FT->params()) {
           Args.push_back(I);
         }
-        
+
         for (auto &C : Sketch.second) {
-          Args.push_back(C->T());
+          Args.push_back(getLLVMType(C->getType(), F.getContext()));
         }
 
         auto nFT = llvm::FunctionType::get(FT->getReturnType(), Args, FT->isVarArg());

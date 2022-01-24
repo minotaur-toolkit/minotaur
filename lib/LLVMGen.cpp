@@ -25,13 +25,13 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap,
     } else {
       return VMap[V->V()];
     }
-  } else if (auto P = dynamic_cast<Ptr *>(I)) {
+  } /*else if (auto P = dynamic_cast<Ptr *>(I)) {
     if (VMap.empty()) {
       return P->V();
     } else {
       return VMap[P->V()];
     }
-  } else if (auto U = dynamic_cast<UnaryInst *>(I)) {
+  } */else if (auto U = dynamic_cast<UnaryInst *>(I)) {
     auto op0 = codeGen(U->Op0(), VMap, constMap);
     llvm::Value *r = nullptr;
     switch (U->K()) {
@@ -343,7 +343,7 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap,
     } else {
       return (*constMap)[RC->getA()];
     }
-  } else if (auto SV = dynamic_cast<minotaur::ShuffleVectorInst *>(I)) {
+  } /*else if (auto SV = dynamic_cast<minotaur::ShuffleVectorInst *>(I)) {
     // TODO
     std::vector<llvm::Type*> Doubles(Args.size(),
                               Type::getDoubleTy(getGlobalContext()));
@@ -359,7 +359,7 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap,
   else if (auto L = dynamic_cast<minotaur::Load *>(I)) {
     auto op0 = codeGen(L->addr(), VMap, constMap);
     return b.CreateLoad(L->elemTy(), op0);
-  }
+  }*/
   return nullptr;
 }
 }

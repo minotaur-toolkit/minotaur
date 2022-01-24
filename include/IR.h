@@ -2,8 +2,12 @@
 // Distributed under the MIT license that can be found in the LICENSE file.
 #pragma once
 
+#include <Type.h>
 #include "llvm/IR/Constants.h"
+
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "ir/instr.h"
 
 #include <vector>
@@ -14,12 +18,12 @@ namespace minotaur {
 
 class Inst {
 protected:
-  llvm::Type *type = nullptr;
   std::string name;
   auto& getName() const { return name; }
+  type ty;
 public:
-  Inst(llvm::Type *t) {type = t; }
-  llvm::Type *getType() { return type; }
+  Inst(type t) : ty (t) {}
+  type getType() { return ty; }
   virtual void print(std::ostream &os) const = 0;
   friend std::ostream& operator<<(std::ostream &os, const Inst &val);
   virtual ~Inst() {}
@@ -33,6 +37,7 @@ public:
   llvm::Value *V () { return v; }
 };
 
+/*
 class Ptr final : public Inst {
   llvm::Value *v;
 public:
@@ -40,13 +45,14 @@ public:
   void print(std::ostream &os) const override;
   llvm::Value *V () { return v; }
 };
+*/
 
 class ReservedConst final : public Inst {
   llvm::Argument *A;
 public:
-  ReservedConst(llvm::Type *t) : Inst(t) {}
+  ReservedConst(type t) : Inst(t) {}
   void print(std::ostream &os) const override;
-  llvm::Type *T () { return type; }
+  type T() { return ty; }
   llvm::Argument *getA () { return A; }
   void setA (llvm::Argument *Arg) { A = Arg; }
 };
@@ -58,7 +64,8 @@ private:
   Op op;
   Inst *op0;
 public:
-  UnaryInst(Op op, Inst &op0) : Inst(op0.getType()), op(op), op0(&op0) {}
+  UnaryInst(Op op, Inst &op0)
+  : Inst(/*fixme*/op0.getType()), op(op), op0(&op0) {}
   void print(std::ostream &os) const override;
   Inst *Op0() { return op0; }
 
@@ -73,13 +80,15 @@ private:
   Inst *lhs;
   Inst *rhs;
 public:
-  BinaryInst(Op op, Inst &lhs, Inst &rhs) : Inst(lhs.getType()), op(op), lhs(&lhs), rhs(&rhs) {}
+  BinaryInst(Op op, Inst &lhs, Inst &rhs)
+  : Inst(/* fixme */lhs.getType()), op(op), lhs(&lhs), rhs(&rhs) {}
   void print(std::ostream &os) const override;
   Inst *L() { return lhs; }
   Inst *R() { return rhs; }
   Op K() { return op; }
   static bool isCommutative (Op k) {
-    return k == Op::band || k == Op::bor || k == Op::bxor || k == Op::add|| k == Op::mul;
+    return k == Op::band || k == Op::bor || k == Op::bxor ||
+           k == Op::add || k == Op::mul;
   }
 };
 
@@ -92,7 +101,8 @@ private:
   Inst *lhs;
   Inst *rhs;
 public:
-  ICmpInst(Cond cond, Inst &lhs, Inst &rhs) : /* fixme */Inst(lhs.getType()) , cond(cond), lhs(&lhs), rhs(&rhs) {}
+  ICmpInst(Cond cond, Inst &lhs, Inst &rhs)
+  : /* fixme */Inst(lhs.getType()) , cond(cond), lhs(&lhs), rhs(&rhs) {}
   void print(std::ostream &os) const override;
   Inst *L() { return lhs; }
   Inst *R() { return rhs; }
@@ -104,7 +114,8 @@ class BitCastInst final : public Inst {
   unsigned lanes_from, lanes_to;
   unsigned width_from, width_to;
 public:
-  BitCastInst(Inst &i, unsigned lf, unsigned wf, unsigned lt, unsigned wt) : /* fixme */Inst(i.getType()) {}
+  BitCastInst(Inst &i, unsigned lf, unsigned wf, unsigned lt, unsigned wt)
+  : /* fixme */Inst(i.getType()) {}
 
   void print(std::ostream &os) const override;
   Inst *I() { return i; }
@@ -116,7 +127,9 @@ class SIMDBinOpInst final : public Inst {
   Inst *rhs;
 public:
   SIMDBinOpInst(X86IntrinBinOp::Op op, Inst &lhs, Inst &rhs)
-    : op(op), lhs(&lhs), rhs(&rhs) {}
+    : Inst(type(X86IntrinBinOp::shape_ret[op].first,
+                X86IntrinBinOp::shape_ret[op].second)),
+      op(op), lhs(&lhs), rhs(&rhs) {}
   void print(std::ostream &os) const override;
   Inst *L() { return lhs; }
   Inst *R() { return rhs; }
@@ -129,23 +142,13 @@ class ShuffleVectorInst final : public Inst {
   ReservedConst *mask;
 public:
   ShuffleVectorInst(Inst &lhs, Inst &rhs, ReservedConst &mask)
-    : lhs(&lhs), rhs(&rhs), mask(&mask) {}
+    : Inst(/*fixme*/lhs.getType()), lhs(&lhs), rhs(&rhs), mask(&mask) {}
   void print(std::ostream &os) const override;
   Inst *L() { return lhs; }
   Inst *R() { return rhs; }
   Inst *M() { return mask; }
 };
 
-
-class ExprBuilder {
-  llvm::LLVMContext &C
-
-  Inst* getInst() {
-
-
-  }
-
-}
 
 /*
 class Hole : Inst {

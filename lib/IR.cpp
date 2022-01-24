@@ -18,9 +18,9 @@ void Var::print(ostream &os) const {
   os << "%" << string(v->getName());
 }
 
-void Ptr::print(ostream &os) const {
+/*void Ptr::print(ostream &os) const {
   os << "%" << string(v->getName());
-}
+}*/
 
 void ReservedConst::print(ostream &os) const {
   const char *str = "reservedconst";
@@ -112,6 +112,12 @@ static string getOpName(X86IntrinBinOp::Op op) {
   case X86IntrinBinOp::avx512_pslli_w_512: return "x86.avx512.pslli.w.512";
   case X86IntrinBinOp::avx512_pslli_d_512: return "x86.avx512.pslli.d.512";
   case X86IntrinBinOp::avx512_pslli_q_512: return "x86.avx512.pslli.q.512";
+  case X86IntrinBinOp::ssse3_psign_b_128:  return "x86.ssse3.psign.b.128";
+  case X86IntrinBinOp::ssse3_psign_w_128:  return "x86.ssse3.psign.w.128";
+  case X86IntrinBinOp::ssse3_psign_d_128:  return "x86.ssse3.psign.d.128";
+  case X86IntrinBinOp::avx2_psign_b:       return "x86.avx2.psign.b";
+  case X86IntrinBinOp::avx2_psign_w:       return "x86.avx2.psign.w";
+  case X86IntrinBinOp::avx2_psign_d:       return "x86.avx2.psign.d";
   }
   UNREACHABLE();
 }
@@ -140,8 +146,8 @@ BitCastOp(Inst &i, unsigned lf, unsigned wf, unsigned lt, unsigned wt);
     assert(lf * wf == lt * wt);
 }*/
 
-void Load::print(ostream &os) const {
+/*void Load::print(ostream &os) const {
   os << "(load)";
-}
+}*/
 
 };

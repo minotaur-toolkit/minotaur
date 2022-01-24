@@ -17,6 +17,7 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
+#include <map>
 #include <optional>
 #include <queue>
 #include <set>
@@ -170,7 +171,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   while (!worklist.empty()) {
     auto &[w, depth] = worklist.front();
     worklist.pop();
-    if (depth > MAX_DEPTH) 
+    if (depth > MAX_DEPTH)
       continue;
     if (!visited.insert(w).second)
       continue;
@@ -248,7 +249,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
       insts.push_back(i);
       bb_insts[ibb].push_back(i);
-      
+
       // BB->getInstList().push_front(c);
 
       bool never_visited = blocks.insert(ibb).second;
@@ -496,7 +497,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   set<BasicBlock *> block_without_preds;
   for (auto block : cloned_blocks) {
     auto preds = predecessors(block);
-    if (preds.empty()) { 
+    if (preds.empty()) {
       block_without_preds.insert(block);
     }
   }
@@ -517,7 +518,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     }
   } else {
     BasicBlock *entry =  BasicBlock::Create(ctx, "entry");
-    SwitchInst *sw = SwitchInst::Create(F->getArg(idx), sinkbb, 
+    SwitchInst *sw = SwitchInst::Create(F->getArg(idx), sinkbb,
                                         1, entry);
 
     unsigned idx  = 0;
