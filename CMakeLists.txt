@@ -40,6 +40,7 @@ set(SYNTHESIZER_SRC
   "lib/EnumerativeSynthesis.cpp"
   "lib/IR.cpp"
   "lib/LLVMGen.cpp"
+  "lib/Type.cpp"
 )
 
 add_library(synthesizer STATIC ${SYNTHESIZER_SRC})
@@ -76,6 +77,15 @@ target_link_libraries(minotaur-slice PRIVATE slice ${llvm_libs} ${HIREDIS_LIBRAR
 
 if(APPLE)
     set_target_properties(minotaur PROPERTIES
+        LINK_FLAGS "-undefined dynamic_lookup"
+    )
+    set_target_properties(minotaur-cs PROPERTIES
+        LINK_FLAGS "-undefined dynamic_lookup"
+    )
+    set_target_properties(minotaur-slice PROPERTIES
+        LINK_FLAGS "-undefined dynamic_lookup"
+    )
+    set_target_properties(cache_exprs PROPERTIES
         LINK_FLAGS "-undefined dynamic_lookup"
     )
 endif(APPLE)
