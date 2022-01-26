@@ -11,14 +11,14 @@ To fetch and build the Alive2 with X86 intrinsics, use the following command.
 
     $ git clone git@github.com:zhengyang92/alive2-x86 $HOME/alive2-x86
     $ mkdir $HOME/alive2-x86/build && cd $HOME/alive2-x86/build
-    $ CC=gcc-10 CXX=g++-10 cmake -GNinja -DLLVM_DIR=$HOME/llvm/build/lib/cmake/llvm -DBUILD_TV=1 -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
+    $ cmake -GNinja -DLLVM_DIR=$HOME/llvm/build/lib/cmake/llvm -DBUILD_TV=1 -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
     $ ninja
 
 To build Minotaur, use the following command.
 
     $ git clone git@github.com:zhengyang92/minotaur $HOME/minotaur
     $ mkdir $HOME/minotaur/build && cd $HOME/minotaur/build
-    $ CC=gcc-10 CXX=g++-10 cmake .. -DALIVE2_SOURCE_DIR=$HOME/alive2-x86 -DALIVE2_BUILD_DIR=$HOME/alive2-x86/build -DCMAKE_PREFIX_PATH=$HOME/llvm/build -DCMAKE_BUILD_TYPE=RelWithDebInfo -G Ninja
+    $ cmake .. -DALIVE2_SOURCE_DIR=$HOME/alive2-x86 -DALIVE2_BUILD_DIR=$HOME/alive2-x86/build -DCMAKE_PREFIX_PATH=$HOME/llvm/build -DCMAKE_BUILD_TYPE=RelWithDebInfo -G Ninja
     $ ninja
 
 To run the test suite, use
