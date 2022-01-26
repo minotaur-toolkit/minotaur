@@ -81,7 +81,7 @@ private:
   Inst *rhs;
 public:
   BinaryInst(Op op, Inst &lhs, Inst &rhs)
-  : Inst(/* fixme */lhs.getType()), op(op), lhs(&lhs), rhs(&rhs) {}
+  : Inst(lhs.getType()), op(op), lhs(&lhs), rhs(&rhs) {}
   void print(std::ostream &os) const override;
   Inst *L() { return lhs; }
   Inst *R() { return rhs; }

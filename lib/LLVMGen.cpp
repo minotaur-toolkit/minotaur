@@ -6,9 +6,11 @@
 #include "IR.h"
 #include "ir/instr.h"
 
+#include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicsX86.h"
+#include "llvm/Support/ErrorHandling.h"
 
 #include <iostream>
 
@@ -16,6 +18,119 @@ using namespace std;
 using namespace llvm;
 
 namespace minotaur {
+
+static constexpr std::array<llvm::Intrinsic::ID, X86IntrinBinOp::numOfX86Intrinsics> IntrinsicIDs = {
+/* sse2_pavg_w */        llvm::Intrinsic::x86_sse2_pavg_w,
+/* sse2_pavg_b */        llvm::Intrinsic::x86_sse2_pavg_b,
+/* avx2_pavg_w */        llvm::Intrinsic::x86_avx2_pavg_w,
+/* avx2_pavg_b */        llvm::Intrinsic::x86_avx2_pavg_b,
+/* avx512_pavg_w_512 */  llvm::Intrinsic::x86_avx512_pavg_w_512,
+/* avx512_pavg_b_512 */  llvm::Intrinsic::x86_avx512_pavg_b_512,
+/* avx2_pshuf_b */       llvm::Intrinsic::x86_avx2_pshuf_b,
+/* ssse3_pshuf_b_128 */  llvm::Intrinsic::x86_ssse3_pshuf_b_128,
+/* mmx_padd_b */         llvm::Intrinsic::x86_mmx_padd_b,
+/* mmx_padd_w */         llvm::Intrinsic::x86_mmx_padd_w,
+/* mmx_padd_d */         llvm::Intrinsic::x86_mmx_padd_d,
+/* mmx_punpckhbw */      llvm::Intrinsic::x86_mmx_punpckhbw,
+/* mmx_punpckhwd */      llvm::Intrinsic::x86_mmx_punpckhwd,
+/* mmx_punpckhdq */      llvm::Intrinsic::x86_mmx_punpckhdq,
+/* mmx_punpcklbw */      llvm::Intrinsic::x86_mmx_punpcklbw,
+/* mmx_punpcklwd */      llvm::Intrinsic::x86_mmx_punpcklwd,
+/* mmx_punpckldq */      llvm::Intrinsic::x86_mmx_punpckldq,
+/* sse2_psrl_w */        llvm::Intrinsic::x86_sse2_psrl_w,
+/* sse2_psrl_d */        llvm::Intrinsic::x86_sse2_psrl_d,
+/* sse2_psrl_q */        llvm::Intrinsic::x86_sse2_psrl_q,
+/* avx2_psrl_w */        llvm::Intrinsic::x86_avx2_psrl_w,
+/* avx2_psrl_d */        llvm::Intrinsic::x86_avx2_psrl_d,
+/* avx2_psrl_q */        llvm::Intrinsic::x86_avx2_psrl_q,
+/* avx512_psrl_w_512 */  llvm::Intrinsic::x86_avx512_psrl_w_512,
+/* avx512_psrl_d_512 */  llvm::Intrinsic::x86_avx512_psrl_d_512,
+/* avx512_psrl_q_512 */  llvm::Intrinsic::x86_avx512_psrl_q_512,
+/* sse2_psrli_w */       llvm::Intrinsic::x86_sse2_psrli_w,
+/* sse2_psrli_d */       llvm::Intrinsic::x86_sse2_psrli_d,
+/* sse2_psrli_q */       llvm::Intrinsic::x86_sse2_psrli_q,
+/* avx2_psrli_w */       llvm::Intrinsic::x86_avx2_psrli_w,
+/* avx2_psrli_d */       llvm::Intrinsic::x86_avx2_psrli_d,
+/* avx2_psrli_q */       llvm::Intrinsic::x86_avx2_psrli_q,
+/* avx512_psrli_w_512 */ llvm::Intrinsic::x86_avx512_psrli_w_512,
+/* avx512_psrli_d_512 */ llvm::Intrinsic::x86_avx512_psrli_d_512,
+/* avx512_psrli_q_512 */ llvm::Intrinsic::x86_avx512_psrli_q_512,
+/* avx2_psrlv_d */       llvm::Intrinsic::x86_avx2_psrlv_d,
+/* avx2_psrlv_d_256 */   llvm::Intrinsic::x86_avx2_psrlv_d_256,
+/* avx2_psrlv_q */       llvm::Intrinsic::x86_avx2_psrlv_q,
+/* avx2_psrlv_q_256 */   llvm::Intrinsic::x86_avx2_psrlv_q_256,
+/* avx512_psrlv_d_512 */ llvm::Intrinsic::x86_avx512_psrlv_d_512,
+/* avx512_psrlv_q_512 */ llvm::Intrinsic::x86_avx512_psrlv_q_512,
+/* avx512_psrlv_w_128 */ llvm::Intrinsic::x86_avx512_psrlv_w_128,
+/* avx512_psrlv_w_256 */ llvm::Intrinsic::x86_avx512_psrlv_w_256,
+/* avx512_psrlv_w_512 */ llvm::Intrinsic::x86_avx512_psrlv_w_512,
+/* sse2_psra_w */        llvm::Intrinsic::x86_sse2_psra_w,
+/* sse2_psra_d */        llvm::Intrinsic::x86_sse2_psra_d,
+/* avx2_psra_w */        llvm::Intrinsic::x86_avx2_psra_w,
+/* avx2_psra_d */        llvm::Intrinsic::x86_avx2_psra_d,
+/* avx512_psra_q_128 */  llvm::Intrinsic::x86_avx512_psra_q_128,
+/* avx512_psra_q_256 */  llvm::Intrinsic::x86_avx512_psra_q_256,
+/* avx512_psra_w_512 */  llvm::Intrinsic::x86_avx512_psra_w_512,
+/* avx512_psra_d_512 */  llvm::Intrinsic::x86_avx512_psra_d_512,
+/* avx512_psra_q_512 */  llvm::Intrinsic::x86_avx512_psra_q_512,
+/* sse2_psrai_w */       llvm::Intrinsic::x86_sse2_psrai_w,
+/* sse2_psrai_d */       llvm::Intrinsic::x86_sse2_psrai_d,
+/* avx2_psrai_w */       llvm::Intrinsic::x86_avx2_psrai_w,
+/* avx2_psrai_d */       llvm::Intrinsic::x86_avx2_psrai_d,
+/* avx512_psrai_w_512 */ llvm::Intrinsic::x86_avx512_psrai_w_512,
+/* avx512_psrai_d_512 */ llvm::Intrinsic::x86_avx512_psrai_d_512,
+/* avx512_psrai_q_128 */ llvm::Intrinsic::x86_avx512_psrai_q_128,
+/* avx512_psrai_q_256 */ llvm::Intrinsic::x86_avx512_psrai_q_256,
+/* avx512_psrai_q_512 */ llvm::Intrinsic::x86_avx512_psrai_q_512,
+/* avx2_psrav_d */       llvm::Intrinsic::x86_avx2_psrav_d,
+/* avx2_psrav_d_256 */   llvm::Intrinsic::x86_avx2_psrav_d_256,
+/* avx512_psrav_d_512 */ llvm::Intrinsic::x86_avx512_psrav_d_512,
+/* avx512_psrav_q_128 */ llvm::Intrinsic::x86_avx512_psrav_q_128,
+/* avx512_psrav_q_256 */ llvm::Intrinsic::x86_avx512_psrav_q_256,
+/* avx512_psrav_q_512 */ llvm::Intrinsic::x86_avx512_psrav_q_512,
+/* avx512_psrav_w_128 */ llvm::Intrinsic::x86_avx512_psrav_w_128,
+/* avx512_psrav_w_256 */ llvm::Intrinsic::x86_avx512_psrav_w_256,
+/* avx512_psrav_w_512 */ llvm::Intrinsic::x86_avx512_psrav_w_512,
+/* sse2_psll_w */        llvm::Intrinsic::x86_sse2_psll_w,
+/* sse2_psll_d */        llvm::Intrinsic::x86_sse2_psll_d,
+/* sse2_psll_q */        llvm::Intrinsic::x86_sse2_psll_q,
+/* avx2_psll_w */        llvm::Intrinsic::x86_avx2_psll_w,
+/* avx2_psll_d */        llvm::Intrinsic::x86_avx2_psll_d,
+/* avx2_psll_q */        llvm::Intrinsic::x86_avx2_psll_q,
+/* avx512_psll_w_512 */  llvm::Intrinsic::x86_avx512_psll_w_512,
+/* avx512_psll_d_512 */  llvm::Intrinsic::x86_avx512_psll_d_512,
+/* avx512_psll_q_512 */  llvm::Intrinsic::x86_avx512_psll_q_512,
+/* sse2_pslli_w */       llvm::Intrinsic::x86_sse2_pslli_w,
+/* sse2_pslli_d */       llvm::Intrinsic::x86_sse2_pslli_d,
+/* sse2_pslli_q */       llvm::Intrinsic::x86_sse2_pslli_q,
+/* avx2_pslli_w */       llvm::Intrinsic::x86_avx2_pslli_w,
+/* avx2_pslli_d */       llvm::Intrinsic::x86_avx2_pslli_d,
+/* avx2_pslli_q */       llvm::Intrinsic::x86_avx2_pslli_q,
+/* avx512_pslli_w_512 */ llvm::Intrinsic::x86_avx512_pslli_w_512,
+/* avx512_pslli_d_512 */ llvm::Intrinsic::x86_avx512_pslli_d_512,
+/* avx512_pslli_q_512 */ llvm::Intrinsic::x86_avx512_pslli_q_512,
+/* avx2_psllv_d */       llvm::Intrinsic::x86_avx2_psllv_d,
+/* avx2_psllv_d_256 */   llvm::Intrinsic::x86_avx2_psllv_d_256,
+/* avx2_psllv_q */       llvm::Intrinsic::x86_avx2_psllv_q,
+/* avx2_psllv_q_256 */   llvm::Intrinsic::x86_avx2_psllv_q_256,
+/* avx512_psllv_d_512 */ llvm::Intrinsic::x86_avx512_psllv_d_512,
+/* avx512_psllv_q_512 */ llvm::Intrinsic::x86_avx512_psllv_q_512,
+/* avx512_psllv_w_128 */ llvm::Intrinsic::x86_avx512_psllv_w_128,
+/* avx512_psllv_w_256 */ llvm::Intrinsic::x86_avx512_psllv_w_256,
+/* avx512_psllv_w_256 */ llvm::Intrinsic::x86_avx512_psllv_w_256,
+/* ssse3_psign_b_128 */  llvm::Intrinsic::x86_ssse3_psign_b_128,
+/* ssse3_psign_w_128 */  llvm::Intrinsic::x86_ssse3_psign_w_128,
+/* ssse3_psign_d_128 */  llvm::Intrinsic::x86_ssse3_psign_d_128,
+/* avx2_psign_b */       llvm::Intrinsic::x86_avx2_psign_b,
+/* avx2_psign_w */       llvm::Intrinsic::x86_avx2_psign_w,
+/* avx2_psign_d */       llvm::Intrinsic::x86_avx2_psign_d,
+};
+
+llvm::Intrinsic::ID getIntrinsicID(X86IntrinBinOp::Op op) {
+  if (op >= X86IntrinBinOp::numOfX86Intrinsics)
+    report_fatal_error("[ERROR] Unknown Intrinsic");
+  return IntrinsicIDs[op];
+}
 
 llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap,
                               unordered_map<Argument *, Constant *> *constMap) {
@@ -87,254 +202,11 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap,
   } else if (auto B = dynamic_cast<SIMDBinOpInst *>(I)) {
     auto op0 = codeGen(B->L(), VMap, constMap);
     auto op1 = codeGen(B->R(), VMap, constMap);
-    llvm::Function *decl = nullptr;
-    switch (B->K()) {
-    case IR::X86IntrinBinOp::Op::sse2_psrl_w:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_sse2_psrl_w);
-      break;
-    case IR::X86IntrinBinOp::Op::sse2_psrl_d:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_sse2_psrl_d);
-      break;
-    case IR::X86IntrinBinOp::Op::sse2_psrl_q:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_sse2_psrl_q);
-      break;
-    case IR::X86IntrinBinOp::Op::avx2_psrl_w:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psrl_w);
-      break;
-    case IR::X86IntrinBinOp::Op::avx2_psrl_d:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psrl_d);
-      break;
-    case IR::X86IntrinBinOp::Op::avx2_psrl_q:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psrl_q);
-      break;
-    case IR::X86IntrinBinOp::Op::sse2_pavg_w:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_sse2_pavg_w);
-      break;
-    case IR::X86IntrinBinOp::Op::avx2_pavg_b:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_pavg_b);
-      break;
-    case IR::X86IntrinBinOp::Op::avx2_pavg_w:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_pavg_w);
-      break;
-    case IR::X86IntrinBinOp::Op::avx2_pshuf_b:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_pshuf_b);
-      break;
-    case IR::X86IntrinBinOp::Op::ssse3_pshuf_b_128:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_ssse3_pshuf_b_128);
-      break;
-    case IR::X86IntrinBinOp::Op::mmx_padd_b:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_mmx_padd_b);
-      break;
-    case IR::X86IntrinBinOp::Op::mmx_padd_w:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_mmx_padd_w);
-      break;
-    case IR::X86IntrinBinOp::Op::mmx_padd_d:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_mmx_padd_d);
-      break;
-    case IR::X86IntrinBinOp::Op::mmx_punpckhbw:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_mmx_punpckhbw);
-      break;
-    case IR::X86IntrinBinOp::Op::mmx_punpckhwd:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_mmx_punpckhwd);
-      break;
-    case IR::X86IntrinBinOp::Op::mmx_punpckhdq:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_mmx_punpckhdq);
-      break;
-    case IR::X86IntrinBinOp::Op::mmx_punpcklbw:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_mmx_punpcklbw);
-      break;
-    case IR::X86IntrinBinOp::Op::mmx_punpcklwd:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_mmx_punpcklwd);
-      break;
-    case IR::X86IntrinBinOp::Op::mmx_punpckldq:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_mmx_punpckldq);
-      break;
-    case IR::X86IntrinBinOp::Op::sse2_psrai_w:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_sse2_psrai_w);
-      break;
-    case IR::X86IntrinBinOp::Op::sse2_psrai_d:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_sse2_psrai_d);
-      break;
-    case IR::X86IntrinBinOp::Op::avx2_psrai_w:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psrai_w);
-      break;
-    case IR::X86IntrinBinOp::Op::avx2_psrai_d:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psrai_d);
-      break;
-    case IR::X86IntrinBinOp::Op::avx512_psrai_w_512:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx512_psrai_w_512);
-      break;
-    case IR::X86IntrinBinOp::Op::avx512_psrai_d_512:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx512_psrai_d_512);
-      break;
-    case IR::X86IntrinBinOp::Op::avx512_psrai_q_128:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx512_psrai_q_128);
-      break;
-    case IR::X86IntrinBinOp::Op::avx512_psrai_q_256:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx512_psrai_q_256);
-      break;
-    case IR::X86IntrinBinOp::Op::avx512_psrai_q_512:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx512_psrai_q_512);
-      break;
-    case IR::X86IntrinBinOp::Op::sse2_psrli_w:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_sse2_psrli_w);
-      break;
-    case IR::X86IntrinBinOp::Op::sse2_psrli_d:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_sse2_psrli_d);
-      break;
-    case IR::X86IntrinBinOp::Op::sse2_psrli_q:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_sse2_psrli_q);
-      break;
-    case IR::X86IntrinBinOp::Op::avx2_psrli_w:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psrli_w);
-      break;
-    case IR::X86IntrinBinOp::Op::avx2_psrli_d:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psrli_d);
-      break;
-    case IR::X86IntrinBinOp::Op::avx2_psrli_q:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psrli_q);
-      break;
-    case IR::X86IntrinBinOp::Op::avx512_psrli_w_512:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx512_psrli_w_512);
-      break;
-    case IR::X86IntrinBinOp::Op::avx512_psrli_d_512:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx512_psrli_d_512);
-      break;
-    case IR::X86IntrinBinOp::Op::avx512_psrli_q_512:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx512_psrli_q_512);
-    case IR::X86IntrinBinOp::Op::sse2_pslli_w:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_sse2_pslli_w);
-      break;
-    case IR::X86IntrinBinOp::Op::sse2_pslli_d:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_sse2_pslli_d);
-      break;
-    case IR::X86IntrinBinOp::Op::sse2_pslli_q:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_sse2_pslli_q);
-      break;
-    case IR::X86IntrinBinOp::Op::avx2_pslli_w:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_pslli_w);
-      break;
-    case IR::X86IntrinBinOp::Op::avx2_pslli_d:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_pslli_d);
-      break;
-    case IR::X86IntrinBinOp::Op::avx2_pslli_q:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_pslli_q);
-      break;
-    case IR::X86IntrinBinOp::Op::avx512_pslli_w_512:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx512_pslli_w_512);
-      break;
-    case IR::X86IntrinBinOp::Op::avx512_pslli_d_512:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx512_pslli_d_512);
-      break;
-    case IR::X86IntrinBinOp::Op::avx512_pslli_q_512:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx512_pslli_q_512);
-    /*
-    case IR::SIMDBinOp::Op::x86_avx2_packssdw:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_packssdw);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_packsswb:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_packsswb);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_packusdw:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_packusdw);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_packuswb:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_packuswb);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_phadd_d:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_phadd_d);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_phadd_sw:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_phadd_sw);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_phadd_w:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_phadd_w);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_phsub_d:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_phsub_d);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_phsub_sw:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_phsub_sw);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_phsub_w:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_phsub_w);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_pmadd_ub_sw:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_pmadd_ub_sw);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_pmadd_wd:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_pmadd_wd);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_pmul_hr_sw:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_pmul_hr_sw);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_pmulh_w:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_pmulh_w);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_pmulhu_w:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_pmulhu_w);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_psign_b:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psign_b);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_psign_d:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psign_d);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_psign_w:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psign_w);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_psll_d:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psll_d);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_psll_q:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psll_q);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_psll_w:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psll_w);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_psllv_d:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psllv_d);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_psllv_d_256:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psllv_d_256);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_psllv_q:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psllv_q);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_psllv_q_256:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psllv_q_256);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_psrav_d:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psrav_d);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_psrav_d_256:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psrav_d_256);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_psrl_d:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psrav_d);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_psrl_q:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psrl_q);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_psrl_w:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psrl_w);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_psrlv_d:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psrlv_d);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_psrlv_d_256:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psrlv_d_256);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_psrlv_q:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psrlv_q);
-      break;
-    case IR::SIMDBinOp::Op::x86_avx2_psrlv_q_256:
-      decl = Intrinsic::getDeclaration(M, Intrinsic::x86_avx2_psrlv_q_256);
-      break; */
-    default:
-      UNREACHABLE();
-    }
+    llvm::Function *decl = Intrinsic::getDeclaration(M, getIntrinsicID(B->K()));
     IntrinsicDecls.insert(decl);
+    op0->dump();
+    op1->dump();
+    decl->dump();
     return CallInst::Create(decl, ArrayRef<llvm::Value *>({op0, op1}), "intr",
                             cast<Instruction>(b.GetInsertPoint()));
   } else if (auto RC = dynamic_cast<ReservedConst *>(I)) {
@@ -360,6 +232,7 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap,
     auto op0 = codeGen(L->addr(), VMap, constMap);
     return b.CreateLoad(L->elemTy(), op0);
   }*/
-  return nullptr;
+  llvm::report_fatal_error("[ERROR] unknown instruction found in LLVMGen");
+  UNREACHABLE();
 }
 }

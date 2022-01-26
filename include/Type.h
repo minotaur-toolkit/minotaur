@@ -2,14 +2,19 @@
 // Distributed under the MIT license that can be found in the LICENSE file.
 #pragma once
 
+#include "ir/instr.h"
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Type.h"
 
 namespace minotaur {
 
-struct type {
+class type {
   unsigned lane, bits;
+
+public:
   type(unsigned l, unsigned b) : lane(l), bits(b) {};
+  type(llvm::Type *t);
 
   bool isVector() {
     return lane != 1;
@@ -18,21 +23,15 @@ struct type {
     return lane == rhs.lane && bits == rhs.bits;
   }
 
-  type(llvm::Type *t) {
-    if (t->isIntegerTy()) {
-      lane = 1;
-      bits = t->getPrimitiveSizeInBits();
-    } else if (t->isVectorTy()) {
-      if (llvm::isa<llvm::ScalableVectorType>(t))
-        llvm::report_fatal_error("scalable vector type not yet supported");
-      llvm::FixedVectorType *fty = cast<llvm::FixedVectorType>(t);
-      lane = fty->getNumElements(),
-      bits = t->getPrimitiveSizeInBits();
-    } else {
-      llvm::report_fatal_error("unrecognized type");
-    }
-  }
+  friend std::ostream& operator<<(std::ostream &os, const type &val);
+
+  llvm::Type *toLLVM(llvm::LLVMContext &C);
+  unsigned getWidth() { return lane * bits; }
+  unsigned getLane() { return lane; }
+  unsigned getBits() { return bits; }
+  static type getIntrinsicRetTy(IR::X86IntrinBinOp::Op);
+  static type getIntrinsicOp0Ty(IR::X86IntrinBinOp::Op);
+  static type getIntrinsicOp1Ty(IR::X86IntrinBinOp::Op);
 };
 
-llvm::Type* getLLVMType (type t, llvm::LLVMContext &C);
 }
