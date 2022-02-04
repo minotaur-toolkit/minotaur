@@ -40,6 +40,7 @@ set(SYNTHESIZER_SRC
   "lib/EnumerativeSynthesis.cpp"
   "lib/IR.cpp"
   "lib/LLVMGen.cpp"
+ # "lib/MachineCost.cpp"
   "lib/Type.cpp"
 )
 
@@ -60,11 +61,11 @@ find_library(HIREDIS_LIBRARY
 include_directories(${HIREDIS_INCLUDE_DIR}/hiredis)
 
 add_llvm_library(minotaur MODULE pass/online.cpp)
-add_llvm_library(cache_exprs MODULE pass/cache-exprs.cpp)
+add_llvm_library(cache-exprs MODULE pass/cache-exprs.cpp)
 
 target_link_libraries(minotaur PRIVATE ${MINOTAUR_LIBS_LLVM} ${Z3_LIBRARIES}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
-target_link_libraries(cache_exprs PRIVATE slice ${HIREDIS_LIBRARY}
+target_link_libraries(cache-exprs PRIVATE slice ${HIREDIS_LIBRARY}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 
 add_llvm_executable(minotaur-cs tools/minotaur-cs.cpp)
@@ -85,7 +86,7 @@ if(APPLE)
     set_target_properties(minotaur-slice PROPERTIES
         LINK_FLAGS "-undefined dynamic_lookup"
     )
-    set_target_properties(cache_exprs PROPERTIES
+    set_target_properties(cache-exprs PROPERTIES
         LINK_FLAGS "-undefined dynamic_lookup"
     )
 endif(APPLE)
