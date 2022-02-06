@@ -40,7 +40,7 @@ set(SYNTHESIZER_SRC
   "lib/EnumerativeSynthesis.cpp"
   "lib/IR.cpp"
   "lib/LLVMGen.cpp"
- # "lib/MachineCost.cpp"
+  "lib/MachineCost.cpp"
   "lib/Type.cpp"
 )
 
