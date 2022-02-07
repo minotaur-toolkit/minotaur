@@ -32,6 +32,12 @@ public:
   unsigned getLane() { return lane; }
   unsigned getBits() { return bits; }
   bool isPointer() { return pointer; }
+
+  type getStrippedType () {
+    assert(pointer == true);
+    return type(lane, bits, false);
+  }
+
   static type getIntrinsicRetTy(IR::X86IntrinBinOp::Op);
   static type getIntrinsicOp0Ty(IR::X86IntrinBinOp::Op);
   static type getIntrinsicOp1Ty(IR::X86IntrinBinOp::Op);

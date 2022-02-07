@@ -4,7 +4,7 @@
 
 #include <Type.h>
 #include "llvm/IR/Constants.h"
-
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -36,18 +36,6 @@ public:
   void print(std::ostream &os) const override;
   llvm::Value *V () { return v; }
 };
-
-
-class Ptr final : public Inst {
-  llvm::Value *v;
-public:
-  Ptr(llvm::Value *v) : Inst(v->getType()), v(v) {
-    assert(v->getType()->isPointerTy());
-  }
-  void print(std::ostream &os) const override;
-  llvm::Value *V () { return v; }
-};
-
 
 class ReservedConst final : public Inst {
   llvm::Argument *A;
@@ -157,26 +145,30 @@ public:
 class Hole : Inst {
 };
 
-class Load final : public Inst {
-  Ptr *ptr;
-  llvm::Type *ety;
-public:
-  Load(Ptr &ptr, llvm::Type *ety) : ptr(&ptr), ety(ety) {}
-  void print(std::ostream &os) const override;
-  Ptr *addr() { return ptr; }
-  llvm::Type *elemTy() { return ety; }
-};*/
-
-/*
-class Store final : public Inst {
-  Inst *ptr;
-  Inst *value;
-public:
-  Inst *Ptr() { return ptr; }
-};
-
-class GEP final : public Value {
-
-};
 */
+
+union idx { Inst *ptr; unsigned idx; };
+class Ptr final : public Inst {
+  Inst *base;
+  bool hasOffset = false;
+public:
+  Ptr(llvm::Value *p) : Inst(p->getType()) {}
+  void print(std::ostream &os) const override;
 };
+
+class Load final : public Inst {
+  Ptr *p;
+public:
+  Load(Ptr &p) : Inst(p.getType().getStrippedType()), p(&p) {}
+  void print(std::ostream &os) const override;
+};
+
+class Store final : public Inst {
+  Ptr *p;
+  Inst *v;
+public:
+  Store(Ptr &p, Inst &v) : Inst(type(-1, -1, false)), p(&p), v(&v) {};
+  void print(std::ostream &os) const override;
+};
+
+}
