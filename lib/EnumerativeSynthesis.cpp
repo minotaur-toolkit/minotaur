@@ -84,7 +84,7 @@ static bool getSketches(llvm::Value *V,
     Comps.emplace_back(I.get());
   }
 
-  auto RC1 = make_unique<ReservedConst>(type(0, 0));
+  auto RC1 = make_unique<ReservedConst>(type(0, 0, false));
   Comps.emplace_back(RC1.get());
 
   type expected = type(V->getType());

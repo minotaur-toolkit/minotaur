@@ -37,15 +37,17 @@ public:
   llvm::Value *V () { return v; }
 };
 
-/*
+
 class Ptr final : public Inst {
   llvm::Value *v;
 public:
-  Ptr(llvm::Value *v) : Inst(v->getType()), v(v) {}
+  Ptr(llvm::Value *v) : Inst(v->getType()), v(v) {
+    assert(v->getType()->isPointerTy());
+  }
   void print(std::ostream &os) const override;
   llvm::Value *V () { return v; }
 };
-*/
+
 
 class ReservedConst final : public Inst {
   llvm::Argument *A;
@@ -128,7 +130,8 @@ class SIMDBinOpInst final : public Inst {
 public:
   SIMDBinOpInst(X86IntrinBinOp::Op op, Inst &lhs, Inst &rhs)
     : Inst(type(X86IntrinBinOp::shape_ret[op].first,
-                X86IntrinBinOp::shape_ret[op].second)),
+                X86IntrinBinOp::shape_ret[op].second,
+                false)),
       op(op), lhs(&lhs), rhs(&rhs) {}
   void print(std::ostream &os) const override;
   Inst *L() { return lhs; }

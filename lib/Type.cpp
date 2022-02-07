@@ -43,17 +43,17 @@ ostream& operator<<(ostream &os, const type &val) {
 
 type type::getIntrinsicOp0Ty(IR::X86IntrinBinOp::Op op) {
   return type(IR::X86IntrinBinOp::shape_op0[op].first,
-              IR::X86IntrinBinOp::shape_op0[op].second);
+              IR::X86IntrinBinOp::shape_op0[op].second, false);
 }
 
 type type::getIntrinsicOp1Ty(IR::X86IntrinBinOp::Op op) {
   return type(IR::X86IntrinBinOp::shape_op1[op].first,
-              IR::X86IntrinBinOp::shape_op1[op].second);
+              IR::X86IntrinBinOp::shape_op1[op].second, false);
 }
 
 type type::getIntrinsicRetTy(IR::X86IntrinBinOp::Op op) {
   return type(IR::X86IntrinBinOp::shape_ret[op].first,
-              IR::X86IntrinBinOp::shape_ret[op].second);
+              IR::X86IntrinBinOp::shape_ret[op].second, false);
 }
 
 } // namespace minotaur
