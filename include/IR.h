@@ -37,6 +37,7 @@ public:
   llvm::Value *V () { return v; }
 };
 
+
 class ReservedConst final : public Inst {
   llvm::Argument *A;
 public:
@@ -46,6 +47,7 @@ public:
   llvm::Argument *getA () { return A; }
   void setA (llvm::Argument *Arg) { A = Arg; }
 };
+
 
 class UnaryInst final : public Inst {
 public:
@@ -61,6 +63,7 @@ public:
 
   Op K() { return op; }
 };
+
 
 class BinaryInst final : public Inst {
 public:
@@ -82,6 +85,7 @@ public:
   }
 };
 
+
 class ICmpInst final : public Inst {
 public:
   // syntactic pruning: less than/less equal only
@@ -99,6 +103,7 @@ public:
   Cond K() { return cond; }
 };
 
+
 class BitCastInst final : public Inst {
   Inst *i;
   unsigned lanes_from, lanes_to;
@@ -110,6 +115,7 @@ public:
   void print(std::ostream &os) const override;
   Inst *I() { return i; }
 };
+
 
 class SIMDBinOpInst final : public Inst {
   X86IntrinBinOp::Op op;
@@ -127,6 +133,7 @@ public:
   X86IntrinBinOp::Op K() { return op; }
 };
 
+
 class ShuffleVectorInst final : public Inst {
   Inst *lhs;
   Inst *rhs;
@@ -141,12 +148,6 @@ public:
 };
 
 
-/*
-class Hole : Inst {
-};
-
-*/
-
 union idx { Inst *ptr; unsigned idx; };
 class Ptr final : public Inst {
   Inst *base;
@@ -156,12 +157,14 @@ public:
   void print(std::ostream &os) const override;
 };
 
+
 class Load final : public Inst {
   Ptr *p;
 public:
   Load(Ptr &p) : Inst(p.getType().getStrippedType()), p(&p) {}
   void print(std::ostream &os) const override;
 };
+
 
 class Store final : public Inst {
   Ptr *p;

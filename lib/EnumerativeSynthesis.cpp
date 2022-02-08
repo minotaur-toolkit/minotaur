@@ -42,7 +42,7 @@ namespace minotaur {
 
 static void findInputs(llvm::Value *Root,
                        set<unique_ptr<Var>> &Cands,
-                       /*set<unique_ptr<Ptr>> &Pointers,*/
+                       set<unique_ptr<Ptr>> &Pointers,
                        unsigned Max) {
   // breadth-first search
   unordered_set<llvm::Value *> Visited;
@@ -65,8 +65,8 @@ static void findInputs(llvm::Value *Root,
         continue;
       if (V->getType()->isIntOrIntVectorTy())
         Cands.insert(make_unique<Var>(V));
-      /*else if (V->getType()->isPointerTy())
-        Pointers.insert(make_unique<Ptr>(V));*/
+      else if (V->getType()->isPointerTy())
+        Pointers.insert(make_unique<Ptr>(V));
       if (Cands.size() >= Max)
         return;
     }
@@ -75,7 +75,7 @@ static void findInputs(llvm::Value *Root,
 
 static bool getSketches(llvm::Value *V,
                         set<unique_ptr<Var>> &Inputs,
-                        //set<unique_ptr<Ptr>> &Pointers,
+                        set<unique_ptr<Ptr>> &Pointers,
                         vector<pair<unique_ptr<Inst>,
                         set<unique_ptr<ReservedConst>>>> &R) {
   R.clear();
@@ -279,16 +279,15 @@ static bool getSketches(llvm::Value *V,
     R.push_back(make_pair(move(V), move(RCs)));
   }
 
-  /*
-  // Load
+
   for (auto &P : Pointers) {
-    auto elemTy = llvm::cast<llvm::PointerType>(P->V()->getType())->getElementType();
-    if (elemTy != ty)
+    auto elemTy = P->getType();
+    if (elemTy != expected)
       continue;
     set<unique_ptr<ReservedConst>> RCs;
-    auto V = make_unique<Load>(*P, elemTy);
+    auto V = make_unique<Load>(*P);
     R.push_back(make_pair(move(V), move(RCs)));
-  }*/
+  }
   return true;
 }
 
@@ -432,11 +431,11 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
         continue;
       unordered_map<llvm::Argument *, llvm::Constant *> constMap;
       set<unique_ptr<Var>> Inputs;
-      //set<unique_ptr<Ptr>> Pointers;
-      findInputs(&*I, Inputs,/* Pointers,*/ 20);
+      set<unique_ptr<Ptr>> Pointers;
+      findInputs(&*I, Inputs, Pointers, 20);
 
       vector<pair<unique_ptr<Inst>,set<unique_ptr<ReservedConst>>>> Sketches;
-      getSketches(&*I, Inputs, /*Pointers,*/ Sketches);
+      getSketches(&*I, Inputs, Pointers, Sketches);
 
       if (Sketches.empty()) continue;
 
