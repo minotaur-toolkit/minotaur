@@ -18,10 +18,6 @@ void Var::print(ostream &os) const {
   os << "%" << string(v->getName());
 }
 
-/*void Ptr::print(ostream &os) const {
-  os << "%" << string(v->getName());
-}*/
-
 void ReservedConst::print(ostream &os) const {
   const char *str = "reservedconst";
   os << str;
@@ -83,8 +79,17 @@ BitCastOp(Inst &i, unsigned lf, unsigned wf, unsigned lt, unsigned wt);
     assert(lf * wf == lt * wt);
 }*/
 
-/*void Load::print(ostream &os) const {
+
+void Ptr::print(ostream &os) const {
+  os << "%" << *base;
+}
+
+void Load::print(ostream &os) const {
   os << "(load)";
-}*/
+}
+
+void Store::print(ostream &os) const {
+  os << "(load)";
+}
 
 };
