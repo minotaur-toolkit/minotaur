@@ -42,7 +42,7 @@ namespace minotaur {
 
 static void findInputs(llvm::Value *Root,
                        set<unique_ptr<Var>> &Cands,
-                       set<unique_ptr<Ptr>> &Pointers,
+                       set<unique_ptr<ScalarAddr>> &Pointers,
                        unsigned Max) {
   // breadth-first search
   unordered_set<llvm::Value *> Visited;
@@ -66,7 +66,7 @@ static void findInputs(llvm::Value *Root,
       if (V->getType()->isIntOrIntVectorTy())
         Cands.insert(make_unique<Var>(V));
       else if (V->getType()->isPointerTy())
-        Pointers.insert(make_unique<Ptr>(V));
+        Pointers.insert(make_unique<ScalarAddr>(V));
       if (Cands.size() >= Max)
         return;
     }
@@ -75,7 +75,7 @@ static void findInputs(llvm::Value *Root,
 
 static bool getSketches(llvm::Value *V,
                         set<unique_ptr<Var>> &Inputs,
-                        set<unique_ptr<Ptr>> &Pointers,
+                        set<unique_ptr<ScalarAddr>> &Pointers,
                         vector<pair<unique_ptr<Inst>,
                         set<unique_ptr<ReservedConst>>>> &R) {
   R.clear();
@@ -431,7 +431,7 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
         continue;
       unordered_map<llvm::Argument *, llvm::Constant *> constMap;
       set<unique_ptr<Var>> Inputs;
-      set<unique_ptr<Ptr>> Pointers;
+      set<unique_ptr<ScalarAddr>> Pointers;
       findInputs(&*I, Inputs, Pointers, 20);
 
       vector<pair<unique_ptr<Inst>,set<unique_ptr<ReservedConst>>>> Sketches;

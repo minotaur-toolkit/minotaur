@@ -149,29 +149,55 @@ public:
 
 
 union idx { Inst *ptr; unsigned idx; };
-class Ptr final : public Inst {
+class ScalarAddr final : public Inst {
   Inst *base;
   bool hasOffset = false;
 public:
-  Ptr(llvm::Value *p) : Inst(p->getType()) {}
+  ScalarAddr(llvm::Value *p) : Inst(p->getType()) {}
+  void print(std::ostream &os) const override;
+};
+
+
+class VectorAddr final : public Inst {
+  Inst *base;
+  bool hasOffset = false;
+public:
+  VectorAddr(llvm::Value *p) : Inst(p->getType()) {}
   void print(std::ostream &os) const override;
 };
 
 
 class Load final : public Inst {
-  Ptr *p;
+  ScalarAddr *p;
 public:
-  Load(Ptr &p) : Inst(p.getType().getStrippedType()), p(&p) {}
+  Load(ScalarAddr &p) : Inst(p.getType().getStrippedType()), p(&p) {}
+  void print(std::ostream &os) const override;
+};
+
+
+class Gather final : public Inst {
+  VectorAddr *p;
+public:
+  Gather(VectorAddr &p) : Inst(p.getType().getStrippedType()), p(&p) {}
   void print(std::ostream &os) const override;
 };
 
 
 class Store final : public Inst {
-  Ptr *p;
+  ScalarAddr *p;
   Inst *v;
 public:
-  Store(Ptr &p, Inst &v) : Inst(type(-1, -1, false)), p(&p), v(&v) {};
+  Store(ScalarAddr &p, Inst &v) : Inst(type(-1, -1, false)), p(&p), v(&v) {};
   void print(std::ostream &os) const override;
 };
+
+
+class Scatter final : public Inst {
+  VectorAddr *p;
+public:
+  Scatter(VectorAddr &p) : Inst(p.getType().getStrippedType()), p(&p) {}
+  void print(std::ostream &os) const override;
+};
+
 
 }

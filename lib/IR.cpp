@@ -80,7 +80,7 @@ BitCastOp(Inst &i, unsigned lf, unsigned wf, unsigned lt, unsigned wt);
 }*/
 
 
-void Ptr::print(ostream &os) const {
+void ScalarAddr::print(ostream &os) const {
   os << "%" << *base;
 }
 
