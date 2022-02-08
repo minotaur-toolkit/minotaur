@@ -85,11 +85,11 @@ void Ptr::print(ostream &os) const {
 }
 
 void Load::print(ostream &os) const {
-  os << "(load)";
+  os << "(load " << *p << ")";
 }
 
 void Store::print(ostream &os) const {
-  os << "(load)";
+  os << "(store " << *v << " to " << *p << ")";
 }
 
 };
