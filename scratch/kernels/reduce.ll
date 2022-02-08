@@ -11,6 +11,17 @@ define i32 @reduce(<8 x i32> %a) {
 }
 
 
+define i32 @reduce_reverse(<8 x i32> %a) {
+  %b = shufflevector <8 x i32> %a, <8 x i32> undef, <8 x i32> <i32 undef, i32 undef, i32 undef, i32 undef, i32 0, i32 1, i32 2, i32 3>
+  %c = add <8 x i32> %a, %b
+  %d = shufflevector <8 x i32> %c, <8 x i32> undef, <8 x i32> <i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 4, i32 5>
+  %e = add <8 x i32> %c, %d
+  %f = shufflevector <8 x i32> %e, <8 x i32> undef, <8 x i32> <i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 6>
+  %g = add <8 x i32> %e, %f
+  %res = extractelement <8 x i32> %g, i32 7
+  ret i32 %res
+}
+
 
 define i32 @reduce2(<8 x i32> %a) {
   %res = call i32 @llvm.vector.reduce.add.v8i32(<8 x i32> %a)
