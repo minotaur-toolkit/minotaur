@@ -28,6 +28,7 @@ static constexpr std::array<llvm::Intrinsic::ID, X86IntrinBinOp::numOfX86Intrins
 /* avx512_pavg_b_512 */     llvm::Intrinsic::x86_avx512_pavg_b_512,
 /* avx2_pshuf_b */          llvm::Intrinsic::x86_avx2_pshuf_b,
 /* ssse3_pshuf_b_128 */     llvm::Intrinsic::x86_ssse3_pshuf_b_128,
+/* avx512_pshuf_b_512 */    llvm::Intrinsic::x86_avx512_pshuf_b_512,
 /* mmx_padd_b */            llvm::Intrinsic::x86_mmx_padd_b,
 /* mmx_padd_w */            llvm::Intrinsic::x86_mmx_padd_w,
 /* mmx_padd_d */            llvm::Intrinsic::x86_mmx_padd_d,
