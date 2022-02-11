@@ -74,14 +74,13 @@ int main(int argc, char **argv) {
         Slice S(F, LI, DT, PDT);
         if (I.getType()->isVoidTy())
           continue;
-        auto fs = S.extractExpr(I);
-        (void)fs;
+        S.extractExpr(I);
+        S.getNewModule()->dump();
         std::error_code EC;
         string filename = "slice_" + string(F.getName()) + "_" + to_string(count++) + ".bc";
         llvm::raw_fd_ostream OS(filename, EC, sys::fs::OpenFlags::OF_None);
         WriteBitcodeToFile(*S.getNewModule(), OS);
         OS.flush();
-        // fs.dump();
       }
     }
   }

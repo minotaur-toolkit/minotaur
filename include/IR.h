@@ -149,11 +149,11 @@ public:
 
 
 union idx { Inst *ptr; unsigned idx; };
-class ScalarAddr final : public Inst {
-  Inst *base;
+class Addr final : public Inst {
+  llvm::Value *base;
   bool hasOffset = false;
 public:
-  ScalarAddr(llvm::Value *p) : Inst(p->getType()) {}
+  Addr(llvm::Value *p) : Inst(p->getType()) {}
   void print(std::ostream &os) const override;
 };
 
@@ -168,9 +168,9 @@ public:
 
 
 class Load final : public Inst {
-  ScalarAddr *p;
+  Addr *p;
 public:
-  Load(ScalarAddr &p) : Inst(p.getType().getStrippedType()), p(&p) {}
+  Load(Addr &p) : Inst(p.getType().getStrippedType()), p(&p) {}
   void print(std::ostream &os) const override;
 };
 
@@ -184,10 +184,10 @@ public:
 
 
 class Store final : public Inst {
-  ScalarAddr *p;
+  Addr *p;
   Inst *v;
 public:
-  Store(ScalarAddr &p, Inst &v) : Inst(type(-1, -1, false)), p(&p), v(&v) {};
+  Store(Addr &p, Inst &v) : Inst(type(-1, -1, false)), p(&p), v(&v) {};
   void print(std::ostream &os) const override;
 };
 

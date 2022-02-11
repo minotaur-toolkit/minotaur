@@ -21,6 +21,8 @@ type::type(llvm::Type *t) {
     llvm::FixedVectorType *fty = cast<llvm::FixedVectorType>(t);
     lane = fty->getNumElements();
     bits = fty->getElementType()->getPrimitiveSizeInBits();
+  } else if (t->isPointerTy()) {
+
   } else {
     llvm::report_fatal_error("unrecognized type");
   }
