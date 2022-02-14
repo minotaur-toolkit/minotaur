@@ -9,6 +9,7 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalValue.h"
+#include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Verifier.h"
@@ -151,8 +152,8 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   unordered_set<Value *> visited;
 
   queue<pair<Value *, unsigned>> worklist;
+
   ValueToValueMapTy vmap;
-  vector<Instruction *> cloned_insts;
   vector<Instruction *> insts;
   map<BasicBlock *, vector<Instruction *>> bb_insts;
   set<BasicBlock *> blocks;
@@ -264,7 +265,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       for (auto &op : i->operands()) {
         worklist.push({op, depth + 1});
       }
-    } else if (isa<Constant>(w) || isa<Argument>(w) || isa<Operator>(w) || isa<GlobalValue>(w)) {
+    } else if (isa<Constant>(w) || isa<Argument>(w) || isa<GlobalVariable>(w)) {
       continue;
     } else {
       llvm::report_fatal_error("[ERROR] Unknown value:" + w->getName() + "\n");
@@ -358,6 +359,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   }
 
   // clone instructions
+  vector<Instruction *> cloned_insts;
   set<Value *> inst_set(insts.begin(), insts.end());
   for (auto inst : insts) {
     Instruction *c = inst->clone();
@@ -459,9 +461,10 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   DenseMap<Value *, unsigned> argMap;
   unsigned idx = 0;
   for (auto &i : cloned_insts) {
+    i->dump();
     RemapInstruction(i, vmap, RF_IgnoreMissingLocals);
     for (auto &op : i->operands()) {
-      if (isa<Argument>(op) || isa<Operator>(op) || isa<GlobalValue>(op)) {
+      if (isa<Argument>(op) || isa<GlobalVariable>(op)) {
         argTys.push_back(op->getType());
         argMap[op.get()] = idx++;
       } else if (isa<Constant>(op)) {
@@ -532,6 +535,15 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   }
   sinkbb->insertInto(F);
 
+  DominatorTree FDT = DominatorTree();
+  FDT.recalculate(*F);
+  auto FLI = new llvm::LoopInfoBase<llvm::BasicBlock, llvm::Loop>();
+  FLI->releaseMemory();
+  FLI->analyze(FDT);
+
+  if (!FLI->empty())
+    return nullopt;
+
   if (DEBUG_LEVEL > 0) {
     F->dump();
   }
@@ -541,6 +553,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   llvm::raw_string_ostream err_stream(err);
   bool illformed = llvm::verifyFunction(*F, &err_stream);
   if (illformed) {
+    F->dump();
     llvm::errs() << "[ERROR] found errors in the generated function\n";
     llvm::errs() << err << "\n";
     llvm::report_fatal_error("illformed function generated");

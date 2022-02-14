@@ -51,7 +51,7 @@ struct CacheExprsPass : PassInfoMixin<CacheExprsPass> {
         auto m = S.getNewModule();
         string bytecode;
         llvm::raw_string_ostream ss(bytecode);
-        //m->print(ss, nullptr, false, false);
+        m->print(ss, nullptr, false, false);
         WriteBitcodeToFile(*m, ss);
         ss.flush();
         const char *s = bytecode.c_str();

@@ -79,7 +79,7 @@ int main(int argc, char **argv) {
         std::error_code EC;
         string filename = "slice_" + string(F.getName()) + "_" + to_string(count++) + ".bc";
         llvm::raw_fd_ostream OS(filename, EC, sys::fs::OpenFlags::OF_None);
-        WriteBitcodeToFile(*S.getNewModule(), OS);
+        //WriteBitcodeToFile(*S.getNewModule(), OS);
         OS.flush();
       }
     }
