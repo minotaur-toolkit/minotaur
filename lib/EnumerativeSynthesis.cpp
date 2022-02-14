@@ -570,6 +570,7 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
         I->replaceAllUsesWith(V);
         cleanup(F);
         changed = true;
+        llvm::errs()<<"successfully\n";
         break;
       }
     }
