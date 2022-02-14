@@ -32,7 +32,7 @@ using namespace std;
 
 // TODO: add search depth limitation
 static constexpr unsigned MAX_DEPTH = 5;
-static constexpr unsigned MAX_WORKLIST = 100;
+static constexpr unsigned MAX_WORKLIST = 1000;
 static constexpr unsigned MAX_PHI = 3;
 static constexpr unsigned DEBUG_LEVEL = 0;
 
@@ -232,17 +232,6 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
           continue;
         }
 
-        for (unsigned i = 0; i < incomes; i ++) {
-          BasicBlock *incomebb =  phi->getIncomingBlock(i);
-
-          if (blocks.insert(incomebb).second) {
-            Instruction *term = incomebb->getTerminator();
-            assert(isa<BranchInst>(term) && "Unexpected terminator found");
-            BranchInst *bi = cast<BranchInst>(term);
-            /*if (bi->isConditional())
-              worklist.push({bi->getCondition(), 0});*/
-          }
-        }
         havePhi = true;
         if (numPhi++ > MAX_PHI) return nullopt;
       }
@@ -299,19 +288,33 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   {
     // set of predecessor bb a bb depends on
     map<BasicBlock *, set<BasicBlock *>> bb_deps;
-
     for (auto inst : insts) {
       auto preds = predecessors(inst->getParent());
-      for (auto &op : inst->operands()) {
-        if (!isa<Instruction>(op))
-          continue;
 
-        Instruction *op_i = cast<Instruction>(op);
-        BasicBlock *bb_i = op_i->getParent();
-        // skip if dep comes from immediate predecessor bb
-        if (find(preds.begin(), preds.end(), bb_i) != preds.end())
-          continue;
-        bb_deps[inst->getParent()].insert(bb_i);
+      if (auto *phi = dyn_cast<PHINode>(inst)) {
+        unsigned e = phi->getNumIncomingValues();
+        for (unsigned i = 0 ; i != e ; ++i) {
+          auto vi = phi->getIncomingValue(i);
+          BasicBlock *income = phi->getIncomingBlock(i);
+          blocks.insert(income);
+          if (!isa<Instruction>(vi))
+            continue;
+
+          BasicBlock *bb_i = cast<Instruction>(vi)->getParent();
+          //if (find(preds.begin(), preds.end(), bb_i) != preds.end())
+          //  continue;
+          bb_deps[phi->getIncomingBlock(i)].insert(bb_i);
+        }
+      } else {
+        for (auto &op : inst->operands()) {
+          if (!isa<Instruction>(op))
+            continue;
+          BasicBlock *bb_i = cast<Instruction>(op)->getParent();
+          // skip if dep comes from immediate predecessor bb
+          if (find(preds.begin(), preds.end(), bb_i) != preds.end())
+            continue;
+          bb_deps[inst->getParent()].insert(bb_i);
+        }
       }
     }
 
@@ -329,15 +332,10 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
           if (dep == ibb) {
             blocks.insert(path.begin(), path.end());
-            continue;
           }
 
           auto preds = predecessors(ibb);
           for (BasicBlock *pred : preds) {
-            // always harvest inside loop
-            if (loopv && !loopv->contains(pred))
-              continue;
-
             // do not allow loop
             if (path.count(pred))
               return nullopt;
