@@ -20,6 +20,27 @@ using namespace std;
 
 namespace {
 
+void optimizeModule(llvm::Module *M) {
+  llvm::LoopAnalysisManager LAM;
+  llvm::FunctionAnalysisManager FAM;
+  llvm::CGSCCAnalysisManager CGAM;
+  llvm::ModuleAnalysisManager MAM;
+
+  llvm::PassBuilder PB;
+  PB.registerModuleAnalyses(MAM);
+  PB.registerCGSCCAnalyses(CGAM);
+  PB.registerFunctionAnalyses(FAM);
+  PB.registerLoopAnalyses(LAM);
+  PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+
+  llvm::FunctionPassManager FPM =
+    PB.buildFunctionSimplificationPipeline(llvm::OptimizationLevel::O2,
+                                           llvm::ThinOrFullLTOPhase::None);
+  llvm::ModulePassManager MPM;
+  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+  MPM.run(*M, MAM);
+}
+
 struct CacheExprsPass : PassInfoMixin<CacheExprsPass> {
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM) {
     //TargetLibraryInfo &TLI = FAM.getResult<TargetLibraryAnalysis>(F);
@@ -49,9 +70,10 @@ struct CacheExprsPass : PassInfoMixin<CacheExprsPass> {
         Slice S(F, LI, DT, PDT);
         S.extractExpr(I);
         auto m = S.getNewModule();
+        optimizeModule(m.get());
         string bytecode;
         llvm::raw_string_ostream ss(bytecode);
-        m->print(ss, nullptr, false, false);
+        //m->print(ss, nullptr, false, false);
         WriteBitcodeToFile(*m, ss);
         ss.flush();
         const char *s = bytecode.c_str();
