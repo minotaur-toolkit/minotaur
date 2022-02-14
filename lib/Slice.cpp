@@ -182,21 +182,20 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       Loop *loopi = LI.getLoopFor(ibb);
 
       // do not try to harvest instructions beyond loop boundry.
-      if (loopi != loopv) continue;
+      if (loopi != loopv)
+        continue;
 
       if (CallInst *ci = dyn_cast<CallInst>(i)) {
         Function *callee = ci->getCalledFunction();
         if (!callee) {
-          if(DEBUG_LEVEL > 0) {
+          if(DEBUG_LEVEL > 0)
             llvm::errs() << "[INFO] indirect call found" << "\n";
-          }
           continue;
         }
         if (!callee->isIntrinsic()) {
-          if(DEBUG_LEVEL > 0) {
+          if(DEBUG_LEVEL > 0)
             llvm::errs() << "[INFO] unknown callee found "
                          << callee->getName() << "\n";
-          }
           continue;
         }
         FunctionCallee intrindecl =
@@ -263,9 +262,11 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       }
 
       for (auto &op : i->operands()) {
+        if (isa<ConstantExpr>(op))
+          return nullopt;
         worklist.push({op, depth + 1});
       }
-    } else if (isa<Constant>(w) || isa<Argument>(w) || isa<GlobalVariable>(w)) {
+    } else if (isa<Constant>(w) || isa<Argument>(w) || isa<GlobalValue>(w)) {
       continue;
     } else {
       llvm::report_fatal_error("[ERROR] Unknown value:" + w->getName() + "\n");
@@ -296,6 +297,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   // values by simply backward-traversing def/use tree, Block I will be missed.
   // To solve this issue,  we identify all such missed block by searching.
   {
+    // set of predecessor bb a bb depends on
     map<BasicBlock *, set<BasicBlock *>> bb_deps;
 
     for (auto inst : insts) {
@@ -306,6 +308,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
         Instruction *op_i = cast<Instruction>(op);
         BasicBlock *bb_i = op_i->getParent();
+        // skip if dep comes from immediate predecessor bb
         if (find(preds.begin(), preds.end(), bb_i) != preds.end())
           continue;
         bb_deps[inst->getParent()].insert(bb_i);
@@ -337,10 +340,10 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
             // do not allow loop
             if (path.count(pred))
-              continue;
+              return nullopt;
 
-            if (!DT.dominates(dep, pred))
-              continue;
+            /*if (!DT.dominates(dep, pred))
+              continue;*/
 
             unordered_set<BasicBlock*> new_path(path);
             new_path.insert(pred);
@@ -425,10 +428,9 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       } else {
         // TODO: investigate me
         BasicBlock *jumpbb = nullptr;
-        if(bmap.count(bi->getSuccessor(0)))
+
           jumpbb = bmap.at(bi->getSuccessor(0));
-        else
-          jumpbb = sinkbb;
+
         cloned_bi =
             BranchInst::Create(jumpbb, bmap.at(orig_bb));
       }
@@ -461,7 +463,6 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   DenseMap<Value *, unsigned> argMap;
   unsigned idx = 0;
   for (auto &i : cloned_insts) {
-    i->dump();
     RemapInstruction(i, vmap, RF_IgnoreMissingLocals);
     for (auto &op : i->operands()) {
       if (isa<Argument>(op) || isa<GlobalVariable>(op)) {
