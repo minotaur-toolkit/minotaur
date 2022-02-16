@@ -15,14 +15,18 @@ type::type(llvm::Type *t) {
   if (t->isIntegerTy()) {
     lane = 1;
     bits = t->getPrimitiveSizeInBits();
+    pointer = false;
   } else if (t->isVectorTy()) {
     if (llvm::isa<llvm::ScalableVectorType>(t))
       llvm::report_fatal_error("scalable vector type not yet supported");
     llvm::FixedVectorType *fty = cast<llvm::FixedVectorType>(t);
     lane = fty->getNumElements();
     bits = fty->getElementType()->getPrimitiveSizeInBits();
+    pointer = false;
   } else if (t->isPointerTy()) {
-
+    lane = 1;
+    bits = 1;
+    pointer = true;
   } else {
     llvm::report_fatal_error("unrecognized type");
   }

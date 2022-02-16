@@ -16,6 +16,8 @@ class type {
 public:
   type(unsigned l, unsigned b, bool p) : lane(l), bits(b), pointer(p) {};
   type(llvm::Type *t);
+  type(const type &t)
+  : lane(t.getLane()), bits(t.getBits()), pointer(t.isPointer()) {}
 
   bool isVector() {
     return lane != 1;
@@ -28,10 +30,10 @@ public:
   friend std::ostream& operator<<(std::ostream &os, const type &val);
 
   llvm::Type *toLLVM(llvm::LLVMContext &C);
-  unsigned getWidth() { return lane * bits; }
-  unsigned getLane() { return lane; }
-  unsigned getBits() { return bits; }
-  bool isPointer() { return pointer; }
+  unsigned getWidth() const { return lane * bits; }
+  unsigned getLane() const { return lane; }
+  unsigned getBits() const  { return bits; }
+  bool isPointer() const { return pointer; }
 
   type getStrippedType () {
     assert(pointer == true);

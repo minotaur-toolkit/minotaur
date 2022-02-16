@@ -39,6 +39,4 @@ if ($minotaur) {
   push @ARGV, ("-fpass-plugin=@CACHE_EXPRS_PASS@");
 }
 
-
-print "@ARGV\n";
 exec @ARGV;

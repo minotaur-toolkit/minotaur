@@ -255,7 +255,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
           return nullopt;
         worklist.push({op, depth + 1});
       }
-    } else if (isa<Constant>(w) || isa<Argument>(w) || isa<GlobalValue>(w)) {
+    } else if (isa<Constant>(w) || isa<Argument>(w) || isa<GlobalVariable>(w)) {
       continue;
     } else {
       llvm::report_fatal_error("[ERROR] Unknown value:" + w->getName() + "\n");
