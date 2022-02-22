@@ -253,10 +253,9 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       for (auto &op : i->operands()) {
         if (isa<ConstantExpr>(op))
           return nullopt;
-        worklist.push({op, depth + 1});
+        if (isa<Instruction>(op))
+          worklist.push({op, depth + 1});
       }
-    } else if (isa<Constant>(w) || isa<Argument>(w) || isa<GlobalVariable>(w)) {
-      continue;
     } else {
       llvm::report_fatal_error("[ERROR] Unknown value:" + w->getName() + "\n");
     }
@@ -329,7 +328,6 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
         if (deps.contains(ibb)) {
           blocks.insert(path.begin(), path.end());
-          path.clear();
           path.insert(ibb);
           if(!visited.insert(ibb).second)
              continue;
