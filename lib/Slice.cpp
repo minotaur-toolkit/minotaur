@@ -310,43 +310,40 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
           if (!isa<Instruction>(op))
             continue;
           BasicBlock *bb_i = cast<Instruction>(op)->getParent();
-          // skip if dep comes from immediate predecessor bb
-          if (find(preds.begin(), preds.end(), bb_i) != preds.end())
-            continue;
           bb_deps[inst->getParent()].insert(bb_i);
         }
       }
     }
 
+    unordered_set<Value *> visited;
     for (auto &[bb, deps] : bb_deps) {
-      for (auto dep : deps) {
-        queue<pair<unordered_set<BasicBlock *>, BasicBlock *>> worklist;
-        worklist.push({{bb}, bb});
+      queue<pair<unordered_set<BasicBlock *>, BasicBlock *>> worklist;
+      worklist.push({{bb}, bb});
 
-        while (!worklist.empty()) {
-          // TODO: scale up the algorithm
-          if (worklist.size() > MAX_WORKLIST)
+      while (!worklist.empty()) {
+        // TODO: scale up the algorithm
+        if (worklist.size() > MAX_WORKLIST)
+          return nullopt;
+        auto [path, ibb] = worklist.front();
+        worklist.pop();
+
+        if (deps.contains(ibb)) {
+          blocks.insert(path.begin(), path.end());
+          path.clear();
+          path.insert(ibb);
+          if(!visited.insert(ibb).second)
+             continue;
+        }
+
+        auto preds = predecessors(ibb);
+        for (BasicBlock *pred : preds) {
+          // do not allow loop
+          if (path.count(pred))
             return nullopt;
-          auto [path, ibb] = worklist.front();
-          worklist.pop();
 
-          if (dep == ibb) {
-            blocks.insert(path.begin(), path.end());
-          }
-
-          auto preds = predecessors(ibb);
-          for (BasicBlock *pred : preds) {
-            // do not allow loop
-            if (path.count(pred))
-              return nullopt;
-
-            /*if (!DT.dominates(dep, pred))
-              continue;*/
-
-            unordered_set<BasicBlock*> new_path(path);
-            new_path.insert(pred);
-            worklist.push({move(new_path), pred});
-          }
+          unordered_set<BasicBlock*> new_path(path);
+          new_path.insert(pred);
+          worklist.push({move(new_path), pred});
         }
       }
     }
@@ -552,6 +549,8 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   llvm::raw_string_ostream err_stream(err);
   bool illformed = llvm::verifyFunction(*F, &err_stream);
   if (illformed) {
+    f.dump();
+    llvm::errs()<<"\n";
     F->dump();
     llvm::errs() << "[ERROR] found errors in the generated function\n";
     llvm::errs() << err << "\n";

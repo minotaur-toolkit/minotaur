@@ -20,12 +20,20 @@ type::type(llvm::Type *t) {
     if (llvm::isa<llvm::ScalableVectorType>(t))
       llvm::report_fatal_error("scalable vector type not yet supported");
     llvm::FixedVectorType *fty = cast<llvm::FixedVectorType>(t);
+    Type *elemty = fty->getElementType();
     lane = fty->getNumElements();
-    bits = fty->getElementType()->getPrimitiveSizeInBits();
-    pointer = false;
+    if (elemty->isPointerTy()) {
+      bits = -1;
+      pointer = true;
+    } else if (elemty->isIntegerTy()){
+      bits = elemty->getPrimitiveSizeInBits();
+      pointer = false;
+    } else {
+      llvm::report_fatal_error("non-integer vectors are not supported\n");
+    }
   } else if (t->isPointerTy()) {
     lane = 1;
-    bits = 1;
+    bits = -1;
     pointer = true;
   } else {
     llvm::report_fatal_error("unrecognized type");
