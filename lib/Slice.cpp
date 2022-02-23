@@ -404,23 +404,32 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       if (orig_bb == vbb)
         continue;
       BranchInst *bi = cast<BranchInst>(orig_bb->getTerminator());
+      Loop *loopbb = LI.getLoopFor(orig_bb);
+
+      // harvesting blocks for phis may bring in loops, we untie those loops.
+      BasicBlock *header = nullptr;
+      if (loopbb) {
+        header = loopbb->getHeader();
+      }
 
       BranchInst *cloned_bi = nullptr;
       if (bi->isConditional()) {
         BasicBlock *truebb = nullptr, *falsebb = nullptr;
-        if(bmap.count(bi->getSuccessor(0)))
+        if(bmap.count(bi->getSuccessor(0)) && bi->getSuccessor(0) != header)
           truebb = bmap.at(bi->getSuccessor(0));
         else
           truebb = sinkbb;
-        if(bmap.count(bi->getSuccessor(1)))
+        if(bmap.count(bi->getSuccessor(1)) && bi->getSuccessor(1) != header)
           falsebb = bmap.at(bi->getSuccessor(1));
         else
           falsebb = sinkbb;
         cloned_bi = BranchInst::Create(truebb, falsebb,
                                        bi->getCondition(), bmap.at(orig_bb));
       } else {
-        cloned_bi =
-            BranchInst::Create( bmap.at(bi->getSuccessor(0)), bmap.at(orig_bb));
+        BasicBlock *jumpbb = sinkbb;
+        if(bi->getSuccessor(0) != header)
+          jumpbb = bmap.at(bi->getSuccessor(0));
+        cloned_bi = BranchInst::Create(jumpbb, bmap.at(orig_bb));
       }
       insts.push_back(bi);
       cloned_insts.push_back(cloned_bi);
@@ -495,6 +504,9 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     }
   }
   if (block_without_preds.size() == 0) {
+    for (auto block : cloned_blocks) {
+      block->dump();
+    }
     llvm::report_fatal_error("[ERROR] no entry block found");
   } if (block_without_preds.size() == 1) {
     BasicBlock *entry = *block_without_preds.begin();
@@ -525,7 +537,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
   // make sure sliced function is loop free.
   if (!FLI->empty())
-    llvm::report_fatal_error("[ERROR] why a loop is generated?");
+    llvm::report_fatal_error("[ERROR] a loop is generated");
 
   // validate the created function
   string err;
