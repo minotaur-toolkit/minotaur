@@ -212,19 +212,15 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
           if (!isa<Instruction>(phi->getIncomingValue(i)))
             return nullopt;
-          // v is in loop l, block is not in l
-          if (loopv && !loopv->contains(block)) {
-            phiHasUnknownIncome = true;
-            break;
-          }
-          // v is in toplevel, block is in a loop
+
           Loop *loopbb = LI.getLoopFor(block);
-          if (loopv != loopbb) {
+          if (loopbb != loopv) {
             phiHasUnknownIncome = true;
             break;
           }
         }
 
+        // if a phi node has unknown income, do not harvest
         if (phiHasUnknownIncome) {
           if(DEBUG_LEVEL > 0) {
             llvm::errs()<<"[INFO]"<<*phi<<" has external income\n";
@@ -328,20 +324,21 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
         if (deps.contains(ibb)) {
           blocks.insert(path.begin(), path.end());
-          path.insert(ibb);
-          if(!visited.insert(ibb).second)
-             continue;
+          if(visited.insert(ibb).second) {
+            path.clear();
+            path.insert(ibb);
+          } else {
+            continue;
+          }
         }
 
-        auto preds = predecessors(ibb);
-        for (BasicBlock *pred : preds) {
+        for (BasicBlock *pred : predecessors(ibb)) {
           // do not allow loop
           if (path.count(pred))
             return nullopt;
 
-          unordered_set<BasicBlock*> new_path(path);
-          new_path.insert(pred);
-          worklist.push({move(new_path), pred});
+          path.insert(pred);
+          worklist.push({path, pred});
         }
       }
     }
