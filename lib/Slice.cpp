@@ -314,6 +314,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   // Suppose an instruction in T uses values defined in A and B, if we harvest
   // values by simply backward-traversing def/use tree, Block I will be missed.
   // To solve this issue,  we identify all such missed block by searching.
+  // TODO: better object management.
   for (auto &[bb, deps] : bb_deps) {
     unordered_set<Value *> visited;
     queue<pair<unordered_set<BasicBlock *>, BasicBlock *>> worklist;
