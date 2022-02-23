@@ -18,19 +18,14 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
-#include <map>
 #include <optional>
 #include <queue>
-#include <set>
-#include <sstream>
-#include <stack>
 #include <unordered_map>
 #include <unordered_set>
 
 using namespace llvm;
 using namespace std;
 
-// TODO: add search depth limitation
 static constexpr unsigned MAX_DEPTH = 5;
 static constexpr unsigned DEBUG_LEVEL = 0;
 
@@ -109,7 +104,7 @@ namespace minotaur {
 
 //  * if a external value is outside the loop, and it does not dominates v,
 //    do not extract it
-optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
+optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   if(DEBUG_LEVEL > 0) {
     llvm::errs() << ">>> slicing value " << v << ">>>\n";
   }
@@ -140,12 +135,13 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
   ValueToValueMapTy vmap;
   vector<Instruction *> insts;
-  map<BasicBlock *, vector<Instruction *>> bb_insts;
-  set<BasicBlock *> blocks;
+  unordered_map<BasicBlock *, vector<Instruction *>> bb_insts;
+  unordered_set<BasicBlock *> blocks;
+
+  // set of predecessor bb a bb depends on
+  unordered_map<BasicBlock *, unordered_set<BasicBlock *>> bb_deps;
 
   worklist.push({&v, 0});
-
-  unsigned numPhi = 0;
 
   bool havePhi = false;
   // pass 1;
@@ -157,8 +153,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   while (!worklist.empty()) {
     auto &[w, depth] = worklist.front();
     worklist.pop();
-    if (depth > MAX_DEPTH)
-      continue;
+
     if (!visited.insert(w).second)
       continue;
 
@@ -227,6 +222,21 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
           continue;
         }
 
+        unsigned e = phi->getNumIncomingValues();
+        for (unsigned pi = 0 ; pi != e ; ++pi) {
+          auto vi = phi->getIncomingValue(pi);
+          BasicBlock *income = phi->getIncomingBlock(pi);
+          blocks.insert(income);
+          if (!isa<Instruction>(vi))
+            continue;
+
+          BasicBlock *bb_i = cast<Instruction>(vi)->getParent();
+          auto inc_pds = predecessors(income);
+          if (find(inc_pds.begin(), inc_pds.end(), bb_i) != inc_pds.end())
+             continue;
+          bb_deps[income].insert(bb_i);
+        }
+
         havePhi = true;
       }
 
@@ -236,19 +246,40 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       // BB->getInstList().push_front(c);
 
       bool never_visited = blocks.insert(ibb).second;
+
+      if (depth > MAX_DEPTH)
+        continue;
+
+      // add condition to worklist
       if (ibb != vbb && never_visited) {
         Instruction *term = ibb->getTerminator();
         assert(!isa<BranchInst>(term) && "Unexpected terminator found");
         BranchInst *bi = cast<BranchInst>(term);
-        //if (bi->isConditional() && isa<Instruction>(bi->getCondition()))
-        //  worklist.push({bi->getCondition(), depth + 1});
+        if (bi->isConditional()) {
+          if (Instruction *c = dyn_cast<Instruction>(bi->getCondition())) {
+            BasicBlock *cbb = cast<Instruction>(c)->getParent();
+            auto pds = predecessors(ibb);
+            if (cbb != ibb && find(pds.begin(), pds.end(), cbb) == pds.end())
+              bb_deps[ibb].insert(cbb);
+            worklist.push({c, depth + 1});
+          }
+        }
       }
 
       for (auto &op : i->operands()) {
         if (isa<ConstantExpr>(op))
           return nullopt;
-        if (isa<Instruction>(op))
-          worklist.push({op, depth + 1});
+
+        if (!isa<Instruction>(op))
+          continue;
+
+        auto preds = predecessors(i->getParent());
+        BasicBlock *bb_i = cast<Instruction>(op)->getParent();
+        if (find(preds.begin(), preds.end(), bb_i) != preds.end())
+          continue;
+
+        bb_deps[i->getParent()].insert(bb_i);
+        worklist.push({op, depth + 1});
       }
     } else {
       llvm::report_fatal_error("[ERROR] Unknown value:" + w->getName() + "\n");
@@ -278,66 +309,32 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   // Suppose an instruction in T uses values defined in A and B, if we harvest
   // values by simply backward-traversing def/use tree, Block I will be missed.
   // To solve this issue,  we identify all such missed block by searching.
-  {
-    // set of predecessor bb a bb depends on
-    map<BasicBlock *, set<BasicBlock *>> bb_deps;
-    for (auto inst : insts) {
-      auto preds = predecessors(inst->getParent());
+  for (auto &[bb, deps] : bb_deps) {
+    unordered_set<Value *> visited;
+    queue<pair<unordered_set<BasicBlock *>, BasicBlock *>> worklist;
+    worklist.push({{bb}, bb});
 
-      if (auto *phi = dyn_cast<PHINode>(inst)) {
-        unsigned e = phi->getNumIncomingValues();
-        for (unsigned i = 0 ; i != e ; ++i) {
-          auto vi = phi->getIncomingValue(i);
-          BasicBlock *income = phi->getIncomingBlock(i);
-          blocks.insert(income);
-          if (!isa<Instruction>(vi))
-            continue;
+    while (!worklist.empty()) {
+      auto [path, ibb] = worklist.front();
+      worklist.pop();
 
-          BasicBlock *bb_i = cast<Instruction>(vi)->getParent();
-          auto inc_pds = predecessors(income);
-          if (find(inc_pds.begin(), inc_pds.end(), bb_i) != inc_pds.end())
-             continue;
-          bb_deps[income].insert(bb_i);
-        }
-      } else {
-        for (auto &op : inst->operands()) {
-          if (!isa<Instruction>(op))
-            continue;
-          BasicBlock *bb_i = cast<Instruction>(op)->getParent();
-          if (find(preds.begin(), preds.end(), bb_i) != preds.end())
-            continue;
-          bb_deps[inst->getParent()].insert(bb_i);
+      if (deps.contains(ibb)) {
+        blocks.insert(path.begin(), path.end());
+        if(visited.insert(ibb).second) {
+          path.clear();
+          path.insert(ibb);
+        } else {
+          continue;
         }
       }
-    }
 
-    for (auto &[bb, deps] : bb_deps) {
-      unordered_set<Value *> visited;
-      queue<pair<unordered_set<BasicBlock *>, BasicBlock *>> worklist;
-      worklist.push({{bb}, bb});
+      for (BasicBlock *pred : predecessors(ibb)) {
+        // do not allow loop
+        if (path.count(pred))
+          return nullopt;
 
-      while (!worklist.empty()) {
-        auto [path, ibb] = worklist.front();
-        worklist.pop();
-
-        if (deps.contains(ibb)) {
-          blocks.insert(path.begin(), path.end());
-          if(visited.insert(ibb).second) {
-            path.clear();
-            path.insert(ibb);
-          } else {
-            continue;
-          }
-        }
-
-        for (BasicBlock *pred : predecessors(ibb)) {
-          // do not allow loop
-          if (path.count(pred))
-            return nullopt;
-
-          path.insert(pred);
-          worklist.push({path, pred});
-        }
+        path.insert(pred);
+        worklist.push({path, pred});
       }
     }
   }
@@ -351,7 +348,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
   // clone instructions
   vector<Instruction *> cloned_insts;
-  set<Value *> inst_set(insts.begin(), insts.end());
+  unordered_set<Value *> inst_set(insts.begin(), insts.end());
   for (auto inst : insts) {
     Instruction *c = inst->clone();
     vmap[inst] = c;
@@ -369,7 +366,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   BasicBlock *sinkbb = BasicBlock::Create(ctx, "sink");
   new UnreachableInst(ctx, sinkbb);
 
-  set<BasicBlock *> cloned_blocks;
+  unordered_set<BasicBlock *> cloned_blocks;
   unordered_map<BasicBlock *, BasicBlock *> bmap;
   if (havePhi) {
     // pass 3.1.1;
@@ -457,15 +454,16 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
         auto unknown = find(cloned_insts.begin(), cloned_insts.end(), op_i);
         if (unknown != cloned_insts.end())
           continue;
-        if (!argMap.count(op.get())) {
-          argTys.push_back(op->getType());
-          argMap[op.get()] = idx++;
-        }
+        if (argMap.count(op.get()))
+          continue;
+
+        argTys.push_back(op->getType());
+        argMap[op.get()] = idx++;
       }
     }
   }
   // argument for switch
-  argTys.push_back(Type::getInt64Ty(ctx));
+  argTys.push_back(Type::getInt8Ty(ctx));
   // create function
   auto func_name = "sliced_" + v.getName();
   Function *F = Function::Create(FunctionType::get(v.getType(), argTys, false),
@@ -481,7 +479,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     }
   }
 
-  set<BasicBlock *> block_without_preds;
+  unordered_set<BasicBlock *> block_without_preds;
   for (auto block : cloned_blocks) {
     auto preds = predecessors(block);
     if (preds.empty()) {
@@ -500,12 +498,10 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     }
   } else {
     BasicBlock *entry =  BasicBlock::Create(ctx, "entry");
-    SwitchInst *sw = SwitchInst::Create(F->getArg(idx), sinkbb,
-                                        1, entry);
-
+    SwitchInst *sw = SwitchInst::Create(F->getArg(idx), sinkbb, 1, entry);
     unsigned idx  = 0;
     for (BasicBlock *no_pred : block_without_preds) {
-      sw->addCase(ConstantInt::get(IntegerType::get(ctx, 64), idx ++), no_pred);
+      sw->addCase(ConstantInt::get(IntegerType::get(ctx, 8), idx ++), no_pred);
     }
     entry->insertInto(F);
     for (auto block : cloned_blocks) {
@@ -523,26 +519,20 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   if (!FLI->empty())
     return nullopt;
 
-  if (DEBUG_LEVEL > 0) {
-    F->dump();
-  }
-
   // validate the created function
   string err;
   llvm::raw_string_ostream err_stream(err);
   bool illformed = llvm::verifyFunction(*F, &err_stream);
   if (illformed) {
-    f.dump();
-    llvm::errs()<<"\n";
-    F->dump();
     llvm::errs() << "[ERROR] found errors in the generated function\n";
+    F->dump();
     llvm::errs() << err << "\n";
     llvm::report_fatal_error("illformed function generated");
   }
   if (DEBUG_LEVEL > 0) {
     llvm::errs() << "<<< end of %" << v.getName() << " <<<\n";
   }
-  return std::optional<std::reference_wrapper<Function>>(*F);
+  return optional<reference_wrapper<Function>>(*F);
 }
 
 } // namespace minotaur
