@@ -430,16 +430,18 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
     auto T = BB.getTerminator();
     if(!llvm::isa<llvm::ReturnInst>(T))
       continue;
-    //for (llvm::BasicBlock::reverse_iterator I = BB.rbegin(), E = BB.rend(); I != E; I++) {
-    if (!T->hasNUsesOrMore(1))
+    llvm::Value *S = llvm::cast<llvm::ReturnInst>(T)->getReturnValue();
+    if (!llvm::isa<llvm::Instruction>(S))
       continue;
+    llvm::Instruction *I = cast<llvm::Instruction>(S);
+    //for (llvm::BasicBlock::reverse_iterator I = BB.rbegin(), E = BB.rend(); I != E; I++) {
     unordered_map<llvm::Argument *, llvm::Constant *> constMap;
     set<unique_ptr<Var>> Inputs;
     set<unique_ptr<Addr>> Pointers;
-    findInputs(&*T, Inputs, Pointers, 20);
+    findInputs(&*I, Inputs, Pointers, 20);
 
     vector<pair<unique_ptr<Inst>,set<unique_ptr<ReservedConst>>>> Sketches;
-    getSketches(&*T, Inputs, Pointers, Sketches);
+    getSketches(&*I, Inputs, Pointers, Sketches);
 
     if (Sketches.empty()) continue;
 
@@ -507,7 +509,7 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
         Src = &F;
       }
 
-      llvm::Instruction *PrevI = llvm::cast<llvm::Instruction>(VMap[&*T]);
+      llvm::Instruction *PrevI = llvm::cast<llvm::Instruction>(VMap[&*I]);
       llvm::Value *V = LLVMGen(PrevI, IntrinsicDecls).codeGen(G.get(), VMap, nullptr);
       PrevI->replaceAllUsesWith(V);
 
@@ -570,8 +572,8 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
     // replace
     if (R) {
       llvm::ValueToValueMapTy VMap;
-      llvm::Value *V = LLVMGen(&*T, IntrinsicDecls).codeGen(R, VMap, &constMap);
-      T->replaceAllUsesWith(V);
+      llvm::Value *V = LLVMGen(&*I, IntrinsicDecls).codeGen(R, VMap, &constMap);
+      I->replaceAllUsesWith(V);
       cleanup(F);
       changed = true;
       llvm::errs()<<"successfully\n";
