@@ -32,8 +32,6 @@ using namespace std;
 
 // TODO: add search depth limitation
 static constexpr unsigned MAX_DEPTH = 5;
-static constexpr unsigned MAX_WORKLIST = 1000;
-static constexpr unsigned MAX_PHI = 3;
 static constexpr unsigned DEBUG_LEVEL = 0;
 
 using edgesTy = std::vector<std::unordered_set<unsigned>>;
@@ -112,17 +110,6 @@ namespace minotaur {
 //  * if a external value is outside the loop, and it does not dominates v,
 //    do not extract it
 optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
-  if (Instruction *i = dyn_cast<Instruction>(&v)) {
-    if (CallInst *ci = dyn_cast<CallInst>(i)) {
-      Function *callee = ci->getCalledFunction();
-      if (!callee)
-        return nullopt;
-      if (!callee->isIntrinsic()) {
-        return nullopt;
-      }
-    }
-  }
-
   if(DEBUG_LEVEL > 0) {
     llvm::errs() << ">>> slicing value " << v << ">>>\n";
   }
@@ -133,8 +120,6 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
   Loop *loopv = LI.getLoopFor(vbb);
   if (loopv) {
-    // TODO: why non innermost loops are returned?
-    //if(!loopv->isInnermost()) return nullopt;
     if(DEBUG_LEVEL > 0) {
       llvm::errs() << "[INFO] value is in " << *loopv;
     }
@@ -182,7 +167,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       bool haveFunctionArgs = false;
       for (auto &op : i->operands()) {
         auto ity = op->getType();
-        if (ity->isPointerTy()) {
+        if (ity->isPointerTy() && ity->getPointerElementType()->isFunctionTy()) {
           haveFunctionArgs = true;
           break;
         }
@@ -191,13 +176,14 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
         continue;
 
 
+      // do not harvest instructions beyond loop boundry.
       BasicBlock *ibb = i->getParent();
       Loop *loopi = LI.getLoopFor(ibb);
 
-      // do not try to harvest instructions beyond loop boundry.
       if (loopi != loopv)
         continue;
 
+      // handle callsites
       if (CallInst *ci = dyn_cast<CallInst>(i)) {
         Function *callee = ci->getCalledFunction();
         if (!callee) {
@@ -242,7 +228,6 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
         }
 
         havePhi = true;
-        if (numPhi++ > MAX_PHI) return nullopt;
       }
 
       insts.push_back(i);
@@ -255,8 +240,8 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
         Instruction *term = ibb->getTerminator();
         assert(!isa<BranchInst>(term) && "Unexpected terminator found");
         BranchInst *bi = cast<BranchInst>(term);
-        /*if (bi->isConditional())
-          worklist.push({bi->getCondition(), 0});*/
+        //if (bi->isConditional() && isa<Instruction>(bi->getCondition()))
+        //  worklist.push({bi->getCondition(), depth + 1});
       }
 
       for (auto &op : i->operands()) {
@@ -309,15 +294,18 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
             continue;
 
           BasicBlock *bb_i = cast<Instruction>(vi)->getParent();
-          //if (find(preds.begin(), preds.end(), bb_i) != preds.end())
-          //  continue;
-          bb_deps[phi->getIncomingBlock(i)].insert(bb_i);
+          auto inc_pds = predecessors(income);
+          if (find(inc_pds.begin(), inc_pds.end(), bb_i) != inc_pds.end())
+             continue;
+          bb_deps[income].insert(bb_i);
         }
       } else {
         for (auto &op : inst->operands()) {
           if (!isa<Instruction>(op))
             continue;
           BasicBlock *bb_i = cast<Instruction>(op)->getParent();
+          if (find(preds.begin(), preds.end(), bb_i) != preds.end())
+            continue;
           bb_deps[inst->getParent()].insert(bb_i);
         }
       }
@@ -329,9 +317,6 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       worklist.push({{bb}, bb});
 
       while (!worklist.empty()) {
-        // TODO: scale up the algorithm
-        if (worklist.size() > MAX_WORKLIST)
-          return nullopt;
         auto [path, ibb] = worklist.front();
         worklist.pop();
 
@@ -429,13 +414,8 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
         cloned_bi = BranchInst::Create(truebb, falsebb,
                                        bi->getCondition(), bmap.at(orig_bb));
       } else {
-        // TODO: investigate me
-        BasicBlock *jumpbb = nullptr;
-
-          jumpbb = bmap.at(bi->getSuccessor(0));
-
         cloned_bi =
-            BranchInst::Create(jumpbb, bmap.at(orig_bb));
+            BranchInst::Create( bmap.at(bi->getSuccessor(0)), bmap.at(orig_bb));
       }
       insts.push_back(bi);
       cloned_insts.push_back(cloned_bi);
@@ -509,12 +489,7 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     }
   }
   if (block_without_preds.size() == 0) {
-    for (auto block : cloned_blocks) {
-      block->insertInto(F);
-    }
-    sinkbb->insertInto(F);
-    return nullopt;
-    //llvm::report_fatal_error("[ERROR] no entry block found");
+    llvm::report_fatal_error("[ERROR] no entry block found");
   } if (block_without_preds.size() == 1) {
     BasicBlock *entry = *block_without_preds.begin();
     entry->insertInto(F);
