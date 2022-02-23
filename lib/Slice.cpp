@@ -154,6 +154,9 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     auto &[w, depth] = worklist.front();
     worklist.pop();
 
+    if (isa<LandingPadInst>(w))
+      continue;
+
     if (!visited.insert(w).second)
       continue;
 
@@ -261,7 +264,8 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       // add condition to worklist
       if (ibb != vbb && never_visited) {
         Instruction *term = ibb->getTerminator();
-        assert(!isa<BranchInst>(term) && "Unexpected terminator found");
+        if(!isa<BranchInst>(term))
+          return nullopt;
         BranchInst *bi = cast<BranchInst>(term);
         if (bi->isConditional()) {
           if (Instruction *c = dyn_cast<Instruction>(bi->getCondition())) {
@@ -348,7 +352,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   // FIXME: Do not handle switch for now
   for (BasicBlock *orig_bb : blocks) {
     Instruction *term = orig_bb->getTerminator();
-    if (isa<SwitchInst>(term))
+    if (!isa<BranchInst>(term))
       return nullopt;
   }
 
@@ -399,9 +403,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     for (BasicBlock *orig_bb : blocks) {
       if (orig_bb == vbb)
         continue;
-      Instruction *term = orig_bb->getTerminator();
-      assert(isa<BranchInst>(term) && "Unexpected terminator found");
-      BranchInst *bi = cast<BranchInst>(term);
+      BranchInst *bi = cast<BranchInst>(orig_bb->getTerminator());
 
       BranchInst *cloned_bi = nullptr;
       if (bi->isConditional()) {
