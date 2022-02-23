@@ -21,6 +21,7 @@
 #include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Transforms/Scalar/DCE.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -426,153 +427,155 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
   std::unordered_set<llvm::Function *> IntrinsicDecls;
 
   for (auto &BB : F) {
-    for (llvm::BasicBlock::reverse_iterator I = BB.rbegin(), E = BB.rend(); I != E; I++) {
-      if (!I->hasNUsesOrMore(1))
-        continue;
-      unordered_map<llvm::Argument *, llvm::Constant *> constMap;
-      set<unique_ptr<Var>> Inputs;
-      set<unique_ptr<Addr>> Pointers;
-      findInputs(&*I, Inputs, Pointers, 20);
+    auto T = BB.getTerminator();
+    if(!llvm::isa<llvm::ReturnInst>(T))
+      continue;
+    //for (llvm::BasicBlock::reverse_iterator I = BB.rbegin(), E = BB.rend(); I != E; I++) {
+    if (!T->hasNUsesOrMore(1))
+      continue;
+    unordered_map<llvm::Argument *, llvm::Constant *> constMap;
+    set<unique_ptr<Var>> Inputs;
+    set<unique_ptr<Addr>> Pointers;
+    findInputs(&*T, Inputs, Pointers, 20);
 
-      vector<pair<unique_ptr<Inst>,set<unique_ptr<ReservedConst>>>> Sketches;
-      getSketches(&*I, Inputs, Pointers, Sketches);
+    vector<pair<unique_ptr<Inst>,set<unique_ptr<ReservedConst>>>> Sketches;
+    getSketches(&*T, Inputs, Pointers, Sketches);
 
-      if (Sketches.empty()) continue;
+    if (Sketches.empty()) continue;
 
-      cout<<"---------Sketches------------"<<endl;
-      for (auto &Sketch : Sketches) {
-        cout<<*Sketch.first<<endl;
+    cout<<"---------Sketches------------"<<endl;
+    for (auto &Sketch : Sketches) {
+      cout<<*Sketch.first<<endl;
+    }
+    cout<<"-----------------------------"<<endl;
+
+    struct Comparator {
+      bool operator()(tuple<llvm::Function *, llvm::Function *, Inst *, bool>& p1, tuple<llvm::Function *, llvm::Function *, Inst *, bool> &p2) {
+        return get<0>(p1)->getInstructionCount() > get<0>(p2)->getInstructionCount();
       }
-      cout<<"-----------------------------"<<endl;
+    };
+    unordered_map<string, llvm::Argument *> constants;
+    unsigned CI = 0;
+    priority_queue<tuple<llvm::Function *, llvm::Function *, Inst *, bool>, vector<tuple<llvm::Function *, llvm::Function *, Inst *, bool>>, Comparator> Fns;
 
-      struct Comparator {
-        bool operator()(tuple<llvm::Function *, llvm::Function *, Inst *, bool>& p1, tuple<llvm::Function *, llvm::Function *, Inst *, bool> &p2) {
-          return get<0>(p1)->getInstructionCount() > get<0>(p2)->getInstructionCount();
-        }
-      };
-      unordered_map<string, llvm::Argument *> constants;
-      unsigned CI = 0;
-      priority_queue<tuple<llvm::Function *, llvm::Function *, Inst *, bool>, vector<tuple<llvm::Function *, llvm::Function *, Inst *, bool>>, Comparator> Fns;
-
-      auto FT = F.getFunctionType();
-      // sketches -> llvm functions
-      for (auto &Sketch : Sketches) {
-        bool HaveC = !Sketch.second.empty();
-        auto &G = Sketch.first;
-        llvm::ValueToValueMapTy VMap;
+    auto FT = F.getFunctionType();
+    // sketches -> llvm functions
+    for (auto &Sketch : Sketches) {
+      bool HaveC = !Sketch.second.empty();
+      auto &G = Sketch.first;
+      llvm::ValueToValueMapTy VMap;
 
 
-        llvm::SmallVector<llvm::Type *, 8> Args;
-        for (auto I: FT->params()) {
-          Args.push_back(I);
-        }
-
-        for (auto &C : Sketch.second) {
-          Args.push_back(C->getType().toLLVM(F.getContext()));
-        }
-
-        auto nFT = llvm::FunctionType::get(FT->getReturnType(), Args, FT->isVarArg());
-
-        llvm::Function *Tgt = llvm::Function::Create(nFT, F.getLinkage(), F.getName(), F.getParent());
-
-        llvm::SmallVector<llvm::ReturnInst *, 8> TgtReturns;
-        llvm::Function::arg_iterator TgtArgI = Tgt->arg_begin();
-
-        for (auto I = F.arg_begin(), E = F.arg_end(); I != E; ++I, ++TgtArgI) {
-          VMap[I] = TgtArgI;
-          TgtArgI->setName(I->getName());
-        }
-
-        // sketches with constants, duplicate F
-        for (auto &C : Sketch.second) {
-          string arg_name = "_reservedc_" + std::to_string(CI);
-          TgtArgI->setName(arg_name);
-          constants[arg_name] = TgtArgI;
-          C->setA(TgtArgI);
-          ++CI;
-          ++TgtArgI;
-        }
-
-        llvm::CloneFunctionInto(Tgt, &F, VMap, llvm::CloneFunctionChangeType::LocalChangesOnly, TgtReturns);
-
-        llvm::Function *Src;
-        if (HaveC) {
-          llvm::ValueToValueMapTy _vs;
-          Src = llvm::CloneFunction(Tgt, _vs);
-        } else {
-          Src = &F;
-        }
-
-        llvm::Instruction *PrevI = llvm::cast<llvm::Instruction>(VMap[&*I]);
-        llvm::Value *V = LLVMGen(PrevI, IntrinsicDecls).codeGen(G.get(), VMap, nullptr);
-        PrevI->replaceAllUsesWith(V);
-
-        cleanup(*Tgt);
-        if (Tgt->getInstructionCount() >= F.getInstructionCount()) {
-          if (HaveC)
-            Src->eraseFromParent();
-          Tgt->eraseFromParent();
-          continue;
-        }
-
-        Fns.push(make_tuple(Tgt, Src, G.get(), !Sketch.second.empty()));
+      llvm::SmallVector<llvm::Type *, 8> Args;
+      for (auto I: FT->params()) {
+        Args.push_back(I);
       }
 
-      // llvm functions -> alive2 functions, followed by verification or constant synthesis
-      while (!Fns.empty()) {
-        auto [Tgt, Src, G, HaveC] = Fns.top();
-        Fns.pop();
-        Tgt->dump();
-        auto Func1 = llvm_util::llvm2alive(*Src, *TLI);
-        auto Func2 = llvm_util::llvm2alive(*Tgt, *TLI);
-        unsigned goodCount = 0, badCount = 0, errorCount = 0;
-        if (!HaveC) {
-          result |= compareFunctions(*Func1, *Func2,
-                                     goodCount, badCount, errorCount);
-        } else {
-          unordered_map<const IR::Value *, llvm::Argument *> inputMap;
-          for (auto &I : Func2->getInputs()) {
-            string input_name = I.getName();
-            // remove "%"
-            input_name.erase(0, 1);
-            if (constants.count(input_name)) {
-              inputMap[&I] = constants[input_name];
-            }
-          }
-          constMap.clear();
-          result |= constantSynthesis(*Func1, *Func2,
-                                      goodCount, badCount, errorCount,
-                                      inputMap, constMap);
-
-          Src->eraseFromParent();
-        }
-        Tgt->eraseFromParent();
-        if (goodCount) {
-          R = G;
-          break;
-        }
+      for (auto &C : Sketch.second) {
+        Args.push_back(C->getType().toLLVM(F.getContext()));
       }
 
-      // clean up
-      while (!Fns.empty()) {
-        auto [Tgt, Src, G, HaveC] = Fns.top();
-        Fns.pop();
-        (void) G;
+      auto nFT = llvm::FunctionType::get(FT->getReturnType(), Args, FT->isVarArg());
+
+      llvm::Function *Tgt = llvm::Function::Create(nFT, F.getLinkage(), F.getName(), F.getParent());
+
+      llvm::SmallVector<llvm::ReturnInst *, 8> TgtReturns;
+      llvm::Function::arg_iterator TgtArgI = Tgt->arg_begin();
+
+      for (auto I = F.arg_begin(), E = F.arg_end(); I != E; ++I, ++TgtArgI) {
+        VMap[I] = TgtArgI;
+        TgtArgI->setName(I->getName());
+      }
+
+      // sketches with constants, duplicate F
+      for (auto &C : Sketch.second) {
+        string arg_name = "_reservedc_" + std::to_string(CI);
+        TgtArgI->setName(arg_name);
+        constants[arg_name] = TgtArgI;
+        C->setA(TgtArgI);
+        ++CI;
+        ++TgtArgI;
+      }
+
+      llvm::CloneFunctionInto(Tgt, &F, VMap, llvm::CloneFunctionChangeType::LocalChangesOnly, TgtReturns);
+
+      llvm::Function *Src;
+      if (HaveC) {
+        llvm::ValueToValueMapTy _vs;
+        Src = llvm::CloneFunction(Tgt, _vs);
+      } else {
+        Src = &F;
+      }
+
+      llvm::Instruction *PrevI = llvm::cast<llvm::Instruction>(VMap[&*T]);
+      llvm::Value *V = LLVMGen(PrevI, IntrinsicDecls).codeGen(G.get(), VMap, nullptr);
+      PrevI->replaceAllUsesWith(V);
+
+      cleanup(*Tgt);
+      if (Tgt->getInstructionCount() >= F.getInstructionCount()) {
         if (HaveC)
           Src->eraseFromParent();
         Tgt->eraseFromParent();
+        continue;
       }
 
-      // replace
-      if (R) {
-        llvm::ValueToValueMapTy VMap;
-        llvm::Value *V = LLVMGen(&*I, IntrinsicDecls).codeGen(R, VMap, &constMap);
-        I->replaceAllUsesWith(V);
-        cleanup(F);
-        changed = true;
-        llvm::errs()<<"successfully\n";
+      Fns.push(make_tuple(Tgt, Src, G.get(), !Sketch.second.empty()));
+    }
+
+    // llvm functions -> alive2 functions, followed by verification or constant synthesis
+    while (!Fns.empty()) {
+      auto [Tgt, Src, G, HaveC] = Fns.top();
+      Fns.pop();
+      Tgt->dump();
+      auto Func1 = llvm_util::llvm2alive(*Src, *TLI);
+      auto Func2 = llvm_util::llvm2alive(*Tgt, *TLI);
+      unsigned goodCount = 0, badCount = 0, errorCount = 0;
+      if (!HaveC) {
+        result |= compareFunctions(*Func1, *Func2,
+                                    goodCount, badCount, errorCount);
+      } else {
+        unordered_map<const IR::Value *, llvm::Argument *> inputMap;
+        for (auto &I : Func2->getInputs()) {
+          string input_name = I.getName();
+          // remove "%"
+          input_name.erase(0, 1);
+          if (constants.count(input_name)) {
+            inputMap[&I] = constants[input_name];
+          }
+        }
+        constMap.clear();
+        result |= constantSynthesis(*Func1, *Func2,
+                                    goodCount, badCount, errorCount,
+                                    inputMap, constMap);
+
+        Src->eraseFromParent();
+      }
+      Tgt->eraseFromParent();
+      if (goodCount) {
+        R = G;
         break;
       }
+    }
+
+    // clean up
+    while (!Fns.empty()) {
+      auto [Tgt, Src, G, HaveC] = Fns.top();
+      Fns.pop();
+      (void) G;
+      if (HaveC)
+        Src->eraseFromParent();
+      Tgt->eraseFromParent();
+    }
+
+    // replace
+    if (R) {
+      llvm::ValueToValueMapTy VMap;
+      llvm::Value *V = LLVMGen(&*T, IntrinsicDecls).codeGen(R, VMap, &constMap);
+      T->replaceAllUsesWith(V);
+      cleanup(F);
+      changed = true;
+      llvm::errs()<<"successfully\n";
+      break;
     }
   }
   removeUnusedDecls(IntrinsicDecls);
