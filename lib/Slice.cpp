@@ -159,16 +159,22 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
     if (Instruction *i = dyn_cast<Instruction>(w)) {
       // do not handle function operands.
-      bool haveFunctionArgs = false;
+      bool haveUnknownOperand = false;
       for (auto &op : i->operands()) {
-        auto ity = op->getType();
-        if (ity->isPointerTy() && ity->getPointerElementType()->isFunctionTy()) {
-          haveFunctionArgs = true;
+        if (isa<ConstantExpr>(op)) {
+          haveUnknownOperand = true;
+          break;
+        }
+        auto ot = op->getType();
+        if (ot->isPointerTy() && ot->getPointerElementType()->isFunctionTy()) {
+          haveUnknownOperand = true;
           break;
         }
       }
-      if (haveFunctionArgs)
+
+      if (haveUnknownOperand) {
         continue;
+      }
 
 
       // do not harvest instructions beyond loop boundry.
@@ -204,8 +210,10 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
         for (unsigned i = 0; i < incomes; i ++) {
           BasicBlock *block = phi->getIncomingBlock(i);
 
-          if (!isa<Instruction>(phi->getIncomingValue(i)))
-            return nullopt;
+          if (!isa<Instruction>(phi->getIncomingValue(i))) {
+            phiHasUnknownIncome = true;
+            break;
+          }
 
           Loop *loopbb = LI.getLoopFor(block);
           if (loopbb != loopv) {
@@ -267,9 +275,6 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       }
 
       for (auto &op : i->operands()) {
-        if (isa<ConstantExpr>(op))
-          return nullopt;
-
         if (!isa<Instruction>(op))
           continue;
 
@@ -512,12 +517,12 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
   DominatorTree FDT = DominatorTree();
   FDT.recalculate(*F);
-  auto FLI = new llvm::LoopInfoBase<llvm::BasicBlock, llvm::Loop>();
-  FLI->releaseMemory();
+  auto FLI = new LoopInfoBase<BasicBlock, Loop>();
   FLI->analyze(FDT);
 
+  // make sure sliced function is loop free.
   if (!FLI->empty())
-    return nullopt;
+    llvm::report_fatal_error("[ERROR] why a loop is generated?");
 
   // validate the created function
   string err;
