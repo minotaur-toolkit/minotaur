@@ -15,7 +15,7 @@ ostream& operator<<(ostream &os, const Inst &val) {
 }
 
 void Var::print(ostream &os) const {
-  os << "%" << string(v->getName());
+  os << "%var";
 }
 
 void ReservedConst::print(ostream &os) const {
@@ -81,7 +81,7 @@ BitCastOp(Inst &i, unsigned lf, unsigned wf, unsigned lt, unsigned wt);
 
 
 void Addr::print(ostream &os) const {
-  os << "%" << string(base->getName());
+  os << "%addr";
 }
 
 void Load::print(ostream &os) const {
