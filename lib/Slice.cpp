@@ -310,8 +310,8 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       }
     }
 
-    unordered_set<Value *> visited;
     for (auto &[bb, deps] : bb_deps) {
+      unordered_set<Value *> visited;
       queue<pair<unordered_set<BasicBlock *>, BasicBlock *>> worklist;
       worklist.push({{bb}, bb});
 
