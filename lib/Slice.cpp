@@ -178,6 +178,19 @@ optional<std::reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       continue;
 
     if (Instruction *i = dyn_cast<Instruction>(w)) {
+      // do not handle function operands.
+      bool haveFunctionArgs = false;
+      for (auto &op : i->operands()) {
+        auto ity = op->getType();
+        if (ity->isPointerTy()) {
+          haveFunctionArgs = true;
+          break;
+        }
+      }
+      if (haveFunctionArgs)
+        continue;
+
+
       BasicBlock *ibb = i->getParent();
       Loop *loopi = LI.getLoopFor(ibb);
 
