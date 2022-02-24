@@ -2,7 +2,8 @@
 // Distributed under the MIT license that can be found in the LICENSE file.
 #include "util/compiler.h"
 #include "util/sort.h"
-#include <Slice.h>
+#include "Slice.h"
+#include "Utils.h"
 
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/BasicBlock.h"
@@ -538,6 +539,8 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   // make sure sliced function is loop free.
   if (!FLI->empty())
     llvm::report_fatal_error("[ERROR] a loop is generated");
+
+  eliminate_dead_code(*F);
 
   // validate the created function
   string err;

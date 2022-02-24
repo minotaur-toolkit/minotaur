@@ -4,6 +4,7 @@
 #include "ConstantSynthesis.h"
 #include "IR.h"
 #include "LLVMGen.h"
+#include "Utils.h"
 
 #include "Type.h"
 #include "ir/globals.h"
@@ -22,8 +23,6 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/Passes/PassBuilder.h"
-#include "llvm/Transforms/Scalar/DCE.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #include <iostream>
@@ -394,17 +393,6 @@ constantSynthesis(IR::Function &Func1, IR::Function &Func2,
   return ret;
 }
 
-static void cleanup(llvm::Function &F) {
-  llvm::FunctionAnalysisManager FAM;
-
-  llvm::PassBuilder PB;
-  PB.registerFunctionAnalyses(FAM);
-
-  llvm::FunctionPassManager FPM;
-  FPM.addPass(llvm::DCEPass());
-  FPM.run(F, FAM);
-}
-
 static void removeUnusedDecls(unordered_set<llvm::Function *> IntrinsicDecls) {
   for (auto Intr : IntrinsicDecls) {
     if (Intr->isDeclaration() && Intr->use_empty()) {
@@ -574,7 +562,7 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
       llvm::ValueToValueMapTy VMap;
       llvm::Value *V = LLVMGen(&*I, IntrinsicDecls).codeGen(R, VMap, &constMap);
       I->replaceAllUsesWith(V);
-      cleanup(F);
+      eliminate_dead_code(F);
       changed = true;
       llvm::errs()<<"successfully\n";
       break;

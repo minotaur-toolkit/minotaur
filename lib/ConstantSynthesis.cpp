@@ -91,7 +91,8 @@ Errors ConstantSynthesis::synthesize(unordered_map<const Value*, expr> &result) 
       continue;
     }
 
-    config::dbg()<<"constant synthesizer now only supports synthesizing integers and vector of integers"<<std::endl;
+    config::dbg()<<"constant synthesizer now only supports synthesizing"
+                 <<"integers and vector of integers"<<std::endl;
     return errs;
   }
   auto dom_a = sv.domain;

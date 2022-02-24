@@ -42,6 +42,7 @@ set(SYNTHESIZER_SRC
   "lib/LLVMGen.cpp"
   "lib/MachineCost.cpp"
   "lib/Type.cpp"
+  "lib/Utils.cpp"
 )
 
 add_library(synthesizer STATIC ${SYNTHESIZER_SRC})
