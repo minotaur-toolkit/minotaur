@@ -501,7 +501,7 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
       llvm::Value *V = LLVMGen(PrevI, IntrinsicDecls).codeGen(G.get(), VMap, nullptr);
       PrevI->replaceAllUsesWith(V);
 
-      cleanup(*Tgt);
+      eliminate_dead_code(*Tgt);
       if (Tgt->getInstructionCount() >= F.getInstructionCount()) {
         if (HaveC)
           Src->eraseFromParent();

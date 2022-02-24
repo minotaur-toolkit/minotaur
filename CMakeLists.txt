@@ -42,12 +42,8 @@ set(SYNTHESIZER_SRC
   "lib/LLVMGen.cpp"
   "lib/MachineCost.cpp"
   "lib/Type.cpp"
-  "lib/Utils.cpp"
 )
 
-add_library(synthesizer STATIC ${SYNTHESIZER_SRC})
-add_library(slice STATIC "lib/Slice.cpp")
-set(MINOTAUR_LIBS_LLVM synthesizer ${ALIVE_LIBS} ${ALIVE_LIBS_LLVM})
 
 find_package(Z3 4.8.5 REQUIRED)
 
@@ -61,20 +57,27 @@ find_library(HIREDIS_LIBRARY
 
 include_directories(${HIREDIS_INCLUDE_DIR}/hiredis)
 
+llvm_map_components_to_libnames(LLVM_LIBS analysis bitwriter core irreader passes scalaropts support transformutils)
+
 add_llvm_library(minotaur MODULE pass/online.cpp)
 add_llvm_library(cache-exprs MODULE pass/cache-exprs.cpp)
 
-target_link_libraries(minotaur PRIVATE ${MINOTAUR_LIBS_LLVM} ${Z3_LIBRARIES}
+add_library(synthesizer STATIC ${SYNTHESIZER_SRC})
+add_library(slice STATIC "lib/Slice.cpp")
+add_library(utils STATIC "lib/Utils.cpp")
+
+target_link_libraries(utils PRIVATE ${LLVM_LIBS})
+
+target_link_libraries(minotaur PRIVATE synthesizer utils ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 target_link_libraries(cache-exprs PRIVATE slice ${HIREDIS_LIBRARY}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 
-add_llvm_executable(minotaur-cs tools/minotaur-cs.cpp)
-add_llvm_executable(minotaur-slice tools/minotaur-slice.cpp)
-llvm_map_components_to_libnames(llvm_libs support core irreader analysis passes transformutils bitwriter)
-target_link_libraries(minotaur-cs PRIVATE ${MINOTAUR_LIBS_LLVM} ${Z3_LIBRARIES} ${llvm_libs}
+add_llvm_executable(minotaur-cs     "tools/minotaur-cs.cpp")
+add_llvm_executable(minotaur-slice  "tools/minotaur-slice.cpp")
+target_link_libraries(minotaur-cs PRIVATE synthesizer ${ALIVE_LIBS} ${LLVM_LIBS} ${Z3_LIBRARIES}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
-target_link_libraries(minotaur-slice PRIVATE slice ${llvm_libs} ${HIREDIS_LIBRARY}
+target_link_libraries(minotaur-slice PRIVATE slice utils ${ALIVE_LIBS} ${HIREDIS_LIBRARY}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 
 if(APPLE)
