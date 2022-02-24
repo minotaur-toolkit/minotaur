@@ -67,8 +67,10 @@ add_library(slice STATIC "lib/Slice.cpp")
 add_library(utils STATIC "lib/Utils.cpp")
 
 target_link_libraries(utils PRIVATE ${LLVM_LIBS})
+target_link_libraries(slice PRIVATE utils)
+target_link_libraries(synthesizer PRIVATE utils)
 
-target_link_libraries(minotaur PRIVATE synthesizer utils ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS}
+target_link_libraries(minotaur PRIVATE synthesizer ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 target_link_libraries(cache-exprs PRIVATE slice ${HIREDIS_LIBRARY}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
@@ -77,7 +79,7 @@ add_llvm_executable(minotaur-cs     "tools/minotaur-cs.cpp")
 add_llvm_executable(minotaur-slice  "tools/minotaur-slice.cpp")
 target_link_libraries(minotaur-cs PRIVATE synthesizer ${ALIVE_LIBS} ${LLVM_LIBS} ${Z3_LIBRARIES}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
-target_link_libraries(minotaur-slice PRIVATE slice utils ${ALIVE_LIBS} ${HIREDIS_LIBRARY}
+target_link_libraries(minotaur-slice PRIVATE slice ${ALIVE_LIBS} ${HIREDIS_LIBRARY}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 
 if(APPLE)
