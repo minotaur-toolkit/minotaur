@@ -16,10 +16,12 @@ class LLVMGen {
   std::unordered_set<llvm::Function *> &IntrinsicDecls;
   llvm::IRBuilder<> b;
   llvm::Module *M;
+  llvm::LLVMContext &C;
 public:
-  LLVMGen(llvm::Instruction *I, 
+  LLVMGen(llvm::Instruction *I,
           std::unordered_set<llvm::Function *> &IDs)
-    : IntrinsicDecls(IDs), b(llvm::IRBuilder<>(I)), M(I->getModule()) {};
+    : IntrinsicDecls(IDs), b(llvm::IRBuilder<>(I)),
+      M(I->getModule()), C(I->getContext()) {};
   llvm::Value *codeGen(minotaur::Inst *I,
                        llvm::ValueToValueMapTy &VMap,
                        std::unordered_map<llvm::Argument *,

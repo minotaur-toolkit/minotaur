@@ -107,7 +107,7 @@ static bool getSketches(llvm::Value *V,
     }
   }
 
-  for (unsigned K = BinaryInst::Op::band; K <= BinaryInst::Op::mul; ++K) {
+  for (unsigned K = BinaryInst::Op::band; K <= BinaryInst::Op::shl; ++K) {
     BinaryInst::Op Op = static_cast<BinaryInst::Op>(K);
     for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
       auto Op1 = BinaryInst::isCommutative(Op) ? Op0 : Comps.begin();
@@ -167,14 +167,13 @@ static bool getSketches(llvm::Value *V,
       // typecheck for return val
       if (!expected.isVector())
         continue;
-      // FIX: Better typecheck
 
       X86IntrinBinOp::Op op = static_cast<X86IntrinBinOp::Op>(K);
       type ret_ty = type::getIntrinsicRetTy(op);
       type op0_ty = type::getIntrinsicOp0Ty(op);
       type op1_ty = type::getIntrinsicOp1Ty(op);
 
-      if (expected != ret_ty)
+      if (!expected.same_width(ret_ty))
         continue;
 
       for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
@@ -190,7 +189,7 @@ static bool getSketches(llvm::Value *V,
             type lty = L->getType();
             if (!lty.isVector())
               continue;
-            if (lty != op0_ty)
+            if (!lty.same_width(op0_ty))
               continue;
             I = L;
           } else if (dynamic_cast<ReservedConst *>(*Op0)) {
@@ -204,7 +203,7 @@ static bool getSketches(llvm::Value *V,
             type rty = R->getType();
             if (!rty.isVector())
               continue;
-            if (rty != op1_ty)
+            if (!rty.same_width(op1_ty))
               continue;
             J = R;
           } else if (dynamic_cast<ReservedConst *>(*Op1)) {
@@ -212,8 +211,8 @@ static bool getSketches(llvm::Value *V,
             J = T.get();
             RCs.insert(move(T));
           }
-          auto BO = make_unique<SIMDBinOpInst>(op, *I, *J);
-          R.push_back(make_pair(move(BO), move(RCs)));
+          auto B = make_unique<SIMDBinOpInst>(op, *I, *J, expected);
+          R.push_back(make_pair(move(B), move(RCs)));
         }
       }
     }
