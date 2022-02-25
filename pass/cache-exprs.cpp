@@ -103,6 +103,7 @@ bool pipelineParsingCallback(StringRef Name, FunctionPassManager &FPM,
 void passBuilderCallback(PassBuilder &PB) {
   PB.registerPipelineParsingCallback(pipelineParsingCallback);
   PB.registerPeepholeEPCallback(
+  //PB.registerPipelineEarlySimplificationEPCallback
       [](llvm::FunctionPassManager &FPM, llvm::OptimizationLevel) {
         FPM.addPass(CacheExprsPass());
       });

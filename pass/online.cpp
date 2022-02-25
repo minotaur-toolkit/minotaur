@@ -117,12 +117,14 @@ struct SuperoptimizerPass final : public llvm::FunctionPass {
   SuperoptimizerPass() : FunctionPass(ID) {}
 
   bool runOnFunction(llvm::Function &F) override {
+    F.dump();
     llvm::TargetLibraryInfo *TLI =
         &getAnalysis<llvm::TargetLibraryInfoWrapperPass>().getTLI(F);
     smt::solver_print_queries(opt_smt_verbose);
     bool changed = minotaur::synthesize(F, TLI);
-    if (changed)
+    if (changed) {
       llvm::outs()<<"successfully inferred RHS.\n";
+    }
     return changed;
   }
 

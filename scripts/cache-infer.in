@@ -58,9 +58,6 @@ GetOptions(
 
 my $REDISPORT = 6379;
 
-my $OPTS = "";
-
-
 my $MINOTAUR = "@CMAKE_BINARY_DIR@/opt-synthesis-test.sh";
 
 my $r;
@@ -76,7 +73,7 @@ sub infer($) {
     (my $k) = @_;
     (my $fh, my $tmpfn) = File::Temp::tempfile();
     print $fh $k;
-    my $cmd = "${MINOTAUR} $OPTS";
+    my $cmd = "";
     #print STDERR "\n$k\n\n";
     $fh->flush();
     open(my $foo, '>>', 'fail.txt');
@@ -87,10 +84,10 @@ sub infer($) {
         my $OFN;
         if (1) {
             $OFN = "tmp_${pid}.log";
-            system "$cmd < $tmpfn > $OFN 2>&1";
+            system "${MINOTAUR} < $tmpfn > $OFN 2>&1";
             open my $OF, ">>$OFN" or die;
-            print $OF "\n\n$cmd\n\n";
-            print $OF "$k\n\n";
+            #print $OF "\n\n$cmd\n\n";
+            #print $OF "$k\n\n";
             close $OF;
         }
 
