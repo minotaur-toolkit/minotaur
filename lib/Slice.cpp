@@ -244,9 +244,8 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
           BasicBlock *bb_i = cast<Instruction>(vi)->getParent();
           auto inc_pds = predecessors(income);
-          if (find(inc_pds.begin(), inc_pds.end(), bb_i) != inc_pds.end())
-             continue;
-          bb_deps[income].insert(bb_i);
+          if (find(inc_pds.begin(), inc_pds.end(), bb_i) == inc_pds.end())
+            bb_deps[income].insert(bb_i);
         }
 
         havePhi = true;
@@ -285,10 +284,8 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
         auto preds = predecessors(i->getParent());
         BasicBlock *bb_i = cast<Instruction>(op)->getParent();
-        if (find(preds.begin(), preds.end(), bb_i) != preds.end())
-          continue;
-
-        bb_deps[i->getParent()].insert(bb_i);
+        if (find(preds.begin(), preds.end(), bb_i) == preds.end())
+          bb_deps[i->getParent()].insert(bb_i);
         worklist.push({op, depth + 1});
       }
     } else {
@@ -512,9 +509,6 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     }
   }
   if (block_without_preds.size() == 0) {
-    for (auto block : cloned_blocks) {
-      block->dump();
-    }
     llvm::report_fatal_error("[ERROR] no entry block found");
   } if (block_without_preds.size() == 1) {
     BasicBlock *entry = *block_without_preds.begin();
