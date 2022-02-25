@@ -23,9 +23,9 @@ use Getopt::Long;
 use File::Temp;
 use Time::HiRes;
 
-my $llvmas = "@LLVM_DIR@/bin/llvm-as";
-my $llvmopt = "@LLVM_BINDIR@/bin/opt";
-my $llvmdis = "@LLVM_BINDIR@/bin/llvm-dis";
+my $llvmas  = "@LLVM_BINARY_DIR@/bin/llvm-as";
+my $llvmopt = "@LLVM_BINARY_DIR@/bin/opt";
+my $llvmdis = "@LLVM_BINARY_DIR@/bin/llvm-dis";
 
 sub runit ($) {
     my $cmd = shift;
@@ -37,7 +37,6 @@ sub usage() {
     print <<'END';
 Options:
   -noopts       Dump not-optimizations instead of optimizations
-  -parse        Ensure that each LHS in the cache parses as Souper
   -sort=size|sprofile|dprofile|combined
                 Sort optimizations by increasing size (default), decreasing
                 static profile count, or decreasing dynamic profile count
@@ -49,13 +48,11 @@ END
 my $REDISPORT = 6379;
 my $NOOPTS = 0;
 my $SORT = "size";
-my $PARSE = 0;
 my $VERBOSE = 0;
 my $UNIX = 0;
 
 GetOptions(
     "noopts" => \$NOOPTS,
-    "parse" => \$PARSE,
     "redis-port=i" => \$REDISPORT,
     "sort=s" => \$SORT,
     "verbose" => \$VERBOSE,
@@ -138,7 +135,7 @@ foreach my $opt (@all_keys) {
     my %h = $r->hgetall($opt);
     my $result = $h{"rewrite"};
     if (defined($result)) {
-        parse($opt, $result) if $PARSE;
+        parse($opt, $result);
     } else {
         next;
     }
