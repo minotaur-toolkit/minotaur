@@ -23,9 +23,8 @@ public:
     return lane != 1;
   }
 
-  bool operator==(const type &rhs) const {
-    return lane == rhs.lane && bits == rhs.bits && pointer == rhs.pointer;
-  }
+  bool operator==(const type &rhs) const;
+  bool same_width(const type &rhs) const;
 
   friend std::ostream& operator<<(std::ostream &os, const type &val);
 

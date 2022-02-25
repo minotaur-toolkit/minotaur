@@ -225,10 +225,10 @@ $n = 0;
 foreach my $k (sort byrank @keys) {
     status() if $VERBOSE;
     my $result = $r->hget($k, "cache-infer-tag");
-    if (defined $result && $result eq $tag) {
-        $skip++;
-        next;
-    }
+    # if (defined $result && $result eq $tag) {
+    #     $skip++;
+    #     next;
+    # }
     wait_for_one() unless $num_running < $NPROCS;
     die unless $num_running < $NPROCS;
     print("solving $n\n");
