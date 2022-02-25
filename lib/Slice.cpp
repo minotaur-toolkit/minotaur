@@ -355,6 +355,13 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     Instruction *term = orig_bb->getTerminator();
     if (!isa<BranchInst>(term))
       return nullopt;
+    BranchInst *bi = cast<BranchInst>(term);
+
+    // skip if condition of a branch is a ConstantExpr
+    if (bi->isConditional()) {
+      if (isa<ConstantExpr>(bi->getCondition()))
+        return nullopt;
+    }
   }
 
   // clone instructions
