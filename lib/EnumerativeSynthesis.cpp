@@ -112,53 +112,56 @@ static bool getSketches(llvm::Value *V,
     for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
       auto Op1 = BinaryInst::isCommutative(Op) ? Op0 : Comps.begin();
       for (; Op1 != Comps.end(); ++Op1) {
-        Inst *I = nullptr, *J = nullptr;
-        set<unique_ptr<ReservedConst>> RCs;
+        auto tys = type::getVectorTypes(expected.getWidth());
+        for (auto ty : tys) {
+          Inst *I = nullptr, *J = nullptr;
+          set<unique_ptr<ReservedConst>> RCs;
 
-        // (op rc, var)
-        if (dynamic_cast<ReservedConst *>(*Op0)) {
-          if (auto R = dynamic_cast<Var *>(*Op1)) {
-            // ignore icmp temporarily
-            if (R->getType() != expected)
-              continue;
-            auto T = make_unique<ReservedConst>(R->getType());
-            I = T.get();
-            RCs.insert(move(T));
-            J = R;
-            if (BinaryInst::isCommutative(Op)) {
-              swap(I, J);
-            }
-          } else continue;
-        }
-        // (op var, rc)
-        else if (dynamic_cast<ReservedConst *>(*Op1)) {
-          if (auto L = dynamic_cast<Var *>(*Op0)) {
-            // do not generate (- x 3) which can be represented as (+ x -3)
-            if (Op == BinaryInst::Op::sub)
-              continue;
-            if (L->getType() != expected)
-              continue;
-            I = L;
-            auto T = make_unique<ReservedConst>(L->getType());
-            J = T.get();
-            RCs.insert(move(T));
-          } else continue;
-        }
-        // (op var, var)
-        else {
-          if (auto L = dynamic_cast<Var *>(*Op0)) {
+          // (op rc, var)
+          if (dynamic_cast<ReservedConst *>(*Op0)) {
             if (auto R = dynamic_cast<Var *>(*Op1)) {
-              if (L->getType() != R->getType())
+              // ignore icmp temporarily
+              if (!R->getType().same_width(ty))
                 continue;
-              if (L->getType() != expected)
+              auto T = make_unique<ReservedConst>(R->getType());
+              I = T.get();
+              RCs.insert(move(T));
+              J = R;
+              if (BinaryInst::isCommutative(Op)) {
+                swap(I, J);
+              }
+            } else continue;
+          }
+          // (op var, rc)
+          else if (dynamic_cast<ReservedConst *>(*Op1)) {
+            if (auto L = dynamic_cast<Var *>(*Op0)) {
+              // do not generate (- x 3) which can be represented as (+ x -3)
+              if (Op == BinaryInst::Op::sub)
                 continue;
+              if (!L->getType().same_width(ty))
+                continue;
+              I = L;
+              auto T = make_unique<ReservedConst>(L->getType());
+              J = T.get();
+              RCs.insert(move(T));
+            } else continue;
+          }
+          // (op var, var)
+          else {
+            if (auto L = dynamic_cast<Var *>(*Op0)) {
+              if (auto R = dynamic_cast<Var *>(*Op1)) {
+                if (!L->getType().same_width(ty))
+                  continue;
+                if (!R->getType().same_width(ty))
+                  continue;
+              };
             };
-          };
-          I = *Op0;
-          J = *Op1;
+            I = *Op0;
+            J = *Op1;
+          }
+          auto BO = make_unique<BinaryInst>(Op, *I, *J, ty, expected);
+          R.push_back(make_pair(move(BO), move(RCs)));
         }
-        auto BO = make_unique<BinaryInst>(Op, *I, *J);
-        R.push_back(make_pair(move(BO), move(RCs)));
       }
     }
 

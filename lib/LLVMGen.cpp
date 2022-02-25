@@ -181,8 +181,21 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap,
     }
     return r;
   } else if (auto B = dynamic_cast<BinaryInst*>(I)) {
+    type expected = B->getType();
+    type actualty = B->getActualTy();
+
     auto op0 = codeGen(B->L(), VMap, constMap);
+    if (B->L()->getType() != actualty) {
+      if(!B->L()->getType().same_width(actualty))
+        report_fatal_error("left operand width mismatch");
+      op0 = b.CreateBitCast(op0, actualty.toLLVM(C));
+    }
     auto op1 = codeGen(B->R(), VMap, constMap);
+    if (B->R()->getType() != actualty) {
+      if(!B->R()->getType().same_width(actualty))
+        report_fatal_error("left operand width mismatch");
+      op1 = b.CreateBitCast(op1, actualty.toLLVM(C));
+    }
     llvm::Value *r = nullptr;
     switch (B->K()) {
     case BinaryInst::band:
@@ -221,6 +234,9 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap,
     default:
       UNREACHABLE();
     }
+    if (actualty != expected) {
+      r = b.CreateBitCast(r, expected.toLLVM(C));
+    }
     return r;
   } else if (auto B = dynamic_cast<SIMDBinOpInst*>(I)) {
     type op0_ty = type::getIntrinsicOp0Ty(B->K());
@@ -244,7 +260,7 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap,
     IntrinsicDecls.insert(decl);
 
 
-    llvm::Value *CI = CallInst::Create(decl, ArrayRef<llvm::Value *>({op0, op1}), 
+    llvm::Value *CI = CallInst::Create(decl, ArrayRef<llvm::Value *>({op0, op1}),
                                        "intr",
                                        cast<Instruction>(b.GetInsertPoint()));
     if (B->getType() != ret_ty) {

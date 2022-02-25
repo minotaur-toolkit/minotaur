@@ -72,12 +72,14 @@ private:
   Op op;
   Inst *lhs;
   Inst *rhs;
+  type actualty;
 public:
-  BinaryInst(Op op, Inst &lhs, Inst &rhs)
-  : Inst(lhs.getType()), op(op), lhs(&lhs), rhs(&rhs) {}
+  BinaryInst(Op op, Inst &lhs, Inst &rhs, type &actualty, type &ty)
+  : Inst(ty), op(op), lhs(&lhs), rhs(&rhs), actualty(actualty) {}
   void print(std::ostream &os) const override;
   Inst *L() { return lhs; }
   Inst *R() { return rhs; }
+  type getActualTy() {return actualty; }
   Op K() { return op; }
   static bool isCommutative (Op k) {
     return k == Op::band || k == Op::bor || k == Op::bxor ||
