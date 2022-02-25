@@ -77,11 +77,6 @@ if ($UNIX) {
 $r->ping || die "no server?";
 my @all_keys = $r->keys('*');
 
-foreach my $opt (@all_keys) {
-    $sprofiles{$opt} = 0;
-    $dprofiles{$opt} = 0;
-}
-
 print "; Inspecting ".scalar(@all_keys)." Redis values\n";
 
 sub parse ($$) {
@@ -89,8 +84,6 @@ sub parse ($$) {
     (my $fh, my $tmpfn) = File::Temp::tempfile();
     print $fh $opt;
     $fh->flush();
-    my $arg;
-    print $tmpfn;
     open INF, "${llvmdis} < $tmpfn 2>&1 |";
     my $output = "";
     my $success = 0;
@@ -130,128 +123,70 @@ sub add_dprofile($$) {
 my $xcnt = 0;
 my $tagged = 0;
 my $untagged = 0;
-foreach my $opt (@all_keys) {
-    # last if $xcnt++ > 2500;
-    my %h = $r->hgetall($opt);
-    my $result = $h{"rewrite"};
-    if (defined($result)) {
-        parse($opt, $result);
-    } else {
-        next;
-    }
-    my $sprofile = 0;
-    my $dprofile = 0;
-    my %sprofile_loc;
-    my %dprofile_loc;
-    foreach my $kk (keys %h) {
-        if ($kk =~ /^sprofile (.*)$/) {
-            my $count = $h{$kk};
-            $sprofile += $count;
-            $sprofile_loc{$1} += $count;
-        }
-        if ($kk =~ /^dprofile (.*)$/) {
-            my $count = $h{$kk};
-            $dprofile += $count;
-            $dprofile_loc{$1} += $count;
-        }
-    }
-    $opt .= $result;
-    if ($result eq "") {
-        $noopt_count++;
-        $toprint{$opt} = 1 if $NOOPTS;
-    } else {
-        $toprint{$opt} = 1 if !$NOOPTS;
-    }
-    add_sprofile($opt, \%sprofile_loc);
-    add_dprofile($opt, \%dprofile_loc);
-    $sprofiles{$opt} = $sprofile;
-    $dprofiles{$opt} = $dprofile;
-}
+# foreach my $opt (@all_keys) {
+#     # last if $xcnt++ > 2500;
+# #    my %h = $r->hgetall($opt);
+# #    my $result = $h{"rewrite"};
+
+#     # if (defined($result)) {
+#     #     parse($opt, $result);
+#     # } else {
+#     #     next;
+#     # }
+
+#     my $sprofile = 0;
+#     my $dprofile = 0;
+#     my %sprofile_loc;
+#     my %dprofile_loc;
+#     foreach my $kk (keys %h) {
+#         if ($kk =~ /^sprofile (.*)$/) {
+#             my $count = $h{$kk};
+#             $sprofile += $count;
+#             $sprofile_loc{$1} += $count;
+#         }
+#         if ($kk =~ /^dprofile (.*)$/) {
+#             my $count = $h{$kk};
+#             $dprofile += $count;
+#             $dprofile_loc{$1} += $count;
+#         }
+#     }
+#     $opt .= $result;
+#     if ($result eq "") {
+#         $noopt_count++;
+#         $toprint{$opt} = 1 if $NOOPTS;
+#     } else {
+#         $toprint{$opt} = 1 if !$NOOPTS;
+#     }
+#     add_sprofile($opt, \%sprofile_loc);
+#     add_dprofile($opt, \%dprofile_loc);
+#     $sprofiles{$opt} = $sprofile;
+#     $dprofiles{$opt} = $dprofile;
+# }
 
 print "; Discarding ${noopt_count} not-optimizations leaving ".
     scalar(keys %toprint)." optimizations\n";
 
-sub grab_output($) {
-    (my $cmd) = @_;
-    open INF, $cmd or die;
-    my @llvm = ();
-    while (my $line = <INF>) {
-        push @llvm, $line;
-    }
-    close INF;
-    return \@llvm;
-}
-
-sub count_insns($) {
-    (my $lref) = @_;
-    my @l = @{$lref};
-    my $in = 0;
-    my $count = 0;
-    foreach my $line (@l) {
-        if ($line =~ /foo0:/) {
-            $in = 1;
-            next;
-        }
-        if ($line =~ /ret /) {
-            $in = 0;
-            next;
-        }
-        $count++ if $in;
-    }
-    # print "$count lines\n";
-    return $count;
-}
-
-my %sprofile_rank;
-my %dprofile_rank;
-
-if ($SORT eq "combined") {
-    my $n=0;
-    foreach my $opt (sort { $sprofiles{$b} <=> $sprofiles{$a} } @all_keys) {
-        $sprofile_rank{$opt} = $n;
-        $n++;
-        # print "$sprofile{$opt} $opt\n\n";
-    }
-    $n=0;
-    foreach my $opt (sort { $dprofiles{$b} <=> $dprofiles{$a} } @all_keys) {
-        $dprofile_rank{$opt} = $n;
-        $n++;
-        # print "$dprofile{$opt} $opt\n\n";
-    }
-}
-
-sub bylen { length $a <=> length $b }
-sub bysprofile { $sprofiles{$b} <=> $sprofiles{$a} }
-sub bydprofile { $dprofiles{$b} <=> $dprofiles{$a} }
-sub byrank {
-    return
-        ($sprofile_rank{$a} + $dprofile_rank{$a}) <=>
-        ($sprofile_rank{$b} + $dprofile_rank{$b});
-}
-
-my $byx = \&bylen;
-$byx = \&bysprofile if ($SORT eq "sprofile");
-$byx = \&bydprofile if ($SORT eq "dprofile");
-$byx = \&byrank if ($SORT eq "combined");
 
 print "\n\n";
 
-foreach my $opt (sort $byx keys %toprint) {
-    #print "$opt";
-    print "\n";
-    print "; total static profile = $sprofiles{$opt}\n";
-    my %h = %{$sprofile_locs{$opt}};
-    foreach my $k (sort { $h{$b} <=> $h{$a} } keys %h) {
-        next if ($k eq "");
-        print "; sprofile $h{$k} \"$k\"\n";
-    }
-    print "; total dynamic profile = $dprofiles{$opt}\n";
-    %h = %{$dprofile_locs{$opt}};
-    foreach my $k (sort { $h{$b} <=> $h{$a} } keys %h) {
-        next if ($k eq "");
-        print "; dprofile $h{$k} \"$k\"\n";
-    }
-    print "------------------------------------------------------\n\n";
+foreach my $opt (@all_keys) {
+    my %h = $r->hgetall($opt);
+    my $result = $h{"rewrite"};
+    parse($opt, $result);
+    # print "\n";
+    # print "; total static profile = $sprofiles{$opt}\n";
+    # my %h = %{$sprofile_locs{$opt}};
+    # foreach my $k (sort { $h{$b} <=> $h{$a} } keys %h) {
+    #     next if ($k eq "");
+    #     print "; sprofile $h{$k} \"$k\"\n";
+    # }
+    # print "; total dynamic profile = $dprofiles{$opt}\n";
+    # %h = %{$dprofile_locs{$opt}};
+    # foreach my $k (sort { $h{$b} <=> $h{$a} } keys %h) {
+    #     next if ($k eq "");
+    #     print "; dprofile $h{$k} \"$k\"\n";
+    # }
+    print "------------------------------------------------------\n";
 }
 
 my $cnt = 0;
