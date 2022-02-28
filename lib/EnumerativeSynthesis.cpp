@@ -428,7 +428,7 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
     vector<pair<unique_ptr<Inst>,set<unique_ptr<ReservedConst>>>> Sketches;
 
     // immediate constant synthesis
-    {
+    if (!I->getType()->isPointerTy()) {
       set<unique_ptr<ReservedConst>> RCs;
       auto RC = make_unique<ReservedConst>(type(I->getType()));
       auto CI = make_unique<CopyInst>(*RC.get());
