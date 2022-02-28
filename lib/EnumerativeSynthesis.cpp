@@ -258,7 +258,8 @@ static bool getSketches(llvm::Value *V,
           I = *Op0;
           J = *Op1;
         }
-        auto mty = llvm::VectorType::get(llvm::Type::getInt32Ty(V->getContext()), vty->getElementCount());
+        auto mty = llvm::VectorType::get(
+          llvm::Type::getInt32Ty(V->getContext()), vty->getElementCount());
         auto mask = make_unique<ReservedConst>(mty);
         auto SVI = make_unique<ShuffleVectorInst>(*I, *J, *mask.get());
         RCs.insert(move(mask));
@@ -364,16 +365,19 @@ constantSynthesis(IR::Function &Func1, IR::Function &Func2,
 
     if (ty.isIntType()) {
       // TODO, fix, do not use numeral_string()
-      constMap[p.second] = llvm::ConstantInt::get(llvm::cast<llvm::IntegerType>(lty), result[p.first].numeral_string(), 10);
+      constMap[p.second] =
+        llvm::ConstantInt::get(llvm::cast<llvm::IntegerType>(lty),
+                               result[p.first].numeral_string(), 10);
     } else if (ty.isFloatType()) {
       //TODO
       UNREACHABLE();
     } else if (ty.isVectorType()) {
       auto trunk = result[p.first];
       llvm::FixedVectorType *vty = llvm::cast<llvm::FixedVectorType>(lty);
-      llvm::IntegerType *ety = llvm::cast<llvm::IntegerType>(vty->getElementType());
+      llvm::IntegerType *ety =
+        llvm::cast<llvm::IntegerType>(vty->getElementType());
       vector<llvm::Constant *> v;
-      for (int i = vty->getElementCount().getKnownMinValue() - 1 ; i >= 0 ; i --) {
+      for (int i = vty->getElementCount().getKnownMinValue()-1; i >= 0; i --) {
         unsigned bits = ety->getBitWidth();
         auto elem = trunk.extract((i + 1) * bits - 1, i * bits);
         // TODO: support undef
@@ -419,7 +423,6 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
     if (!llvm::isa<llvm::Instruction>(S))
       continue;
     llvm::Instruction *I = cast<llvm::Instruction>(S);
-    //for (llvm::BasicBlock::reverse_iterator I = BB.rbegin(), E = BB.rend(); I != E; I++) {
     unordered_map<llvm::Argument *, llvm::Constant *> constMap;
     set<unique_ptr<Var>> Inputs;
     set<unique_ptr<Addr>> Pointers;
@@ -444,13 +447,17 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
     cout<<"-----------------------------"<<endl;
 
     struct Comparator {
-      bool operator()(tuple<llvm::Function *, llvm::Function *, Inst *, bool>& p1, tuple<llvm::Function *, llvm::Function *, Inst *, bool> &p2) {
-        return get<0>(p1)->getInstructionCount() > get<0>(p2)->getInstructionCount();
+      bool operator()(tuple<llvm::Function*, llvm::Function*, Inst*, bool>& a,
+                      tuple<llvm::Function*, llvm::Function*, Inst*, bool> &b) {
+        return
+          get<0>(a)->getInstructionCount() > get<0>(b)->getInstructionCount();
       }
     };
     unordered_map<string, llvm::Argument *> constants;
     unsigned CI = 0;
-    priority_queue<tuple<llvm::Function *, llvm::Function *, Inst *, bool>, vector<tuple<llvm::Function *, llvm::Function *, Inst *, bool>>, Comparator> Fns;
+    priority_queue<tuple<llvm::Function *, llvm::Function *, Inst *, bool>,
+                   vector<tuple<llvm::Function*, llvm::Function*, Inst*, bool>>,
+                  Comparator> Fns;
 
     auto FT = F.getFunctionType();
     // sketches -> llvm functions
@@ -469,9 +476,11 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
         Args.push_back(C->getType().toLLVM(F.getContext()));
       }
 
-      auto nFT = llvm::FunctionType::get(FT->getReturnType(), Args, FT->isVarArg());
+      auto nFT =
+        llvm::FunctionType::get(FT->getReturnType(), Args, FT->isVarArg());
 
-      llvm::Function *Tgt = llvm::Function::Create(nFT, F.getLinkage(), F.getName(), F.getParent());
+      llvm::Function *Tgt =
+        llvm::Function::Create(nFT, F.getLinkage(), F.getName(), F.getParent());
 
       llvm::SmallVector<llvm::ReturnInst *, 8> TgtReturns;
       llvm::Function::arg_iterator TgtArgI = Tgt->arg_begin();
@@ -491,7 +500,8 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
         ++TgtArgI;
       }
 
-      llvm::CloneFunctionInto(Tgt, &F, VMap, llvm::CloneFunctionChangeType::LocalChangesOnly, TgtReturns);
+      llvm::CloneFunctionInto(Tgt, &F, VMap,
+        llvm::CloneFunctionChangeType::LocalChangesOnly, TgtReturns);
 
       llvm::Function *Src;
       if (HaveC) {
@@ -502,7 +512,8 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
       }
 
       llvm::Instruction *PrevI = llvm::cast<llvm::Instruction>(VMap[&*I]);
-      llvm::Value *V = LLVMGen(PrevI, IntrinsicDecls).codeGen(G.get(), VMap, nullptr);
+      llvm::Value *V =
+         LLVMGen(PrevI, IntrinsicDecls).codeGen(G.get(), VMap, nullptr);
       V = llvm::IRBuilder<>(PrevI).CreateBitCast(V, PrevI->getType());
       PrevI->replaceAllUsesWith(V);
 
@@ -517,7 +528,7 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
       Fns.push(make_tuple(Tgt, Src, G.get(), !Sketch.second.empty()));
     }
 
-    // llvm functions -> alive2 functions, followed by verification or constant synthesis
+    // llvm functions -> alive2 functions
     while (!Fns.empty()) {
       auto [Tgt, Src, G, HaveC] = Fns.top();
       Fns.pop();
