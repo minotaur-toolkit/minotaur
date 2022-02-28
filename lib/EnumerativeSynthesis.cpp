@@ -117,7 +117,12 @@ static bool getSketches(llvm::Value *V,
     for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
       auto Op1 = BinaryInst::isCommutative(Op) ? Op0 : Comps.begin();
       for (; Op1 != Comps.end(); ++Op1) {
-        auto tys = type::getVectorTypes(expected);
+        vector<type> tys;
+        if (BinaryInst::isLaneIndependent(Op)) {
+          tys.push_back(type(1, expected, false));
+        } else {
+          tys = type::getVectorTypes(expected);
+        }
         for (auto workty : tys) {
           Inst *I = nullptr, *J = nullptr;
           set<unique_ptr<ReservedConst>> RCs;

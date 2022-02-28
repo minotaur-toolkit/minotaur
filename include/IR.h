@@ -70,6 +70,9 @@ private:
   Inst *rhs;
   type workty;
 public:
+  static bool isLaneIndependent(Op op) {
+    return op == band || op == bor || op == bxor;
+  }
   BinaryInst(Op op, Inst &lhs, Inst &rhs, type &workty)
   : Inst(workty.getWidth()), op(op), lhs(&lhs), rhs(&rhs), workty(workty) {}
   void print(std::ostream &os) const override;

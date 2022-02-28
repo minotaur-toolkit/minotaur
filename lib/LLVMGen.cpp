@@ -29,17 +29,6 @@ static constexpr std::array<llvm::Intrinsic::ID, X86IntrinBinOp::numOfX86Intrins
 /* avx2_pshuf_b */          llvm::Intrinsic::x86_avx2_pshuf_b,
 /* ssse3_pshuf_b_128 */     llvm::Intrinsic::x86_ssse3_pshuf_b_128,
 /* avx512_pshuf_b_512 */    llvm::Intrinsic::x86_avx512_pshuf_b_512,
-#if(false)
-/* mmx_padd_b */            llvm::Intrinsic::x86_mmx_padd_b,
-/* mmx_padd_w */            llvm::Intrinsic::x86_mmx_padd_w,
-/* mmx_padd_d */            llvm::Intrinsic::x86_mmx_padd_d,
-/* mmx_punpckhbw */         llvm::Intrinsic::x86_mmx_punpckhbw,
-/* mmx_punpckhwd */         llvm::Intrinsic::x86_mmx_punpckhwd,
-/* mmx_punpckhdq */         llvm::Intrinsic::x86_mmx_punpckhdq,
-/* mmx_punpcklbw */         llvm::Intrinsic::x86_mmx_punpcklbw,
-/* mmx_punpcklwd */         llvm::Intrinsic::x86_mmx_punpcklwd,
-/* mmx_punpckldq */         llvm::Intrinsic::x86_mmx_punpckldq,
-#endif
 /* sse2_psrl_w */           llvm::Intrinsic::x86_sse2_psrl_w,
 /* sse2_psrl_d */           llvm::Intrinsic::x86_sse2_psrl_d,
 /* sse2_psrl_q */           llvm::Intrinsic::x86_sse2_psrl_q,
