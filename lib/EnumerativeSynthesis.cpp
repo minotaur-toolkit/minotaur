@@ -112,7 +112,7 @@ static bool getSketches(llvm::Value *V,
     }
   }*/
 
-  for (unsigned K = BinaryInst::Op::band; K <= BinaryInst::Op::shl; ++K) {
+  for (unsigned K = BinaryInst::Op::band; K <= BinaryInst::Op::mul; ++K) {
     BinaryInst::Op Op = static_cast<BinaryInst::Op>(K);
     for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
       auto Op1 = BinaryInst::isCommutative(Op) ? Op0 : Comps.begin();
@@ -587,6 +587,7 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
     if (R) {
       llvm::ValueToValueMapTy VMap;
       llvm::Value *V = LLVMGen(&*I, IntrinsicDecls).codeGen(R, VMap, &constMap);
+      V = llvm::IRBuilder<>(I).CreateBitCast(V, I->getType());
       I->replaceAllUsesWith(V);
       eliminate_dead_code(F);
       changed = true;
