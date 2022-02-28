@@ -430,7 +430,7 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
       RCs.insert(move(RC));
       Sketches.push_back(make_pair(move(CI), move(RCs)));
     }
-    // unknown variables
+    // nops
     {
       for (auto &V : Inputs) {
         auto vty = V->V()->getType();
