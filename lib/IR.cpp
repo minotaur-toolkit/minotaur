@@ -23,13 +23,9 @@ void ReservedConst::print(ostream &os) const {
   os << str;
 }
 
-void UnaryInst::print(ostream &os) const {
-  const char *str = nullptr;
-  switch (op) {
-  case copy:       str = "copy"; break;
-  }
-  os << "(" << str << " ";
-  op0->print(os);
+void CopyInst::print(ostream &os) const {
+  os << "(copy ";
+  rc->print(os);
   os << ")";
 }
 

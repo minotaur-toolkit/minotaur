@@ -78,16 +78,21 @@ static bool getSketches(llvm::Value *V,
                         set<unique_ptr<Addr>> &Pointers,
                         vector<pair<unique_ptr<Inst>,
                         set<unique_ptr<ReservedConst>>>> &R) {
-  R.clear();
   vector<Inst*> Comps;
   for (auto &I : Inputs) {
     Comps.emplace_back(I.get());
   }
 
-  auto RC1 = make_unique<ReservedConst>(type(0, 0, false));
+  auto RC1 = make_unique<ReservedConst>(type(-1, -1, false));
   Comps.emplace_back(RC1.get());
 
-  type expected = type(V->getType());
+  // handle Memory in other function.
+  if (V->getType()->isPointerTy())
+    return true;
+
+  unsigned expected = V->getType()->getPrimitiveSizeInBits();
+
+  /*
   // Unary operators
   for (unsigned K = UnaryInst::Op::copy; K <= UnaryInst::Op::copy; ++K) {
     for (auto Op = Comps.begin(); Op != Comps.end(); ++Op) {
@@ -105,15 +110,15 @@ static bool getSketches(llvm::Value *V,
       auto UO = make_unique<UnaryInst>(op, *I);
       R.push_back(make_pair(move(UO), move(RCs)));
     }
-  }
+  }*/
 
   for (unsigned K = BinaryInst::Op::band; K <= BinaryInst::Op::shl; ++K) {
     BinaryInst::Op Op = static_cast<BinaryInst::Op>(K);
     for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
       auto Op1 = BinaryInst::isCommutative(Op) ? Op0 : Comps.begin();
       for (; Op1 != Comps.end(); ++Op1) {
-        auto tys = type::getVectorTypes(expected.getWidth());
-        for (auto ty : tys) {
+        auto tys = type::getVectorTypes(expected);
+        for (auto workty : tys) {
           Inst *I = nullptr, *J = nullptr;
           set<unique_ptr<ReservedConst>> RCs;
 
@@ -121,9 +126,9 @@ static bool getSketches(llvm::Value *V,
           if (dynamic_cast<ReservedConst *>(*Op0)) {
             if (auto R = dynamic_cast<Var *>(*Op1)) {
               // ignore icmp temporarily
-              if (!R->getType().same_width(ty))
+              if (R->getWidth() != expected)
                 continue;
-              auto T = make_unique<ReservedConst>(R->getType());
+              auto T = make_unique<ReservedConst>(workty);
               I = T.get();
               RCs.insert(move(T));
               J = R;
@@ -138,10 +143,10 @@ static bool getSketches(llvm::Value *V,
               // do not generate (- x 3) which can be represented as (+ x -3)
               if (Op == BinaryInst::Op::sub)
                 continue;
-              if (!L->getType().same_width(ty))
+              if (L->getWidth() != expected)
                 continue;
               I = L;
-              auto T = make_unique<ReservedConst>(L->getType());
+              auto T = make_unique<ReservedConst>(workty);
               J = T.get();
               RCs.insert(move(T));
             } else continue;
@@ -150,16 +155,14 @@ static bool getSketches(llvm::Value *V,
           else {
             if (auto L = dynamic_cast<Var *>(*Op0)) {
               if (auto R = dynamic_cast<Var *>(*Op1)) {
-                if (!L->getType().same_width(ty))
-                  continue;
-                if (!R->getType().same_width(ty))
+                if (L->getWidth() != expected || R->getWidth() != expected)
                   continue;
               };
             };
             I = *Op0;
             J = *Op1;
           }
-          auto BO = make_unique<BinaryInst>(Op, *I, *J, ty, expected);
+          auto BO = make_unique<BinaryInst>(Op, *I, *J, workty);
           R.push_back(make_pair(move(BO), move(RCs)));
         }
       }
@@ -168,15 +171,12 @@ static bool getSketches(llvm::Value *V,
     // BinaryIntrinsics
     for (unsigned K = 0; K < X86IntrinBinOp::numOfX86Intrinsics; ++K) {
       // typecheck for return val
-      if (!expected.isVector())
-        continue;
-
       X86IntrinBinOp::Op op = static_cast<X86IntrinBinOp::Op>(K);
       type ret_ty = type::getIntrinsicRetTy(op);
       type op0_ty = type::getIntrinsicOp0Ty(op);
       type op1_ty = type::getIntrinsicOp1Ty(op);
 
-      if (!expected.same_width(ret_ty))
+      if (ret_ty.getWidth() != expected)
         continue;
 
       for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
@@ -189,10 +189,7 @@ static bool getSketches(llvm::Value *V,
 
           if (auto L = dynamic_cast<Var *> (*Op0)) {
             // typecheck for op0
-            type lty = L->getType();
-            if (!lty.isVector())
-              continue;
-            if (!lty.same_width(op0_ty))
+            if (L->getWidth() != op0_ty.getWidth())
               continue;
             I = L;
           } else if (dynamic_cast<ReservedConst *>(*Op0)) {
@@ -203,10 +200,7 @@ static bool getSketches(llvm::Value *V,
           Inst *J = nullptr;
           if (auto R = dynamic_cast<Var *>(*Op1)) {
             // typecheck for op1
-            type rty = R->getType();
-            if (!rty.isVector())
-              continue;
-            if (!rty.same_width(op1_ty))
+            if (R->getWidth() != op1_ty.getWidth())
               continue;
             J = R;
           } else if (dynamic_cast<ReservedConst *>(*Op1)) {
@@ -274,13 +268,14 @@ static bool getSketches(llvm::Value *V,
   }
 */
   for (auto &I : Inputs) {
-    if (I->getType() != expected)
+    if (I->getWidth() != expected)
       continue;
     set<unique_ptr<ReservedConst>> RCs;
     auto V = make_unique<Var>(I->V());
     R.push_back(make_pair(move(V), move(RCs)));
   }
 
+/*
 
   for (auto &P : Pointers) {
     auto elemTy = P->getType();
@@ -289,7 +284,7 @@ static bool getSketches(llvm::Value *V,
     set<unique_ptr<ReservedConst>> RCs;
     auto V = make_unique<Load>(*P);
     R.push_back(make_pair(move(V), move(RCs)));
-  }
+  }*/
   return true;
 }
 
@@ -431,9 +426,16 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
     findInputs(&*I, Inputs, Pointers, 20);
 
     vector<pair<unique_ptr<Inst>,set<unique_ptr<ReservedConst>>>> Sketches;
-    getSketches(&*I, Inputs, Pointers, Sketches);
 
-    if (Sketches.empty()) continue;
+    // immediate constant synthesis
+    {
+      set<unique_ptr<ReservedConst>> RCs;
+      auto RC = make_unique<ReservedConst>(type(I->getType()));
+      auto CI = make_unique<CopyInst>(*RC.get());
+      RCs.insert(move(RC));
+      Sketches.push_back(make_pair(move(CI), move(RCs)));
+    }
+    getSketches(&*I, Inputs, Pointers, Sketches);
 
     cout<<"---------Sketches------------"<<endl;
     for (auto &Sketch : Sketches) {
@@ -501,6 +503,7 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
 
       llvm::Instruction *PrevI = llvm::cast<llvm::Instruction>(VMap[&*I]);
       llvm::Value *V = LLVMGen(PrevI, IntrinsicDecls).codeGen(G.get(), VMap, nullptr);
+      V = llvm::IRBuilder<>(PrevI).CreateBitCast(V, PrevI->getType());
       PrevI->replaceAllUsesWith(V);
 
       eliminate_dead_code(*Tgt);

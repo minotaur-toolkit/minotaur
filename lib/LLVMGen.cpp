@@ -29,6 +29,7 @@ static constexpr std::array<llvm::Intrinsic::ID, X86IntrinBinOp::numOfX86Intrins
 /* avx2_pshuf_b */          llvm::Intrinsic::x86_avx2_pshuf_b,
 /* ssse3_pshuf_b_128 */     llvm::Intrinsic::x86_ssse3_pshuf_b_128,
 /* avx512_pshuf_b_512 */    llvm::Intrinsic::x86_avx512_pshuf_b_512,
+#if(false)
 /* mmx_padd_b */            llvm::Intrinsic::x86_mmx_padd_b,
 /* mmx_padd_w */            llvm::Intrinsic::x86_mmx_padd_w,
 /* mmx_padd_d */            llvm::Intrinsic::x86_mmx_padd_d,
@@ -38,6 +39,7 @@ static constexpr std::array<llvm::Intrinsic::ID, X86IntrinBinOp::numOfX86Intrins
 /* mmx_punpcklbw */         llvm::Intrinsic::x86_mmx_punpcklbw,
 /* mmx_punpcklwd */         llvm::Intrinsic::x86_mmx_punpcklwd,
 /* mmx_punpckldq */         llvm::Intrinsic::x86_mmx_punpckldq,
+#endif
 /* sse2_psrl_w */           llvm::Intrinsic::x86_sse2_psrl_w,
 /* sse2_psrl_d */           llvm::Intrinsic::x86_sse2_psrl_d,
 /* sse2_psrl_q */           llvm::Intrinsic::x86_sse2_psrl_q,
@@ -169,33 +171,23 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap,
     } else {
       return VMap[P->V()];
     }
-  } */else if (auto U = dynamic_cast<UnaryInst*>(I)) {
+  } */
+  else if (auto U = dynamic_cast<CopyInst*>(I)) {
     auto op0 = codeGen(U->Op0(), VMap, constMap);
-    llvm::Value *r = nullptr;
-    switch (U->K()) {
-    case UnaryInst::copy:
-      r = op0;
-      break;
-    default:
-      UNREACHABLE();
-    }
-    return r;
-  } else if (auto B = dynamic_cast<BinaryInst*>(I)) {
-    type expected = B->getType();
-    type actualty = B->getActualTy();
-
+    return op0;
+  }
+  else if (auto B = dynamic_cast<BinaryInst*>(I)) {
+    type workty = B->getWorkTy();
     auto op0 = codeGen(B->L(), VMap, constMap);
-    if (B->L()->getType() != actualty) {
-      if(!B->L()->getType().same_width(actualty))
-        report_fatal_error("left operand width mismatch");
-      op0 = b.CreateBitCast(op0, actualty.toLLVM(C));
-    }
+    if(B->L()->getWidth() != workty.getWidth())
+      report_fatal_error("left operand width mismatch");
+    op0 = b.CreateBitCast(op0, workty.toLLVM(C));
+
     auto op1 = codeGen(B->R(), VMap, constMap);
-    if (B->R()->getType() != actualty) {
-      if(!B->R()->getType().same_width(actualty))
-        report_fatal_error("left operand width mismatch");
-      op1 = b.CreateBitCast(op1, actualty.toLLVM(C));
-    }
+    if(B->R()->getWidth() != workty.getWidth())
+      report_fatal_error("left operand width mismatch");
+    op1 = b.CreateBitCast(op1, workty.toLLVM(C));
+
     llvm::Value *r = nullptr;
     switch (B->K()) {
     case BinaryInst::band:
@@ -234,27 +226,19 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap,
     default:
       UNREACHABLE();
     }
-    if (actualty != expected) {
-      r = b.CreateBitCast(r, expected.toLLVM(C));
-    }
     return r;
   } else if (auto B = dynamic_cast<SIMDBinOpInst*>(I)) {
     type op0_ty = type::getIntrinsicOp0Ty(B->K());
     type op1_ty = type::getIntrinsicOp1Ty(B->K());
-    type ret_ty = type::getIntrinsicRetTy(B->K());
     auto op0 = codeGen(B->L(), VMap, constMap);
-    if (B->L()->getType() != op0_ty) {
-      if(!B->L()->getType().same_width(op0_ty))
-        report_fatal_error("left operand width mismatch");
-      op0 = b.CreateBitCast(op0, op0_ty.toLLVM(C));
-    }
+    if(B->L()->getWidth() != op0_ty.getWidth())
+      report_fatal_error("left operand width mismatch");
+    op0 = b.CreateBitCast(op0, op0_ty.toLLVM(C));
 
     auto op1 = codeGen(B->R(), VMap, constMap);
-    if (B->R()->getType() != op1_ty) {
-      if(!B->R()->getType().same_width(op1_ty))
-        report_fatal_error("right operand width mismatch");
-      op1 = b.CreateBitCast(op1, op1_ty.toLLVM(C));
-    }
+    if(B->R()->getWidth() != op1_ty.getWidth())
+      report_fatal_error("right operand width mismatch");
+    op1 = b.CreateBitCast(op1, op1_ty.toLLVM(C));
 
     llvm::Function *decl = Intrinsic::getDeclaration(M, getIntrinsicID(B->K()));
     IntrinsicDecls.insert(decl);
@@ -263,11 +247,6 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap,
     llvm::Value *CI = CallInst::Create(decl, ArrayRef<llvm::Value *>({op0, op1}),
                                        "intr",
                                        cast<Instruction>(b.GetInsertPoint()));
-    if (B->getType() != ret_ty) {
-      if(!B->getType().same_width(ret_ty))
-        report_fatal_error("return operand width mismatch");
-      CI = b.CreateBitCast(CI, B->getType().toLLVM(C));
-    }
     return CI;
   } else if (auto RC = dynamic_cast<ReservedConst *>(I)) {
     if (!constMap) {

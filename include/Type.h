@@ -45,8 +45,12 @@ public:
 
   static std::vector<type> getVectorTypes(unsigned width) {
     std::vector<unsigned> bits = {8, 16, 32, 64};
-
     std::vector<type> types;
+    if (width % 8) {
+      types.push_back(type(1, width, false));
+      return types;
+    }
+
     for (unsigned i = 0 ; i < bits.size() ; ++ i) {
       if (width % bits[i] == 0) {
         types.push_back(type(width/bits[i], bits[i], false));
