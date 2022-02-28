@@ -585,10 +585,14 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
       I->replaceAllUsesWith(V);
       eliminate_dead_code(F);
       changed = true;
-      llvm::errs()<<"successfully\n";
       break;
     }
   }
+  if (changed)
+    llvm::errs()<<"\n\n--successfully infered RHS--\n\n";
+  else
+    llvm::errs()<<"\n\n--no solution found--\n\n";
+
   removeUnusedDecls(IntrinsicDecls);
   return changed;
 }
