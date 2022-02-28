@@ -268,14 +268,6 @@ static bool getSketches(llvm::Value *V,
     }
   }
 */
-  for (auto &I : Inputs) {
-    if (I->getWidth() != expected)
-      continue;
-    set<unique_ptr<ReservedConst>> RCs;
-    auto V = make_unique<Var>(I->V());
-    R.push_back(make_pair(move(V), move(RCs)));
-  }
-
 /*
 
   for (auto &P : Pointers) {
@@ -437,6 +429,19 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
       auto CI = make_unique<CopyInst>(*RC.get());
       RCs.insert(move(RC));
       Sketches.push_back(make_pair(move(CI), move(RCs)));
+    }
+    // unknown variables
+    {
+      for (auto &V : Inputs) {
+        auto vty = V->V()->getType();
+        if (vty->isPointerTy())
+          continue;
+        if (V->getWidth() != I->getType()->getPrimitiveSizeInBits())
+          continue;
+        set<unique_ptr<ReservedConst>> RCs;
+        auto VA = make_unique<Var>(V->V());
+        Sketches.push_back(make_pair(move(VA), move(RCs)));
+      }
     }
     getSketches(&*I, Inputs, Pointers, Sketches);
 
