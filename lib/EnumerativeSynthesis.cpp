@@ -353,8 +353,10 @@ constantSynthesis(IR::Function &Func1, IR::Function &Func2,
   Errors errs = S.synthesize(result);
 
   bool ret(errs);
-  if (result.empty())
+  if (result.empty()) {
+    llvm::errs()<<"failed to synthesize constants";
     return ret;
+  }
 
   for (auto p : inputMap) {
     auto &ty = p.first->getType();
@@ -528,12 +530,15 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
       PrevI->replaceAllUsesWith(V);
 
       eliminate_dead_code(*Tgt);
-      if (Tgt->getInstructionCount() >= F.getInstructionCount()) {
+      /*if (Tgt->getInstructionCount() >= F.getInstructionCount()) {
+        Tgt->dump();
         if (HaveC)
           Src->eraseFromParent();
         Tgt->eraseFromParent();
+        llvm::errs()<<"foo\n";
+
         continue;
-      }
+      }*/
 
       Fns.push(make_tuple(Tgt, Src, G.get(), !Sketch.second.empty()));
     }
