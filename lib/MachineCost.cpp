@@ -20,6 +20,8 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
+#include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
 #include <map>
 
 using namespace llvm;
@@ -81,8 +83,16 @@ unsigned get_machine_cost(llvm::Function &F) {
 
   llvm::LLVMContext C;
   llvm::Module M("", C);
+  auto newF = Function::Create(F.getFunctionType(), F.getLinkage(), "foo", M);
 
-  llvm::errs() << M;
+  ValueToValueMapTy VMap;
+  for (unsigned i = 0 ; i < F.arg_size() ; ++i) {
+    VMap[F.getArg(i)] = newF->getArg(i);
+  }
+
+  SmallVector<ReturnInst*, 8> Returns;
+  CloneFunctionInto(newF, &F, VMap, CloneFunctionChangeType::DifferentModule, Returns);
+  M.dump();
 
   for (auto &T : Targets) {
     Triple TheTriple(T.Trip);
