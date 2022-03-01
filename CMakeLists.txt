@@ -40,7 +40,6 @@ set(SYNTHESIZER_SRC
   "lib/EnumerativeSynthesis.cpp"
   "lib/IR.cpp"
   "lib/LLVMGen.cpp"
-  "lib/MachineCost.cpp"
   "lib/Type.cpp"
 )
 
@@ -64,6 +63,7 @@ add_llvm_library(cache-exprs MODULE pass/cache-exprs.cpp)
 
 add_library(synthesizer STATIC ${SYNTHESIZER_SRC})
 add_library(slice STATIC "lib/Slice.cpp")
+add_library(machine_cost STATIC "lib/MachineCost.cpp")
 add_library(utils STATIC "lib/Utils.cpp")
 
 target_link_libraries(utils PRIVATE ${LLVM_LIBS})
@@ -81,6 +81,8 @@ add_llvm_executable(bitcode-mca  "tools/bitcode-mca.cpp")
 target_link_libraries(minotaur-cs PRIVATE synthesizer ${ALIVE_LIBS} ${LLVM_LIBS} ${Z3_LIBRARIES}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 target_link_libraries(minotaur-slice PRIVATE slice ${ALIVE_LIBS} ${HIREDIS_LIBRARY}
+  $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
+target_link_libraries(bitcode-mca PRIVATE machine_cost ${LLVM_LIBS}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 
 if(APPLE)

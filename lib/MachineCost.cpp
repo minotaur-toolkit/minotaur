@@ -67,7 +67,7 @@ std::vector<TargetInfo> Targets {
 
 bool Init = false;
 
-void getCost(llvm::Function *F, BackendCost &BC) {
+unsigned getCost(llvm::Function *F) {
   // TODO is this better than just forcing all clients of this code to
   // do the init themselves?
   if (!Init) {
@@ -79,7 +79,6 @@ void getCost(llvm::Function *F, BackendCost &BC) {
     Init = true;
   }
 
-  BackendCost Cost;
   llvm::LLVMContext C;
   llvm::Module M("", C);
 
@@ -167,14 +166,9 @@ void getCost(llvm::Function *F, BackendCost &BC) {
 */
 
 
-    Cost.C.push_back(getCodeSize(M, TM));
+    //Cost.C.push_back(getCodeSize(M, TM));
   }
-
-  llvm::errs() << "cost vector: ";
-  for (auto I : Cost.C) {
-    llvm::errs() << I << " ";
-  }
-  llvm::errs() << "\n";
+  return 0;
 }
 
 int compare(int A, int B) {
@@ -185,6 +179,7 @@ int compare(int A, int B) {
   return 0;
 }
 
+/*
 // "The value returned indicates whether the element passed as first
 // argument is considered to go before the second"
 bool compareCosts(const BackendCost &C1, const BackendCost &C2) {
@@ -201,5 +196,5 @@ bool compareCosts(const BackendCost &C1, const BackendCost &C2) {
   // break ties using souper cost
   // break final ties how? we want a canonical winner for all cases
 }
-
+*/
 } // namespace souper

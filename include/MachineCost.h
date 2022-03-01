@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include <vector>
+#include "llvm/IR/Function.h"
 
-struct BackendCost {
-  std::vector<int> C;
-};
+unsigned getCost(llvm::Function &F);
