@@ -10,6 +10,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicsX86.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
 
 #include <iostream>
@@ -164,8 +165,7 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap,
   else if (auto U = dynamic_cast<CopyInst*>(I)) {
     auto op0 = codeGen(U->Op0(), VMap, constMap);
     return op0;
-  }
-  else if (auto B = dynamic_cast<BinaryInst*>(I)) {
+  } else if (auto B = dynamic_cast<BinaryInst*>(I)) {
     type workty = B->getWorkTy();
     auto op0 = codeGen(B->L(), VMap, constMap);
     if(B->L()->getWidth() != workty.getWidth())
@@ -216,6 +216,30 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap,
       UNREACHABLE();
     }
     return r;
+  } else if (auto IC = dynamic_cast<ICmpInst*>(I)) {
+    auto op0 = codeGen(IC->L(), VMap, constMap);
+    auto workty = type(I->getWidth(), IC->L()->getWidth()/I->getWidth(), false);
+    op0 = b.CreateBitCast(op0, workty.toLLVM(C));
+
+    auto op1 = codeGen(IC->R(), VMap, constMap);
+    op1 = b.CreateBitCast(op1, workty.toLLVM(C));
+    llvm::Value *r = nullptr;
+    switch (IC->K()) {
+    case ICmpInst::eq:
+      r = b.CreateICmp(CmpInst::ICMP_EQ, op0, op1, "ieq");
+    case ICmpInst::ne:
+      r = b.CreateICmp(CmpInst::ICMP_NE, op0, op1, "ine");
+    case ICmpInst::ult:
+      r = b.CreateICmp(CmpInst::ICMP_ULT, op0, op1, "iult");
+    case ICmpInst::ule:
+      r = b.CreateICmp(CmpInst::ICMP_ULE, op0, op1, "iule");
+    case ICmpInst::slt:
+      r = b.CreateICmp(CmpInst::ICMP_SLT, op0, op1, "islt");
+    case ICmpInst::sle:
+      r = b.CreateICmp(CmpInst::ICMP_SLE, op0, op1, "isle");
+    }
+    return r;
+
   } else if (auto B = dynamic_cast<SIMDBinOpInst*>(I)) {
     type op0_ty = type::getIntrinsicOp0Ty(B->K());
     type op1_ty = type::getIntrinsicOp1Ty(B->K());

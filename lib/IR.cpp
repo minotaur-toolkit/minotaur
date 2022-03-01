@@ -51,6 +51,23 @@ void BinaryInst::print(ostream &os) const {
   os << ")";
 }
 
+void ICmpInst::print(ostream &os) const {
+  const char *str = nullptr;
+  switch (cond) {
+  case eq:       str = "eq"; break;
+  case ne:       str = "ne";  break;
+  case ult:      str = "ult"; break;
+  case ule:      str = "ule"; break;
+  case slt:      str = "slt"; break;
+  case sle:      str = "sle"; break;
+  }
+  os << "(icmp " << str << " ";
+  lhs->print(os);
+  os << ", ";
+  rhs->print(os);
+  os << ")";
+}
+
 void SIMDBinOpInst::print(ostream &os) const {
   os << "(" << X86IntrinBinOp::getOpName(op) << " ";
   lhs->print(os);
