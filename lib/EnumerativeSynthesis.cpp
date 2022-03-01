@@ -173,6 +173,67 @@ static bool getSketches(llvm::Value *V,
       }
     }
 
+    //icmps
+    if (expected <= 64) {
+      for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
+        for (auto Op1 = Comps.begin(); Op1 != Comps.end(); ++Op1) {
+          // skip (icmp rc, rc)
+          if (dynamic_cast<ReservedConst*>(*Op0) &&
+              dynamic_cast<ReservedConst*>(*Op1))
+            continue;
+
+          for (unsigned C = ICmpInst::Cond::eq; C <= ICmpInst::Cond::sle; ++C) {
+            ICmpInst::Cond Cond = static_cast<ICmpInst::Cond>(C);
+            set<unique_ptr<ReservedConst>> RCs;
+            Inst *I = nullptr, *J = nullptr;
+              // (op rc, var)
+            if (dynamic_cast<ReservedConst *>(*Op0)) {
+              if (auto R = dynamic_cast<Var *>(*Op1)) {
+                // ignore icmp temporarily
+                if (R->getWidth() % expected)
+                  continue;
+
+                auto ity = type(expected, R->getWidth() / expected, false);
+                auto T = make_unique<ReservedConst>(ity);
+                I = T.get();
+                RCs.insert(move(T));
+                J = R;
+              } else continue;
+            }
+            // (op var, rc)
+            else if (dynamic_cast<ReservedConst *>(*Op1)) {
+              if (auto L = dynamic_cast<Var *>(*Op0)) {
+                // do not generate (- x 3) which can be represented as (+ x -3)
+                if (Op == BinaryInst::Op::sub)
+                  continue;
+                if (L->getWidth() != expected)
+                  continue;
+                I = L;
+                auto jty = type(expected, L->getWidth() / expected, false);
+                auto T = make_unique<ReservedConst>(jty);
+                J = T.get();
+                RCs.insert(move(T));
+              } else continue;
+            }
+            else {
+              if (auto L = dynamic_cast<Var *>(*Op0)) {
+                if (auto R = dynamic_cast<Var *>(*Op1)) {
+                  if (L->getWidth() != R->getWidth())
+                    continue;
+                  if (L->getWidth() % expected)
+                    continue;
+                };
+              };
+              I = *Op0;
+              J = *Op1;
+            }
+            auto BO = make_unique<ICmpInst>(Cond, *I, *J, expected);
+            R.push_back(make_pair(move(BO), move(RCs)));
+          }
+        }
+      }
+    }
+
     // BinaryIntrinsics
     for (unsigned K = 0; K < X86IntrinBinOp::numOfX86Intrinsics; ++K) {
       // typecheck for return val

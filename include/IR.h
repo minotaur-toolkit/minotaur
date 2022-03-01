@@ -96,8 +96,8 @@ private:
   Inst *lhs;
   Inst *rhs;
 public:
-  ICmpInst(Cond cond, Inst &lhs, Inst &rhs)
-  : Inst(/*fixme*/1) , cond(cond), lhs(&lhs), rhs(&rhs) {}
+  ICmpInst(Cond cond, Inst &lhs, Inst &rhs, unsigned width)
+  : Inst(width) , cond(cond), lhs(&lhs), rhs(&rhs) {}
   void print(std::ostream &os) const override;
   Inst *L() { return lhs; }
   Inst *R() { return rhs; }
