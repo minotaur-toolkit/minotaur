@@ -11,6 +11,7 @@
 #include "ir/instr.h"
 #include "smt/smt.h"
 #include "tools/transform.h"
+#include "util/compiler.h"
 #include "util/symexec.h"
 #include "util/config.h"
 #include "util/dataflow.h"
@@ -182,50 +183,34 @@ static bool getSketches(llvm::Value *V,
         if (dynamic_cast<ReservedConst*>(*Op0) &&
             dynamic_cast<ReservedConst*>(*Op1))
           continue;
-
+        // skip (icmp rc, var)
+        if (dynamic_cast<ReservedConst*>(*Op0) && dynamic_cast<Var*>(*Op1))
+          continue;
         for (unsigned C = ICmpInst::Cond::eq; C <= ICmpInst::Cond::sle; ++C) {
           ICmpInst::Cond Cond = static_cast<ICmpInst::Cond>(C);
           set<unique_ptr<ReservedConst>> RCs;
           Inst *I = nullptr, *J = nullptr;
-            // (op rc, var)
-          if (dynamic_cast<ReservedConst *>(*Op0)) {
-            if (auto R = dynamic_cast<Var *>(*Op1)) {
-              // ignore icmp temporarily
-              if (R->getWidth() % expected)
-                continue;
 
-              auto ity = type(expected, R->getWidth() / expected, false);
-              auto T = make_unique<ReservedConst>(ity);
-              I = T.get();
-              RCs.insert(move(T));
-              J = R;
-            } else continue;
-          }
-          // (op var, rc)
-          else if (dynamic_cast<ReservedConst *>(*Op1)) {
-            if (auto L = dynamic_cast<Var *>(*Op0)) {
-              // do not generate (- x 3) which can be represented as (+ x -3)
-              if (L->getWidth() != expected)
+          if (auto L = dynamic_cast<Var*>(*Op0)) {
+            if (L->getWidth() % expected)
+              continue;
+            // (icmp var, rc)
+            if (dynamic_cast<ReservedConst*>(*Op1)) {
+              if (Cond == ICmpInst::sle || Cond == ICmpInst::ule)
                 continue;
               I = L;
               auto jty = type(expected, L->getWidth() / expected, false);
               auto T = make_unique<ReservedConst>(jty);
               J = T.get();
               RCs.insert(move(T));
-            } else continue;
-          }
-          else {
-            if (auto L = dynamic_cast<Var *>(*Op0)) {
-              if (auto R = dynamic_cast<Var *>(*Op1)) {
-                if (L->getWidth() != R->getWidth())
-                  continue;
-                if (L->getWidth() % expected)
-                  continue;
-              };
-            };
-            I = *Op0;
-            J = *Op1;
-          }
+            // (icmp var, var)
+            } else if (auto R = dynamic_cast<Var*>(*Op1)) {
+              if (L->getWidth() != R->getWidth())
+                continue;
+              I = *Op0;
+              J = *Op1;
+            } else UNREACHABLE();
+          } else UNREACHABLE();
           auto BO = make_unique<ICmpInst>(Cond, *I, *J, expected);
           R.push_back(make_pair(move(BO), move(RCs)));
         }

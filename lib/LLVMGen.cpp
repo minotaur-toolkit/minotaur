@@ -227,16 +227,22 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap,
     switch (IC->K()) {
     case ICmpInst::eq:
       r = b.CreateICmp(CmpInst::ICMP_EQ, op0, op1, "ieq");
+      break;
     case ICmpInst::ne:
       r = b.CreateICmp(CmpInst::ICMP_NE, op0, op1, "ine");
+      break;
     case ICmpInst::ult:
       r = b.CreateICmp(CmpInst::ICMP_ULT, op0, op1, "iult");
+      break;
     case ICmpInst::ule:
       r = b.CreateICmp(CmpInst::ICMP_ULE, op0, op1, "iule");
+      break;
     case ICmpInst::slt:
       r = b.CreateICmp(CmpInst::ICMP_SLT, op0, op1, "islt");
+      break;
     case ICmpInst::sle:
       r = b.CreateICmp(CmpInst::ICMP_SLE, op0, op1, "isle");
+      break;
     }
     return r;
 
