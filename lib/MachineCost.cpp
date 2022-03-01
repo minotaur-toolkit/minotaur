@@ -67,7 +67,7 @@ std::vector<TargetInfo> Targets {
 
 bool Init = false;
 
-unsigned getCost(llvm::Function *F) {
+unsigned get_machine_cost(llvm::Function &F) {
   // TODO is this better than just forcing all clients of this code to
   // do the init themselves?
   if (!Init) {
@@ -116,7 +116,6 @@ unsigned getCost(llvm::Function *F) {
 
     auto SecList = OF->sections();
     MCContext Ctx(Triple);
-    long Size = 0;
     for (auto &S : SecList) {
       llvm::errs()<<S.getContents().get();
     }

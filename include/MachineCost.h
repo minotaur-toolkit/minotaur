@@ -5,4 +5,6 @@
 
 #include "llvm/IR/Function.h"
 
-unsigned getCost(llvm::Function &F);
+namespace minotaur {
+unsigned get_machine_cost(llvm::Function &F);
+}

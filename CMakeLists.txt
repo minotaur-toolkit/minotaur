@@ -56,22 +56,25 @@ find_library(HIREDIS_LIBRARY
 
 include_directories(${HIREDIS_INCLUDE_DIR}/hiredis)
 
-llvm_map_components_to_libnames(LLVM_LIBS analysis bitwriter core irreader passes scalaropts support transformutils)
+llvm_map_components_to_libnames(LLVM_LIBS analysis bitwriter core irreader passes scalaropts support transformutils mc x86codegen x86desc x86info object x86asmparser)
 
-add_llvm_library(minotaur MODULE pass/online.cpp)
-add_llvm_library(cache-exprs MODULE pass/cache-exprs.cpp)
+add_library(machine_cost STATIC "lib/MachineCost.cpp")
+target_link_libraries(machine_cost PRIVATE ${LLVM_LIBS})
+
+add_library(utils STATIC "lib/Utils.cpp")
+target_link_libraries(utils PRIVATE ${LLVM_LIBS})
+
+add_library(slice STATIC "lib/Slice.cpp")
+target_link_libraries(slice PRIVATE utils)
 
 add_library(synthesizer STATIC ${SYNTHESIZER_SRC})
-add_library(slice STATIC "lib/Slice.cpp")
-add_library(machine_cost STATIC "lib/MachineCost.cpp")
-add_library(utils STATIC "lib/Utils.cpp")
-
-target_link_libraries(utils PRIVATE ${LLVM_LIBS})
-target_link_libraries(slice PRIVATE utils)
 target_link_libraries(synthesizer PRIVATE utils)
 
+add_llvm_library(minotaur MODULE pass/online.cpp)
 target_link_libraries(minotaur PRIVATE synthesizer ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
+
+add_llvm_library(cache-exprs MODULE pass/cache-exprs.cpp)
 target_link_libraries(cache-exprs PRIVATE slice ${HIREDIS_LIBRARY}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 
