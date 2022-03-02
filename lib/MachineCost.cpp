@@ -91,15 +91,15 @@ unsigned get_approx_cost(llvm::Function *F) {
       } else if (isa<CallInst>(I)){
         cost += 2;
       } else {
-        cost += 0;
+        cost += 1;
       }
     }
   }
   return cost;
 }
 
-bool ac_cmp(std::tuple<llvm::Function*, llvm::Function*, Inst*, bool> f1,
-            std::tuple<llvm::Function*, llvm::Function*, Inst*, bool> f2) {
+bool ac_cmp(std::tuple<llvm::Function*, llvm::Function*, llvm::Value*, Inst*, bool> f1,
+            std::tuple<llvm::Function*, llvm::Function*, llvm::Value*, Inst*, bool> f2) {
   return get_approx_cost(get<0>(f1)) < get_approx_cost(get<0>(f2));
 }
 
