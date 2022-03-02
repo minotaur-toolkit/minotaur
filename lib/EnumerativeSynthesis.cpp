@@ -400,7 +400,7 @@ constantSynthesis(IR::Function &Func1, IR::Function &Func2,
 
   bool ret(errs);
   if (result.empty()) {
-    llvm::errs()<<"failed to synthesize constants";
+    llvm::errs()<<"failed to synthesize constants\n";
     return ret;
   }
 

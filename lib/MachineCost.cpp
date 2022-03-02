@@ -33,9 +33,8 @@ unsigned get_machine_cost(llvm::Function *F) {
     for (auto &I : BB) {
       if (CallInst *CI = dyn_cast<CallInst>(&I)) {
         Function *callee = CI->getCalledFunction();
-        if (callee->isIntrinsic())
-          M.getOrInsertFunction(callee->getName(), callee->getFunctionType(),
-                                callee->getAttributes());
+        M.getOrInsertFunction(callee->getName(), callee->getFunctionType(),
+                              callee->getAttributes());
       }
     }
   }
