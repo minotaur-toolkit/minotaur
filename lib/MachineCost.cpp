@@ -11,6 +11,10 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/Value.h"
 #include "llvm/MC/MCTargetOptionsCommandFlags.h"
+#include "llvm/MC/MCRegisterInfo.h"
+#include "llvm/MC/MCAsmInfo.h"
+#include "llvm/MC/MCInstPrinter.h"
+#include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/Object/ObjectFile.h"
@@ -92,91 +96,96 @@ unsigned get_machine_cost(llvm::Function &F) {
 
   SmallVector<ReturnInst*, 8> Returns;
   CloneFunctionInto(newF, &F, VMap, CloneFunctionChangeType::DifferentModule, Returns);
-  M.dump();
+  //M.dump();
 
-  for (auto &T : Targets) {
-    Triple TheTriple(T.Trip);
-    std::string Error;
-    auto Target = llvm::TargetRegistry::lookupTarget(T.Trip, Error);
-    if (!Target) {
-      errs() << Error;
-      report_fatal_error("can't lookup target");
-    }
+  StringRef Trip = "x86_64";
+  StringRef CPU = "skylake";
 
-    auto Features = "";
-    TargetOptions Opt;
-    auto RM = Optional<Reloc::Model>();
-    auto TM = Target->createTargetMachine(T.Trip, T.CPU, Features, Opt, RM);
-
-    M.setDataLayout(TM->createDataLayout());
-    SmallVector<char, 256> DotO;
-    raw_svector_ostream dest(DotO);
-
-    legacy::PassManager pass;
-    if (TM->addPassesToEmitFile(pass, dest, nullptr, CGFT_ObjectFile)) {
-      errs() << "Target machine can't emit a file of this type";
-      report_fatal_error("oops");
-    }
-    pass.run(M);
-    SmallVectorMemoryBuffer Buf(std::move(DotO));
-    auto ObjOrErr = object::ObjectFile::createObjectFile(Buf);
-    if (!ObjOrErr)
-      report_fatal_error("createObjectFile() failed");
-    object::ObjectFile *OF = ObjOrErr.get().get();
-
-    auto SecList = OF->sections();
-    MCContext Ctx(Triple);
-    for (auto &S : SecList) {
-      llvm::errs()<<S.getContents().get();
-    }
-/*
-    std::unique_ptr<MCRegisterInfo> MRI(Target->createMCRegInfo(T.Trip));
-    assert(MRI && "Unable to create target register info!");
-    MCTargetOptions MCOptions = mc::InitMCTargetOptionsFromFlags();
-    std::unique_ptr<MCAsmInfo> MAI(
-        Target->createMCAsmInfo(*MRI, T.Trip, MCOptions));
-    assert(MAI && "Unable to create target asm info!");
-
-    SourceMgr SrcMgr;
-    ErrorOr<std::unique_ptr<MemoryBuffer>> BufferPtr =
-        MemoryBuffer::getMemBuffer();
-    SrcMgr.AddNewSourceBuffer(std::move(*BufferPtr), SMLoc());
-    std::unique_ptr<MCInstrInfo> MCII(Target->createMCInstrInfo());
-
-    unsigned IPtempOutputAsmVariant = 0;
-
-    std::unique_ptr<MCInstPrinter> IPtemp(Target->createMCInstPrinter(
-        Triple(T.Trip), IPtempOutputAsmVariant, *MAI, *MCII, *MRI));
-    if (!IPtemp) {
-      llvm::errs()
-          << "unable to create instruction printer for target triple '"
-          << TheTriple.normalize() << "' with assembly variant "
-          << IPtempOutputAsmVariant << ".\n";
-      llvm::report_fatal_error("");
-    }
-
-    mca::AsmCodeRegionGenerator CRG(*Target, SrcMgr, Ctx, *MAI, *STI, *MCII);
-    Expected<const mca::CodeRegions &> RegionsOrErr =
-        CRG.parseCodeRegions(std::move(IPtemp));
-    if (!RegionsOrErr) {
-      if (auto Err =
-              handleErrors(RegionsOrErr.takeError(), [](const StringError &E) {
-                WithColor::error() << E.getMessage() << '\n';
-              })) {
-        // Default case.
-        WithColor::error() << toString(std::move(Err)) << '\n';
-      }
-      return 1;
+  Triple TheTriple(Trip);
+  std::string Error;
+  auto Target = llvm::TargetRegistry::lookupTarget(Trip.str(), Error);
+  if (!Target) {
+    errs() << Error;
+    report_fatal_error("can't lookup target");
   }
 
+  auto Features = "";
+  TargetOptions Opt;
+  auto RM = Optional<Reloc::Model>();
+  auto TM = Target->createTargetMachine(Trip, CPU, Features, Opt, RM);
 
+  M.setDataLayout(TM->createDataLayout());
+  SmallVector<char, 256> DotO;
+  raw_svector_ostream dest(DotO);
 
+  legacy::PassManager pass;
+  if (TM->addPassesToEmitFile(pass, dest, nullptr, CGFT_ObjectFile)) {
+    errs() << "Target machine can't emit a file of this type";
+    report_fatal_error("oops");
+  }
+  pass.run(M);
+  SmallVectorMemoryBuffer Buf(std::move(DotO));
+  auto ObjOrErr = object::ObjectFile::createObjectFile(Buf);
+  if (!ObjOrErr)
+    report_fatal_error("createObjectFile() failed");
+  object::ObjectFile *OF = ObjOrErr.get().get();
 
+  auto SecList = OF->sections();
+  MCContext Ctx(Triple);
+  llvm::StringRef rf;
+  for (auto &S : SecList) {
+    auto content = S.getContents();
+    if (content)
+      rf = *content;
+  }
+
+  std::unique_ptr<MCSubtargetInfo> STI(
+    Target->createMCSubtargetInfo(Trip, CPU, ""));
+
+  std::unique_ptr<MCRegisterInfo> MRI(Target->createMCRegInfo(Trip));
+  assert(MRI && "Unable to create target register info!");
+  MCTargetOptions MCOptions = mc::InitMCTargetOptionsFromFlags();
+  std::unique_ptr<MCAsmInfo> MAI(Target->createMCAsmInfo(*MRI, Trip, MCOptions));
+  assert(MAI && "Unable to create target asm info!");
+
+  SourceMgr SrcMgr;
+  ErrorOr<std::unique_ptr<MemoryBuffer>> BufferPtr =
+      MemoryBuffer::getMemBuffer(rf);
+  SrcMgr.AddNewSourceBuffer(std::move(*BufferPtr), SMLoc());
+  std::unique_ptr<MCInstrInfo> MCII(Target->createMCInstrInfo());
+
+  unsigned IPtempOutputAsmVariant = 0;
+
+  std::unique_ptr<MCInstPrinter> IPtemp(Target->createMCInstPrinter(
+      Triple(Trip), IPtempOutputAsmVariant, *MAI, *MCII, *MRI));
+  if (!IPtemp) {
+    llvm::errs()
+        << "unable to create instruction printer for target triple '"
+        << TheTriple.normalize() << "' with assembly variant "
+        << IPtempOutputAsmVariant << ".\n";
+    llvm::report_fatal_error("");
+  }
+
+/*
+  mca::AsmCodeRegionGenerator CRG(*Target, SrcMgr, Ctx, *MAI, *STI, *MCII);
+  Expected<const mca::CodeRegions &> RegionsOrErr =
+      CRG.parseCodeRegions(std::move(IPtemp));
+  if (!RegionsOrErr) {
+    if (auto Err =
+            handleErrors(RegionsOrErr.takeError(), [](const StringError &E) {
+              WithColor::error() << E.getMessage() << '\n';
+            })) {
+      // Default case.
+      WithColor::error() << toString(std::move(Err)) << '\n';
+    }
+    return 1;
+}
 */
 
 
-    //Cost.C.push_back(getCodeSize(M, TM));
-  }
+
+
+
   return 0;
 }
 
