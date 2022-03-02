@@ -4,6 +4,7 @@
 #include "ConstantSynthesis.h"
 #include "IR.h"
 #include "LLVMGen.h"
+#include "MachineCost.h"
 #include "Utils.h"
 
 #include "Type.h"
@@ -445,6 +446,17 @@ static void removeUnusedDecls(unordered_set<llvm::Function *> IntrinsicDecls) {
   }
 }
 
+unordered_map<llvm::Function*, unsigned> cost_cache;
+unsigned get_cost_with_cache(llvm::Function *f) {
+  if (cost_cache.contains(f)) {
+    return cost_cache[f];
+  } else {
+    unsigned cost = get_machine_cost(f);
+    cost_cache[f] = cost;
+    return cost;
+  }
+}
+
 bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
   config::disable_undef_input = true;
   config::disable_poison_input = true;
@@ -505,8 +517,11 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
     struct Comparator {
       bool operator()(tuple<llvm::Function*, llvm::Function*, Inst*, bool>& a,
                       tuple<llvm::Function*, llvm::Function*, Inst*, bool> &b) {
+        /*
         return
           get<0>(a)->getInstructionCount() > get<0>(b)->getInstructionCount();
+        */
+        return get_cost_with_cache(get<0>(a)) > get_cost_with_cache(get<0>(b));
       }
     };
     unordered_map<string, llvm::Argument *> constants;

@@ -20,17 +20,17 @@ namespace minotaur {
 
 bool Init = false;
 
-unsigned get_machine_cost(llvm::Function &F) {
-  llvm::Module M("", F.getContext());
-  auto newF = Function::Create(F.getFunctionType(), F.getLinkage(), "foo", M);
+unsigned get_machine_cost(llvm::Function *F) {
+  llvm::Module M("", F->getContext());
+  auto newF = Function::Create(F->getFunctionType(), F->getLinkage(), "foo", M);
 
   ValueToValueMapTy VMap;
-  for (unsigned i = 0 ; i < F.arg_size() ; ++i) {
-    VMap[F.getArg(i)] = newF->getArg(i);
+  for (unsigned i = 0 ; i < F->arg_size() ; ++i) {
+    VMap[F->getArg(i)] = newF->getArg(i);
   }
 
   SmallVector<ReturnInst*, 8> Returns;
-  CloneFunctionInto(newF, &F, VMap, CloneFunctionChangeType::DifferentModule, Returns);
+  CloneFunctionInto(newF, F, VMap, CloneFunctionChangeType::DifferentModule, Returns);
 
   int InputFD;
   SmallString<64> InputPath;

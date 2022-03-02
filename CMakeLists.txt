@@ -68,7 +68,7 @@ add_library(slice STATIC "lib/Slice.cpp")
 target_link_libraries(slice PRIVATE utils)
 
 add_library(synthesizer STATIC ${SYNTHESIZER_SRC})
-target_link_libraries(synthesizer PRIVATE utils)
+target_link_libraries(synthesizer PRIVATE utils machine_cost)
 
 add_llvm_library(minotaur MODULE pass/online.cpp)
 target_link_libraries(minotaur PRIVATE synthesizer ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS}
