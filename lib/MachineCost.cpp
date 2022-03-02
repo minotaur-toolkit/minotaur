@@ -90,11 +90,11 @@ unsigned get_approx_cost(llvm::Function *F) {
   for (auto &BB : *F) {
     for (auto &I : BB) {
       if (isa<BitCastInst>(I)) {
-        continue;
-      } else if (isa<CallInst>(I)){
-        cost += 2;
-      } else {
         cost += 1;
+      } else if (isa<CallInst>(I)){
+        cost += 10;
+      } else {
+        cost += 5;
       }
     }
   }

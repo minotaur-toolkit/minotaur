@@ -642,8 +642,8 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
       V = llvm::IRBuilder<>(I).CreateBitCast(V, I->getType());
       I->replaceAllUsesWith(V);
       unsigned newcost = get_machine_cost(&F);
-      llvm::errs()<<"previous latency: "<<machinecost<<"\n";
-      llvm::errs()<<"optimized latency: "<<newcost<<"\n";
+      llvm::errs()<<"previous uops: "<<machinecost<<"\n";
+      llvm::errs()<<"optimized uops: "<<newcost<<"\n";
       if (newcost > machinecost) {
         llvm::errs()<<"recover\n";
         V->replaceAllUsesWith(I);
