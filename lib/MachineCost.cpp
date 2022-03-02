@@ -22,7 +22,7 @@ bool Init = false;
 
 unsigned get_machine_cost(llvm::Function *F) {
   llvm::Module M("", F->getContext());
-  auto newF = Function::Create(F->getFunctionType(), F->getLinkage(), "foo", M);
+  auto newF = llvm::Function::Create(F->getFunctionType(), F->getLinkage(), "foo", M);
 
   ValueToValueMapTy VMap;
   for (unsigned i = 0 ; i < F->arg_size() ; ++i) {
@@ -32,7 +32,7 @@ unsigned get_machine_cost(llvm::Function *F) {
   for (auto &BB : *F) {
     for (auto &I : BB) {
       if (CallInst *CI = dyn_cast<CallInst>(&I)) {
-        Function *callee = CI->getCalledFunction();
+        llvm::Function *callee = CI->getCalledFunction();
         M.getOrInsertFunction(callee->getName(), callee->getFunctionType(),
                               callee->getAttributes());
       }
@@ -81,4 +81,27 @@ unsigned get_machine_cost(llvm::Function *F) {
 
   return cycle;
 }
+
+unsigned get_approx_cost(llvm::Function *F) {
+  unsigned cost = 0;
+  for (auto &BB : *F) {
+    for (auto &I : BB) {
+      if (isa<BitCastInst>(I)) {
+        continue;
+      } else if (isa<CallInst>(I)){
+        cost += 2;
+      } else {
+        cost += 0;
+      }
+    }
+  }
+  return cost;
+}
+
+bool ac_cmp(std::tuple<llvm::Function*, llvm::Function*, Inst*, bool> f1,
+            std::tuple<llvm::Function*, llvm::Function*, Inst*, bool> f2) {
+  return get_approx_cost(get<0>(f1)) < get_approx_cost(get<0>(f2));
+}
+
+
 }

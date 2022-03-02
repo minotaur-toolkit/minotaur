@@ -447,24 +447,8 @@ static void removeUnusedDecls(unordered_set<llvm::Function *> IntrinsicDecls) {
   }
 }
 
-unordered_map<llvm::Function*, unsigned> cost_cache;
-unsigned get_cost_with_cache(llvm::Function *f) {
-  if (cost_cache.contains(f)) {
-    return cost_cache[f];
-  } else {
-    unsigned cost = get_machine_cost(f);
-    cost_cache[f] = cost;
-    return cost;
-  }
-}
-
-bool mc_cmp(tuple<llvm::Function*, llvm::Function*, Inst*, bool> f1,
-            tuple<llvm::Function*, llvm::Function*, Inst*, bool> f2) {
-  return get_cost_with_cache(get<0>(f1)) < get_cost_with_cache(get<0>(f2));
-}
-
 bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
-  unsigned origLatency = get_cost_with_cache(&F);
+  unsigned machinecost = get_machine_cost(&F);
   config::disable_undef_input = true;
   config::disable_poison_input = true;
   config::src_unroll_cnt = 2;
@@ -614,14 +598,14 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
 
       Fns.push_back(make_tuple(Tgt, Src, G.get(), !Sketch.second.empty()));
     }
-    std::stable_sort(Fns.begin(), Fns.end(), mc_cmp);
+    std::stable_sort(Fns.begin(), Fns.end(), ac_cmp);
     // llvm functions -> alive2 functions
     auto iter = Fns.begin();
     for (;iter != Fns.end();) {
       auto [Tgt, Src, G, HaveC] = *iter;
       iter = Fns.erase(iter);
       Tgt->dump();
-      llvm::errs()<<"latency: " << get_cost_with_cache(Tgt);
+      llvm::errs()<<"approx cost: " << get_approx_cost(Tgt);
       auto Func1 = llvm_util::llvm2alive(*Src, *TLI);
       auto Func2 = llvm_util::llvm2alive(*Tgt, *TLI);
       unsigned goodCount = 0, badCount = 0, errorCount = 0;
@@ -673,7 +657,7 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
   }
   if (changed) {
     llvm::errs()<<"\n\n--successfully infered RHS--"<<"\n";
-    llvm::errs()<<"previous latency: "<<origLatency<<"\n";
+    llvm::errs()<<"previous latency: "<<machinecost<<"\n";
     llvm::errs()<<"optimized latency: "<<get_machine_cost(&F)<<"\n\n";
   }
   else
