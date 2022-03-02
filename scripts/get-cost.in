@@ -1,0 +1,6 @@
+#!/bin/bash
+
+set -e
+set -o pipefail
+
+@LLVM_BINARY_DIR@/bin/clang -march=native -S -O2 -o - $@ | @LLVM_BINARY_DIR@/bin/llvm-mca --iterations 1| grep "Total Cycles" | tr ' ' '\n' | tail -1

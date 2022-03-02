@@ -80,12 +80,9 @@ target_link_libraries(cache-exprs PRIVATE slice ${HIREDIS_LIBRARY}
 
 add_llvm_executable(minotaur-cs     "tools/minotaur-cs.cpp")
 add_llvm_executable(minotaur-slice  "tools/minotaur-slice.cpp")
-add_llvm_executable(bitcode-mca     "tools/bitcode-mca.cpp")
 target_link_libraries(minotaur-cs PRIVATE synthesizer ${ALIVE_LIBS} ${LLVM_LIBS} ${Z3_LIBRARIES}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 target_link_libraries(minotaur-slice PRIVATE slice ${ALIVE_LIBS} ${HIREDIS_LIBRARY}
-  $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
-target_link_libraries(bitcode-mca PRIVATE machine_cost ${LLVM_LIBS}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 
 if(APPLE)

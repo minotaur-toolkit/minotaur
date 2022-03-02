@@ -29,6 +29,17 @@ unsigned get_machine_cost(llvm::Function *F) {
     VMap[F->getArg(i)] = newF->getArg(i);
   }
 
+  for (auto &BB : *F) {
+    for (auto &I : BB) {
+      if (CallInst *CI = dyn_cast<CallInst>(&I)) {
+        Function *callee = CI->getCalledFunction();
+        if (callee->isIntrinsic())
+          M.getOrInsertFunction(callee->getName(), callee->getFunctionType(),
+                                callee->getAttributes());
+      }
+    }
+  }
+
   SmallVector<ReturnInst*, 8> Returns;
   CloneFunctionInto(newF, F, VMap, CloneFunctionChangeType::DifferentModule, Returns);
 
@@ -47,7 +58,6 @@ unsigned get_machine_cost(llvm::Function *F) {
   raw_fd_ostream InputFile(InputFD, true,true);
   InputFile << module_str;
   InputFile.close();
-
   int OutputFD;
   SmallString<64> OutputPath;
   if (std::error_code EC =

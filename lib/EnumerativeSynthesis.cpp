@@ -27,6 +27,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
+#include <algorithm>
 #include <iostream>
 #include <queue>
 #include <vector>
@@ -457,7 +458,13 @@ unsigned get_cost_with_cache(llvm::Function *f) {
   }
 }
 
+bool mc_cmp(tuple<llvm::Function*, llvm::Function*, Inst*, bool> f1,
+            tuple<llvm::Function*, llvm::Function*, Inst*, bool> f2) {
+  return get_cost_with_cache(get<0>(f1)) < get_cost_with_cache(get<0>(f2));
+}
+
 bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
+  unsigned origLatency = get_cost_with_cache(&F);
   config::disable_undef_input = true;
   config::disable_poison_input = true;
   config::src_unroll_cnt = 2;
@@ -514,22 +521,28 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
     }
     cout<<"-----------------------------"<<endl;
 
-    struct Comparator {
+    /*
+    struct MCComparator {
       bool operator()(tuple<llvm::Function*, llvm::Function*, Inst*, bool>& a,
                       tuple<llvm::Function*, llvm::Function*, Inst*, bool> &b) {
-        /*
-        return
-          get<0>(a)->getInstructionCount() > get<0>(b)->getInstructionCount();
-        */
         return get_cost_with_cache(get<0>(a)) > get_cost_with_cache(get<0>(b));
       }
     };
+    struct IRComparator {
+      bool operator()(tuple<llvm::Function*, llvm::Function*, Inst*, bool>& a,
+                      tuple<llvm::Function*, llvm::Function*, Inst*, bool>& b) {
+        return
+          get<0>(a)->getInstructionCount() > get<0>(b)->getInstructionCount();
+      }
+    };*/
+
     unordered_map<string, llvm::Argument *> constants;
     unsigned CI = 0;
-    priority_queue<tuple<llvm::Function *, llvm::Function *, Inst *, bool>,
+    /*
+    priority_queue<tuple<llvm::Function*, llvm::Function*, Inst*, bool>,
                    vector<tuple<llvm::Function*, llvm::Function*, Inst*, bool>>,
-                  Comparator> Fns;
-
+                   MCComparator> Fns;*/
+    vector<tuple<llvm::Function*, llvm::Function*, Inst*, bool>> Fns;
     auto FT = F.getFunctionType();
     // sketches -> llvm functions
     for (auto &Sketch : Sketches) {
@@ -599,14 +612,16 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
         continue;
       }*/
 
-      Fns.push(make_tuple(Tgt, Src, G.get(), !Sketch.second.empty()));
+      Fns.push_back(make_tuple(Tgt, Src, G.get(), !Sketch.second.empty()));
     }
-
+    std::stable_sort(Fns.begin(), Fns.end(), mc_cmp);
     // llvm functions -> alive2 functions
-    while (!Fns.empty()) {
-      auto [Tgt, Src, G, HaveC] = Fns.top();
-      Fns.pop();
+    auto iter = Fns.begin();
+    for (;iter != Fns.end();) {
+      auto [Tgt, Src, G, HaveC] = *iter;
+      iter = Fns.erase(iter);
       Tgt->dump();
+      llvm::errs()<<"latency: " << get_cost_with_cache(Tgt);
       auto Func1 = llvm_util::llvm2alive(*Src, *TLI);
       auto Func2 = llvm_util::llvm2alive(*Tgt, *TLI);
       unsigned goodCount = 0, badCount = 0, errorCount = 0;
@@ -637,10 +652,8 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
       }
     }
 
-    // clean up
-    while (!Fns.empty()) {
-      auto [Tgt, Src, G, HaveC] = Fns.top();
-      Fns.pop();
+    for (;iter != Fns.end(); ++iter) {
+      auto &[Tgt, Src, G, HaveC] = *iter;
       (void) G;
       if (HaveC)
         Src->eraseFromParent();
@@ -658,8 +671,11 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
       break;
     }
   }
-  if (changed)
-    llvm::errs()<<"\n\n--successfully infered RHS--\n\n";
+  if (changed) {
+    llvm::errs()<<"\n\n--successfully infered RHS--"<<"\n";
+    llvm::errs()<<"previous latency: "<<origLatency<<"\n";
+    llvm::errs()<<"optimized latency: "<<get_machine_cost(&F)<<"\n\n";
+  }
   else
     llvm::errs()<<"\n\n--no solution found--\n\n";
 
