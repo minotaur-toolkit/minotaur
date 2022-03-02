@@ -77,11 +77,18 @@ unsigned get_machine_cost(llvm::Function &F) {
   // TODO is this better than just forcing all clients of this code to
   // do the init themselves?
   if (!Init) {
+
+    /*
     InitializeAllTargetInfos();
     InitializeAllTargets();
     InitializeAllTargetMCs();
     InitializeAllAsmParsers();
-    InitializeAllAsmPrinters();
+    InitializeAllAsmPrinters();*/
+
+    InitializeAllTargetInfos();
+    InitializeAllTargetMCs();
+    InitializeAllAsmParsers();
+    InitializeAllTargetMCAs();
     Init = true;
   }
 
@@ -140,11 +147,28 @@ unsigned get_machine_cost(llvm::Function &F) {
   }
 
   std::unique_ptr<MCSubtargetInfo> STI(
-    Target->createMCSubtargetInfo(Trip, CPU, ""));
+      Target->createMCSubtargetInfo(Trip, CPU, ""));
+  assert(STI && "Unable to create subtarget info!");
+  if (!STI->isCPUStringValid(CPU))
+    return 1;
+
+  if (!STI->getSchedModel().hasInstrSchedModel()) {
+    llvm::errs()
+        << "unable to find instruction-level scheduling information for"
+        << " target triple '" << TheTriple.normalize() << "' and cpu '" << CPU
+        << "'.\n";
+
+    if (STI->getSchedModel().InstrItineraries)
+      llvm::errs()
+          << "cpu '" << CPU << "' provides itineraries. However, "
+          << "instruction itineraries are currently unsupported.\n";
+    return 1;
+  }
 
   std::unique_ptr<MCRegisterInfo> MRI(Target->createMCRegInfo(Trip));
   assert(MRI && "Unable to create target register info!");
-  MCTargetOptions MCOptions = mc::InitMCTargetOptionsFromFlags();
+  MCTargetOptions MCOptions;
+
   std::unique_ptr<MCAsmInfo> MAI(Target->createMCAsmInfo(*MRI, Trip, MCOptions));
   assert(MAI && "Unable to create target asm info!");
 
