@@ -2,6 +2,7 @@
 // Distributed under the MIT license that can be found in the LICENSE file.
 
 #include "MachineCost.h"
+#include "Utils.h"
 
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
@@ -41,6 +42,8 @@ unsigned get_machine_cost(llvm::Function *F) {
 
   SmallVector<ReturnInst*, 8> Returns;
   CloneFunctionInto(newF, F, VMap, CloneFunctionChangeType::DifferentModule, Returns);
+
+  eliminate_dead_code(*newF);
 
   int InputFD;
   SmallString<64> InputPath;
@@ -98,8 +101,8 @@ unsigned get_approx_cost(llvm::Function *F) {
   return cost;
 }
 
-bool ac_cmp(std::tuple<llvm::Function*, llvm::Function*, llvm::Value*, Inst*, bool> f1,
-            std::tuple<llvm::Function*, llvm::Function*, llvm::Value*, Inst*, bool> f2) {
+bool ac_cmp(std::tuple<llvm::Function*, llvm::Function*, Inst*, bool> f1,
+            std::tuple<llvm::Function*, llvm::Function*, Inst*, bool> f2) {
   return get_approx_cost(get<0>(f1)) < get_approx_cost(get<0>(f2));
 }
 

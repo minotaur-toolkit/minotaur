@@ -460,7 +460,6 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
   smt_init.emplace();
   std::unordered_set<llvm::Function *> IntrinsicDecls;
 
-  unsigned rcost = -1;
   for (auto &BB : F) {
     auto T = BB.getTerminator();
     if(!llvm::isa<llvm::ReturnInst>(T))
@@ -526,7 +525,7 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
     priority_queue<tuple<llvm::Function*, llvm::Function*, Inst*, bool>,
                    vector<tuple<llvm::Function*, llvm::Function*, Inst*, bool>>,
                    MCComparator> Fns;*/
-    vector<tuple<llvm::Function*, llvm::Function*, llvm::Value*, Inst*, bool>> Fns;
+    vector<tuple<llvm::Function*, llvm::Function*, Inst*, bool>> Fns;
     auto FT = F.getFunctionType();
     // sketches -> llvm functions
     for (auto &Sketch : Sketches) {
@@ -587,14 +586,14 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
 
       eliminate_dead_code(*Tgt);
 
-      Fns.push_back(make_tuple(Tgt, Src, V, G.get(), !Sketch.second.empty()));
+      Fns.push_back(make_tuple(Tgt, Src, G.get(), !Sketch.second.empty()));
     }
     std::stable_sort(Fns.begin(), Fns.end(), ac_cmp);
     // llvm functions -> alive2 functions
     auto iter = Fns.begin();
     Inst *R = nullptr;
     for (;iter != Fns.end();) {
-      auto [Tgt, Src, InsertPt, G, HaveC] = *iter;
+      auto [Tgt, Src, G, HaveC] = *iter;
       iter = Fns.erase(iter);
       Tgt->dump();
       llvm::errs()<<"approx cost: " << get_approx_cost(Tgt);
@@ -620,18 +619,6 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
                           inputMap, constMap);
 
         Src->eraseFromParent();
-        if (goodCount) {
-          llvm::ValueToValueMapTy VMap;
-
-          llvm::Instruction *PrevI = llvm::cast<llvm::Instruction>(InsertPt);
-          llvm::Value *V =
-            LLVMGen(PrevI, IntrinsicDecls).codeGen(G, VMap, &constMap);
-          V = llvm::IRBuilder<>(PrevI).CreateBitCast(V, PrevI->getType());
-          PrevI->replaceAllUsesWith(V);
-        }
-      }
-      if (goodCount) {
-        rcost = get_machine_cost(Tgt);
       }
       Tgt->eraseFromParent();
       if (goodCount) {
@@ -641,24 +628,30 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
     }
 
     for (;iter != Fns.end(); ++iter) {
-      auto &[Tgt, Src, V, G, HaveC] = *iter;
-      (void) G; (void) V;
+      auto &[Tgt, Src, G, HaveC] = *iter;
+      (void) G;
       if (HaveC)
         Src->eraseFromParent();
       Tgt->eraseFromParent();
     }
 
-    llvm::errs()<<"previous latency: "<<machinecost<<"\n";
-    llvm::errs()<<"optimized latency: "<<rcost<<"\n\n";
     // replace
-    if (R && rcost <= machinecost) {
+    if (R) {
       llvm::ValueToValueMapTy VMap;
       llvm::Value *V = LLVMGen(&*I, IntrinsicDecls).codeGen(R, VMap, &constMap);
       V = llvm::IRBuilder<>(I).CreateBitCast(V, I->getType());
       I->replaceAllUsesWith(V);
-      eliminate_dead_code(F);
-      changed = true;
-      break;
+      unsigned newcost = get_machine_cost(&F);
+      llvm::errs()<<"previous latency: "<<machinecost<<"\n";
+      llvm::errs()<<"optimized latency: "<<newcost<<"\n";
+      if (newcost > machinecost) {
+        llvm::errs()<<"recover\n";
+        V->replaceAllUsesWith(I);
+      } else {
+        eliminate_dead_code(F);
+        changed = true;
+        break;
+      }
     }
     // one change at a time
     if (changed) break;
