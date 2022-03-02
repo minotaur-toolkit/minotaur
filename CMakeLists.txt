@@ -80,7 +80,7 @@ target_link_libraries(cache-exprs PRIVATE slice ${HIREDIS_LIBRARY}
 
 add_llvm_executable(minotaur-cs     "tools/minotaur-cs.cpp")
 add_llvm_executable(minotaur-slice  "tools/minotaur-slice.cpp")
-add_llvm_executable(bitcode-mca  "tools/bitcode-mca.cpp")
+add_llvm_executable(bitcode-mca     "tools/bitcode-mca.cpp")
 target_link_libraries(minotaur-cs PRIVATE synthesizer ${ALIVE_LIBS} ${LLVM_LIBS} ${Z3_LIBRARIES}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 target_link_libraries(minotaur-slice PRIVATE slice ${ALIVE_LIBS} ${HIREDIS_LIBRARY}
@@ -120,7 +120,6 @@ configure_file(
   ${PROJECT_BINARY_DIR}/minotaur-c++
   @ONLY
 )
-
 configure_file(
   ${PROJECT_SOURCE_DIR}/scripts/cache-dump.in
   ${PROJECT_BINARY_DIR}/cache-dump
@@ -129,6 +128,11 @@ configure_file(
 configure_file(
   ${PROJECT_SOURCE_DIR}/scripts/cache-infer.in
   ${PROJECT_BINARY_DIR}/cache-infer
+  @ONLY
+)
+configure_file(
+  ${PROJECT_SOURCE_DIR}/scripts/get-cost.in
+  ${PROJECT_BINARY_DIR}/get-cost
   @ONLY
 )
 
