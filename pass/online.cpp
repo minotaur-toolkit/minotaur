@@ -144,12 +144,13 @@ struct SuperoptimizerPass : PassInfoMixin<SuperoptimizerPass> {
         if (I.getType()->isVoidTy())
           continue;
         minotaur::Slice S(F, LI, DT);
-        S.extractExpr(I);
-        auto m = S.getNewModule();
+        auto NewF = S.extractExpr(I);
+        if (!NewF.has_value())
+          continue;
 
-        llvm::TargetLibraryInfo TLI = FAM.getResult<TargetLibraryAnalysis>(F);
+        llvm::TargetLibraryInfo TLI = FAM.getResult<TargetLibraryAnalysis>(*NewF);
         smt::solver_print_queries(opt_smt_verbose);
-        minotaur::synthesize(F, TLI);
+        minotaur::synthesize(*NewF, TLI);
         return PA;
       }
     }
