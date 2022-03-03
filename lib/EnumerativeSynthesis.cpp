@@ -448,7 +448,7 @@ static void removeUnusedDecls(unordered_set<llvm::Function *> IntrinsicDecls) {
   }
 }
 
-bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
+bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
   unsigned machinecost = get_machine_cost(&F);
   config::disable_undef_input = true;
   config::disable_poison_input = true;
@@ -597,8 +597,8 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo *TLI) {
       iter = Fns.erase(iter);
       Tgt->dump();
       llvm::errs()<<"approx cost: " << get_approx_cost(Tgt);
-      auto Func1 = llvm_util::llvm2alive(*Src, *TLI);
-      auto Func2 = llvm_util::llvm2alive(*Tgt, *TLI);
+      auto Func1 = llvm_util::llvm2alive(*Src, TLI);
+      auto Func2 = llvm_util::llvm2alive(*Tgt, TLI);
       unsigned goodCount = 0, badCount = 0, errorCount = 0;
       if (!HaveC) {
         compareFunctions(*Func1, *Func2,

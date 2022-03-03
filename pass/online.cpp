@@ -100,7 +100,7 @@ struct SuperoptimizerLegacyPass final : public llvm::FunctionPass {
     llvm::TargetLibraryInfo *TLI =
         &getAnalysis<llvm::TargetLibraryInfoWrapperPass>().getTLI(F);
     smt::solver_print_queries(opt_smt_verbose);
-    bool changed = minotaur::synthesize(F, TLI);
+    bool changed = minotaur::synthesize(F, *TLI);
     return changed;
   }
 
@@ -146,7 +146,11 @@ struct SuperoptimizerPass : PassInfoMixin<SuperoptimizerPass> {
         minotaur::Slice S(F, LI, DT);
         S.extractExpr(I);
         auto m = S.getNewModule();
-        //optimizeModule(m.get());
+
+        llvm::TargetLibraryInfo TLI = FAM.getResult<TargetLibraryAnalysis>(F);
+        smt::solver_print_queries(opt_smt_verbose);
+        minotaur::synthesize(F, TLI);
+        return PA;
       }
     }
     return PA;
