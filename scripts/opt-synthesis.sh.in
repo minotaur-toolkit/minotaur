@@ -2,13 +2,13 @@
 
 set -ex
 
-if [[ "$OSTYPE" == "darwin"* ]]; then
-  # Mac
-  MINOTAUR_SHAREDLIB=minotaur.dylib
-else
-  # Linux
-  MINOTAUR_SHAREDLIB=minotaur.so
-fi
+#if [[ "$OSTYPE" == "darwin"* ]]; then
+#  # Mac
+#  MINOTAUR_SHAREDLIB=minotaur.dylib
+#else
+#  # Linux
+#  MINOTAUR_SHAREDLIB=@CACHE_EXPRS_PASS.so
+#fi
 
 
-@LLVM_BINARY_DIR@/bin/opt -enable-new-pm=0 -load=@PROJECT_BINARY_DIR@/$MINOTAUR_SHAREDLIB -so $@ -S -o -
+@LLVM_BINARY_DIR@/bin/opt -enable-new-pm=0 -load=@ONLINE_PASS@ -so $@ -S -o -

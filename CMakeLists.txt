@@ -70,8 +70,8 @@ target_link_libraries(slice PRIVATE utils)
 add_library(synthesizer STATIC ${SYNTHESIZER_SRC})
 target_link_libraries(synthesizer PRIVATE utils machine_cost)
 
-add_llvm_library(minotaur MODULE pass/online.cpp)
-target_link_libraries(minotaur PRIVATE synthesizer ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS}
+add_llvm_library(online MODULE pass/online.cpp)
+target_link_libraries(online PRIVATE synthesizer ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 
 add_llvm_library(cache-exprs MODULE pass/cache-exprs.cpp)
@@ -101,13 +101,14 @@ if(APPLE)
     )
 endif(APPLE)
 
+set(CACHE_EXPRS_PASS ${CMAKE_BINARY_DIR}/cache-exprs${CMAKE_SHARED_LIBRARY_SUFFIX})
+set(ONLINE_PASS ${CMAKE_BINARY_DIR}/online${CMAKE_SHARED_LIBRARY_SUFFIX})
+
 configure_file(
   ${PROJECT_SOURCE_DIR}/scripts/opt-synthesis.sh.in
   ${PROJECT_BINARY_DIR}/opt-synthesis-test.sh
   @ONLY
 )
-
-set(CACHE_EXPRS_PASS ${CMAKE_BINARY_DIR}/cache-exprs${CMAKE_SHARED_LIBRARY_SUFFIX})
 configure_file(
   ${PROJECT_SOURCE_DIR}/scripts/slice-cc.in
   ${PROJECT_BINARY_DIR}/slice-cc
@@ -116,6 +117,16 @@ configure_file(
 configure_file(
   ${PROJECT_SOURCE_DIR}/scripts/slice-cc.in
   ${PROJECT_BINARY_DIR}/slice-c++
+  @ONLY
+)
+configure_file(
+  ${PROJECT_SOURCE_DIR}/scripts/minotaur-cc.in
+  ${PROJECT_BINARY_DIR}/minotaur-cc
+  @ONLY
+)
+configure_file(
+  ${PROJECT_SOURCE_DIR}/scripts/minotaur-cc.in
+  ${PROJECT_BINARY_DIR}/minotaur-c++
   @ONLY
 )
 configure_file(
@@ -147,6 +158,6 @@ add_custom_target("check"
                           "-s"
                           "${PROJECT_SOURCE_DIR}/tests"
                           "-j${TEST_NTHREADS}"
-                  DEPENDS "minotaur"
+                  DEPENDS "online"
                   USES_TERMINAL
                  )
