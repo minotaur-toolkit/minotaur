@@ -1,6 +1,7 @@
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
 #include "EnumerativeSynthesis.h"
+#include "Slice.h"
 
 #include "ir/instr.h"
 #include "smt/smt.h"
@@ -25,10 +26,8 @@
 #include <unordered_map>
 #include <utility>
 
-using namespace IR;
-using namespace tools;
-using namespace util;
 using namespace std;
+using namespace llvm;
 
 namespace {
 llvm::cl::opt<bool>
@@ -91,10 +90,10 @@ llvm::cl::opt<unsigned> opt_omit_array_size(
                    "this number"),
     llvm::cl::init(-1));
 
-struct SuperoptimizerPass final : public llvm::FunctionPass {
+struct SuperoptimizerLegacyPass final : public llvm::FunctionPass {
   static char ID;
 
-  SuperoptimizerPass() : FunctionPass(ID) {}
+  SuperoptimizerLegacyPass() : FunctionPass(ID) {}
 
   bool runOnFunction(llvm::Function &F) override {
     F.dump();
@@ -119,9 +118,75 @@ struct SuperoptimizerPass final : public llvm::FunctionPass {
   }
 };
 
-char SuperoptimizerPass::ID = 0;
+char SuperoptimizerLegacyPass::ID = 0;
 } // namespace
 
 namespace llvm {
-llvm::RegisterPass<SuperoptimizerPass> X("so", "Superoptimizer", false, false);
+llvm::RegisterPass<SuperoptimizerLegacyPass> X("so", "Superoptimizer", false, false);
+}
+
+namespace {
+
+struct SuperoptimizerPass : PassInfoMixin<SuperoptimizerPass> {
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM) {
+    //TargetLibraryInfo &TLI = FAM.getResult<TargetLibraryAnalysis>(F);
+    PreservedAnalyses PA;
+    PA.preserveSet<CFGAnalyses>();
+
+    if (F.isDeclaration())
+      return PA;
+
+    LoopInfo &LI = FAM.getResult<LoopAnalysis>(F);
+    DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
+
+    for (auto &BB : F) {
+      for (auto &I : BB) {
+        if (I.getType()->isVoidTy())
+          continue;
+        minotaur::Slice S(F, LI, DT);
+        S.extractExpr(I);
+        auto m = S.getNewModule();
+        //optimizeModule(m.get());
+      }
+    }
+    return PA;
+  }
+};
+
+}// namespace
+
+bool pipelineParsingCallback(StringRef Name, FunctionPassManager &FPM,
+                             ArrayRef<PassBuilder::PipelineElement>) {
+  bool Result = false;
+
+  if (Name == "minotaur-online") {
+    Result = true;
+    FPM.addPass(SuperoptimizerPass());
+  }
+
+  return Result;
+}
+
+void passBuilderCallback(PassBuilder &PB) {
+  PB.registerPipelineParsingCallback(pipelineParsingCallback);
+  PB.registerPeepholeEPCallback(
+  //PB.registerPipelineEarlySimplificationEPCallback
+      [](llvm::FunctionPassManager &FPM, llvm::OptimizationLevel) {
+        FPM.addPass(SuperoptimizerPass());
+      });
+}
+
+PassPluginLibraryInfo getSuperoptimizerPassPluginInfo() {
+  llvm::PassPluginLibraryInfo Res;
+
+  Res.APIVersion = LLVM_PLUGIN_API_VERSION;
+  Res.PluginName = "SuperoptimizerPass";
+  Res.PluginVersion = LLVM_VERSION_STRING;
+  Res.RegisterPassBuilderCallbacks = passBuilderCallback;
+
+  return Res;
+}
+
+extern "C" LLVM_ATTRIBUTE_WEAK PassPluginLibraryInfo llvmGetPassPluginInfo() {
+  return getSuperoptimizerPassPluginInfo();
 }

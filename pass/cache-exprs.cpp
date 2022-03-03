@@ -67,7 +67,7 @@ struct CacheExprsPass : PassInfoMixin<CacheExprsPass> {
       for (auto &I : BB) {
         if (I.getType()->isVoidTy())
           continue;
-        Slice S(F, LI, DT, PDT);
+        Slice S(F, LI, DT);
         S.extractExpr(I);
         auto m = S.getNewModule();
         //optimizeModule(m.get());

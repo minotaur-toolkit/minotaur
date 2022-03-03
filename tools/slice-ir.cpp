@@ -21,7 +21,7 @@ using namespace std;
 using namespace llvm;
 using namespace minotaur;
 
-static cl::OptionCategory minotaur_slice("minotaur-slice options");
+static cl::OptionCategory minotaur_slice("slice-ir options");
 
 static cl::opt<string> opt_file(cl::Positional, cl::desc("bitcode_file"),
                                 cl::Required, cl::value_desc("filename"),
@@ -66,12 +66,11 @@ int main(int argc, char **argv) {
     //FAM.registerPass(llvm::LoopInfo());
     LoopInfo &LI = FAM.getResult<LoopAnalysis>(F);
     DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
-    PostDominatorTree &PDT = FAM.getResult<PostDominatorTreeAnalysis>(F);
 
     unsigned count = 0;
     for (auto &BB : F) {
       for (auto &I : BB) {
-        Slice S(F, LI, DT, PDT);
+        Slice S(F, LI, DT);
         if (I.getType()->isVoidTy())
           continue;
         S.extractExpr(I);

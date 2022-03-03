@@ -16,13 +16,11 @@ class Slice {
   llvm::Function &f;
   llvm::LoopInfo &LI;
   llvm::DominatorTree &DT;
-  llvm::PostDominatorTree &PDT;
   std::unique_ptr<llvm::Module> m;
 
 public:
-  Slice(llvm::Function &f, llvm::LoopInfo &LI, llvm::DominatorTree &DT,
-        llvm::PostDominatorTree &PDT)
-      : f(f), LI(LI), DT(DT), PDT(PDT) {
+  Slice(llvm::Function &f, llvm::LoopInfo &LI, llvm::DominatorTree &DT)
+    : f(f), LI(LI), DT(DT) {
     m = std::make_unique<llvm::Module>("", f.getContext());
   }
   std::unique_ptr<llvm::Module> getNewModule() {return move(m); }
