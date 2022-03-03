@@ -78,11 +78,12 @@ add_llvm_library(cache-exprs MODULE pass/cache-exprs.cpp)
 target_link_libraries(cache-exprs PRIVATE slice ${HIREDIS_LIBRARY}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 
-add_llvm_executable(minotaur-cs     "tools/minotaur-cs.cpp")
-add_llvm_executable(minotaur-slice  "tools/minotaur-slice.cpp")
+add_llvm_executable(minotaur-cs "tools/minotaur-cs.cpp")
 target_link_libraries(minotaur-cs PRIVATE synthesizer ${ALIVE_LIBS} ${LLVM_LIBS} ${Z3_LIBRARIES}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
-target_link_libraries(minotaur-slice PRIVATE slice ${ALIVE_LIBS} ${HIREDIS_LIBRARY}
+
+add_llvm_executable(slice-ir "tools/slice-ir.cpp")
+target_link_libraries(slice-ir PRIVATE slice ${ALIVE_LIBS} ${HIREDIS_LIBRARY}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 
 if(APPLE)
@@ -108,13 +109,13 @@ configure_file(
 
 set(CACHE_EXPRS_PASS ${CMAKE_BINARY_DIR}/cache-exprs${CMAKE_SHARED_LIBRARY_SUFFIX})
 configure_file(
-  ${PROJECT_SOURCE_DIR}/scripts/minotaur-cc.in
-  ${PROJECT_BINARY_DIR}/minotaur-cc
+  ${PROJECT_SOURCE_DIR}/scripts/slice-cc.in
+  ${PROJECT_BINARY_DIR}/slice-cc
   @ONLY
 )
 configure_file(
-  ${PROJECT_SOURCE_DIR}/scripts/minotaur-cc.in
-  ${PROJECT_BINARY_DIR}/minotaur-c++
+  ${PROJECT_SOURCE_DIR}/scripts/slice-cc.in
+  ${PROJECT_BINARY_DIR}/slice-c++
   @ONLY
 )
 configure_file(
