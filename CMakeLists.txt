@@ -105,6 +105,11 @@ set(CACHE_EXPRS_PASS ${CMAKE_BINARY_DIR}/cache-exprs${CMAKE_SHARED_LIBRARY_SUFFI
 set(ONLINE_PASS ${CMAKE_BINARY_DIR}/online${CMAKE_SHARED_LIBRARY_SUFFIX})
 
 configure_file(
+  ${PROJECT_SOURCE_DIR}/include/GetCost.h.in
+  ${PROJECT_SOURCE_DIR}/include/GetCost.h
+  @ONLY
+)
+configure_file(
   ${PROJECT_SOURCE_DIR}/scripts/opt-synthesis.sh.in
   ${PROJECT_BINARY_DIR}/opt-synthesis-test.sh
   @ONLY

@@ -590,8 +590,12 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
       eliminate_dead_code(*Tgt);
 
       unsigned tgt_cost = get_approx_cost(Tgt);
-      if (tgt_cost >= src_cost)
+      if (tgt_cost >= src_cost) {
+        Tgt->eraseFromParent();
+        if (HaveC)
+          Src->eraseFromParent();
         continue;
+      }
 
       Fns.push_back(make_tuple(Tgt, Src, G.get(), !Sketch.second.empty()));
     }
@@ -664,10 +668,8 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
     // one change at a time
     if (changed) break;
   }
-  if (changed) {
+  if (changed)
     llvm::errs()<<"\n\n--successfully infered RHS--"<<"\n";
-
-  }
   else
     llvm::errs()<<"\n\n--no solution found--\n\n";
 

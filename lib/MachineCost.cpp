@@ -3,6 +3,7 @@
 
 #include "MachineCost.h"
 #include "Utils.h"
+#include "GetCost.h"
 
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
@@ -72,7 +73,7 @@ unsigned get_machine_cost(llvm::Function *F) {
   std::vector<StringRef> ArgPtrs = {"get-cost", InputPath};
   Optional<StringRef> Redirects[3] = {None, StringRef(OutputPath), StringRef("/dev/null")};
 
-  int retval = sys::ExecuteAndWait("get-cost", ArgPtrs, None, Redirects, 5);
+  int retval = sys::ExecuteAndWait(GET_COST_COMMAND, ArgPtrs, None, Redirects, 5);
 
   if (retval)
     llvm::report_fatal_error("error when analysizing cost");
