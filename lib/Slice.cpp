@@ -161,6 +161,10 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     if (!visited.insert(w).second)
       continue;
 
+    // TODO: REMOVE ME!!
+    if (isa<LoadInst>(w))
+      continue;
+
     if (Instruction *i = dyn_cast<Instruction>(w)) {
       // do not handle function operands.
       bool haveUnknownOperand = false;

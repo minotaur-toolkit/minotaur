@@ -454,11 +454,14 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
   config::disable_poison_input = true;
   config::src_unroll_cnt = 2;
   config::tgt_unroll_cnt = 2;
+  smt::set_query_timeout("1000");
 
   bool changed = false;
 
   smt_init.emplace();
   std::unordered_set<llvm::Function *> IntrinsicDecls;
+
+  unsigned src_cost = get_approx_cost(&F);
 
   for (auto &BB : F) {
     auto T = BB.getTerminator();
@@ -586,6 +589,10 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
 
       eliminate_dead_code(*Tgt);
 
+      unsigned tgt_cost = get_approx_cost(Tgt);
+      if (tgt_cost >= src_cost)
+        continue;
+
       Fns.push_back(make_tuple(Tgt, Src, G.get(), !Sketch.second.empty()));
     }
     std::stable_sort(Fns.begin(), Fns.end(), ac_cmp);
@@ -596,7 +603,8 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
       auto [Tgt, Src, G, HaveC] = *iter;
       iter = Fns.erase(iter);
       Tgt->dump();
-      llvm::errs()<<"approx cost: " << get_approx_cost(Tgt);
+      unsigned tgt_cost = get_approx_cost(Tgt);
+      llvm::errs()<<"approx cost: " << tgt_cost <<"\n";
       auto Func1 = llvm_util::llvm2alive(*Src, TLI);
       auto Func2 = llvm_util::llvm2alive(*Tgt, TLI);
       unsigned goodCount = 0, badCount = 0, errorCount = 0;

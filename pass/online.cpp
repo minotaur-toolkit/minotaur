@@ -151,7 +151,6 @@ struct SuperoptimizerPass : PassInfoMixin<SuperoptimizerPass> {
         llvm::TargetLibraryInfo TLI = FAM.getResult<TargetLibraryAnalysis>(*NewF);
         smt::solver_print_queries(opt_smt_verbose);
         minotaur::synthesize(*NewF, TLI);
-        return PA;
       }
     }
     return PA;
