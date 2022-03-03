@@ -41,11 +41,6 @@ llvm::cl::opt<unsigned>
                llvm::cl::desc("Superoptimizer: timeout for SMT queries"),
                llvm::cl::init(1000), llvm::cl::value_desc("ms"));
 
-llvm::cl::opt<unsigned>
-    opt_max_mem("so-max-mem",
-                llvm::cl::desc("Superoptimizer: max memory (aprox)"),
-                llvm::cl::init(1024), llvm::cl::value_desc("MB"));
-
 llvm::cl::opt<bool> opt_se_verbose(
     "so-se-verbose",
     llvm::cl::desc("Superoptimizer: symbolic execution verbose mode"),
@@ -61,11 +56,6 @@ llvm::cl::opt<bool>
                  llvm::cl::desc("Superoptimizer: skip SMT queries"),
                  llvm::cl::init(false));
 
-llvm::cl::opt<string>
-    opt_report_dir("so-report-dir",
-                   llvm::cl::desc("Alive: save report to disk"),
-                   llvm::cl::value_desc("directory"));
-
 llvm::cl::opt<bool>
     opt_smt_verbose("so-smt-verbose",
                     llvm::cl::desc("Superoptimizer: SMT verbose mode"),
@@ -74,16 +64,6 @@ llvm::cl::opt<bool>
 llvm::cl::opt<bool> opt_tactic_verbose(
     "so-tactic-verbose",
     llvm::cl::desc("Superoptimizer: SMT Tactic verbose mode"),
-    llvm::cl::init(false));
-
-llvm::cl::opt<bool> opt_print_dot(
-    "so-dot",
-    llvm::cl::desc("Superoptimizer: print .dot file with CFG of each function"),
-    llvm::cl::init(false));
-
-llvm::cl::opt<bool> opt_disable_poison_input(
-    "so-disable-poison-input",
-    llvm::cl::desc("Superoptimizer: Assume function input cannot be poison"),
     llvm::cl::init(false));
 
 llvm::cl::opt<bool> opt_disable_undef_input(
