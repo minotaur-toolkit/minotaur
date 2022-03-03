@@ -354,8 +354,11 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   // FIXME: Do not handle switch for now
   for (BasicBlock *orig_bb : blocks) {
     Instruction *term = orig_bb->getTerminator();
-    if (!isa<BranchInst>(term))
+    if (!isa<BranchInst>(term) && !isa<ReturnInst>(term))
       return nullopt;
+
+    if (!isa<BranchInst>(term))
+      continue;
     BranchInst *bi = cast<BranchInst>(term);
 
     // skip if condition of a branch is a ConstantExpr
@@ -379,7 +382,6 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     }
     cloned_insts.push_back(c);
   }
-
   // pass 3
   // + duplicate blocks
   BasicBlock *sinkbb = BasicBlock::Create(ctx, "sink");
@@ -546,7 +548,6 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     llvm::report_fatal_error("[ERROR] a loop is generated");
 
   eliminate_dead_code(*F);
-
   // validate the created function
   string err;
   llvm::raw_string_ostream err_stream(err);
