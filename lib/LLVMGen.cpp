@@ -110,7 +110,7 @@ static constexpr std::array<llvm::Intrinsic::ID, X86IntrinBinOp::numOfX86Intrins
 /* avx512_psllv_q_512 */    llvm::Intrinsic::x86_avx512_psllv_q_512,
 /* avx512_psllv_w_128 */    llvm::Intrinsic::x86_avx512_psllv_w_128,
 /* avx512_psllv_w_256 */    llvm::Intrinsic::x86_avx512_psllv_w_256,
-/* avx512_psllv_w_256 */    llvm::Intrinsic::x86_avx512_psllv_w_256,
+/* avx512_psllv_w_512 */    llvm::Intrinsic::x86_avx512_psllv_w_512,
 /* ssse3_psign_b_128 */     llvm::Intrinsic::x86_ssse3_psign_b_128,
 /* ssse3_psign_w_128 */     llvm::Intrinsic::x86_ssse3_psign_w_128,
 /* ssse3_psign_d_128 */     llvm::Intrinsic::x86_ssse3_psign_d_128,
