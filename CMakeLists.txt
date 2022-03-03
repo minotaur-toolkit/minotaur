@@ -71,7 +71,7 @@ add_library(synthesizer STATIC ${SYNTHESIZER_SRC})
 target_link_libraries(synthesizer PRIVATE utils machine_cost)
 
 add_llvm_library(online MODULE pass/online.cpp)
-target_link_libraries(online PRIVATE synthesizer ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS}
+target_link_libraries(online PRIVATE synthesizer slice ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 
 add_llvm_library(cache-exprs MODULE pass/cache-exprs.cpp)
