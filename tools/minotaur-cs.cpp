@@ -36,12 +36,7 @@ using namespace std;
 static llvm::cl::OptionCategory minotaur_cs("minotaur-cs options");
 
 static llvm::cl::opt<string>
-opt_file1(llvm::cl::Positional, llvm::cl::desc("first_bitcode_file"),
-    llvm::cl::Required, llvm::cl::value_desc("filename"),
-    llvm::cl::cat(minotaur_cs));
-
-static llvm::cl::opt<string>
-opt_file2(llvm::cl::Positional, llvm::cl::desc("second_bitcode_file"),
+opt_file(llvm::cl::Positional, llvm::cl::desc("bitcode_file"),
     llvm::cl::Required, llvm::cl::value_desc("filename"),
     llvm::cl::cat(minotaur_cs));
 
@@ -49,13 +44,13 @@ static llvm::cl::opt<bool> opt_debug(
     "dbg", llvm::cl::desc("Alive: print debugging info"),
     llvm::cl::cat(minotaur_cs), llvm::cl::init(false));
 
-static llvm::cl::opt<bool> opt_disable_undef("disable-undef-input",
-    llvm::cl::init(false), llvm::cl::cat(minotaur_cs),
-    llvm::cl::desc("Alive: Assume inputs are not undef (default=false)"));
+// static llvm::cl::opt<bool> opt_disable_undef("disable-undef-input",
+//     llvm::cl::init(false), llvm::cl::cat(minotaur_cs),
+//     llvm::cl::desc("Alive: Assume inputs are not undef (default=false)"));
 
-static llvm::cl::opt<bool> opt_disable_poison("disable-poison-input",
-    llvm::cl::init(false), llvm::cl::cat(minotaur_cs),
-    llvm::cl::desc("Alive: Assume inputs are not poison (default=false)"));
+// static llvm::cl::opt<bool> opt_disable_poison("disable-poison-input",
+//     llvm::cl::init(false), llvm::cl::cat(minotaur_cs),
+//     llvm::cl::desc("Alive: Assume inputs are not poison (default=false)"));
 
 static llvm::cl::opt<bool> opt_smt_verbose(
     "smt-verbose", llvm::cl::desc("Alive: SMT verbose mode"),
@@ -85,6 +80,17 @@ static std::unique_ptr<llvm::Module> openInputFile(llvm::LLVMContext &Context,
 
 void calculateAndInitConstants(Transform &t);
 
+static llvm::Function *findFunction(llvm::Module &M, const string &FName) {
+  for (auto &F : M) {
+    if (F.isDeclaration())
+      continue;
+    if (FName.compare(F.getName()) != 0)
+      continue;
+    return &F;
+  }
+  return 0;
+}
+
 int main(int argc, char **argv) {
   llvm::sys::PrintStackTraceOnErrorSignal(argv[0]);
   llvm::PrettyStackTraceProgram X(argc, argv);
@@ -95,47 +101,39 @@ int main(int argc, char **argv) {
   llvm::cl::ParseCommandLineOptions(argc, argv,
                                     "Minotaur stand-alone Constant Synthesizer\n");
 
-  smt::solver_print_queries(opt_smt_verbose);
-  //TODO:
-  config::disable_undef_input = true; (void)opt_disable_undef;
-  config::disable_poison_input = true; (void)opt_disable_poison;
+  //smt::solver_print_queries(opt_smt_verbose);
+  config::disable_undef_input = true;
+  config::disable_poison_input = true;
 
   config::debug = opt_debug;
 
-  auto M1 = openInputFile(Context, opt_file1);
-  if (!M1.get())
+  auto M = openInputFile(Context, opt_file);
+  if (!M.get())
     llvm::report_fatal_error(
-      llvm::Twine("Could not read bitcode from '" + opt_file1 + "'"));
-
-  auto M2 = openInputFile(Context, opt_file2);
-  if (!M2.get())
-    llvm::report_fatal_error(
-      llvm::Twine("Could not read bitcode from '" + opt_file2 + "'"));
-
-  if (M1.get()->getTargetTriple() != M2.get()->getTargetTriple())
-    llvm::report_fatal_error("Modules have different target triple");
+      llvm::Twine("Could not read bitcode from '" + opt_file + "'"));
 
   //auto &DL = M1.get()->getDataLayout();
-  auto targetTriple = llvm::Triple(M1.get()->getTargetTriple());
+  auto targetTriple = llvm::Triple(M.get()->getTargetTriple());
 
-  llvm::Function &F1 = *(M1.get()->getFunction("foo"));
-  llvm::Function &F2 = *(M2.get()->getFunction("foo"));
-
+  auto SRC = findFunction(*M, "src");
+  auto TGT = findFunction(*M, "tgt");
   unsigned /*goodCount = 0, badCount = 0,*/ errorCount = 0;
-  auto Func1 = llvm_util::llvm2alive(F1, llvm::TargetLibraryInfoWrapperPass(targetTriple)
-                                       .getTLI(F1));
+  auto Func1 =
+    llvm_util::llvm2alive(*SRC, llvm::TargetLibraryInfoWrapperPass(targetTriple)
+                                .getTLI(*SRC));
 
   if (!Func1) {
-    cerr << "ERROR: Could not translate '" << F1.getName().str()
+    cerr << "ERROR: Could not translate '" << SRC->getName().str()
          << "' to Alive IR\n";
     ++errorCount;
     return 1;
   }
 
-  auto Func2 = llvm_util::llvm2alive(F2, llvm::TargetLibraryInfoWrapperPass(targetTriple)
-                                       .getTLI(F2), Func1->getGlobalVarNames());
+  auto Func2 =
+    llvm_util::llvm2alive(*TGT, llvm::TargetLibraryInfoWrapperPass(targetTriple)
+                                .getTLI(*TGT));
   if (!Func2) {
-    cerr << "ERROR: Could not translate '" << F2.getName().str()
+    cerr << "ERROR: Could not translate '" << TGT->getName().str()
          << "' to Alive IR\n";
     ++errorCount;
     return 1;
@@ -143,13 +141,13 @@ int main(int argc, char **argv) {
 
   smt::smt_initializer smt_init;
   smt_init.reset();
-
   Transform t;
   t.src = move(*Func1);
   t.tgt = move(*Func2);
 
   t.preprocess();
   t.tgt.syncDataWithSrc(t.src);
+
   ::calculateAndInitConstants(t);
 
   minotaur::ConstantSynthesis S(t);
