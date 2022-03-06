@@ -452,7 +452,7 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
   unsigned machinecost = get_machine_cost(&F);
   config::disable_undef_input = true;
   config::disable_poison_input = true;
-  smt::set_query_timeout("1000");
+  //smt::set_query_timeout("10000");
 
   bool changed = false;
 

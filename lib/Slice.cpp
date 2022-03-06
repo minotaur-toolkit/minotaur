@@ -490,8 +490,18 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       }
     }
   }
-  // argument for switch
-  argTys.push_back(Type::getInt8Ty(ctx));
+
+  unordered_set<BasicBlock *> block_without_preds;
+  for (auto block : cloned_blocks) {
+    auto preds = predecessors(block);
+    if (preds.empty()) {
+      block_without_preds.insert(block);
+    }
+  }
+  if (block_without_preds.size() > 1)
+    // argument for switch
+    argTys.push_back(Type::getInt8Ty(ctx));
+
   // create function
   auto func_name = "sliced_" + v.getName();
   Function *F = Function::Create(FunctionType::get(v.getType(), argTys, false),
@@ -507,13 +517,6 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     }
   }
 
-  unordered_set<BasicBlock *> block_without_preds;
-  for (auto block : cloned_blocks) {
-    auto preds = predecessors(block);
-    if (preds.empty()) {
-      block_without_preds.insert(block);
-    }
-  }
   if (block_without_preds.size() == 0) {
     llvm::report_fatal_error("[ERROR] no entry block found");
   } if (block_without_preds.size() == 1) {

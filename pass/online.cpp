@@ -11,7 +11,9 @@
 #include "util/version.h"
 
 #include "llvm/ADT/Any.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
@@ -90,18 +92,36 @@ llvm::cl::opt<unsigned> opt_omit_array_size(
                    "this number"),
     llvm::cl::init(-1));
 
+static bool
+optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibraryInfo &TLI) {
+  for (auto &BB : F) {
+    for (auto &I : BB) {
+      if (I.getType()->isVoidTy())
+        continue;
+      minotaur::Slice S(F, LI, DT);
+      auto NewF = S.extractExpr(I);
+      if (!NewF.has_value())
+        continue;
+      minotaur::synthesize(*NewF, TLI);
+    }
+  }
+  return false;
+}
+
 struct SuperoptimizerLegacyPass final : public llvm::FunctionPass {
   static char ID;
 
   SuperoptimizerLegacyPass() : FunctionPass(ID) {}
 
   bool runOnFunction(llvm::Function &F) override {
-    F.dump();
-    llvm::TargetLibraryInfo *TLI =
-        &getAnalysis<llvm::TargetLibraryInfoWrapperPass>().getTLI(F);
-    smt::solver_print_queries(opt_smt_verbose);
-    bool changed = minotaur::synthesize(F, *TLI);
-    return changed;
+    TargetLibraryInfo *TLI =
+      &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+    LoopInfo *LI =
+      &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+    DominatorTree *DT =
+      &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+
+    return optimize_function(F, *LI, *DT, *TLI);
   }
 
   bool doInitialization(llvm::Module &module) override {
@@ -112,8 +132,10 @@ struct SuperoptimizerLegacyPass final : public llvm::FunctionPass {
     return false;
   }
 
-  void getAnalysisUsage(llvm::AnalysisUsage &AU) const override {
-    AU.addRequired<llvm::TargetLibraryInfoWrapperPass>();
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<TargetLibraryInfoWrapperPass>();
+    AU.addRequired<LoopInfoWrapperPass>();
+    AU.addRequired<DominatorTreeWrapperPass>();
     AU.setPreservesAll();
   }
 };
@@ -138,21 +160,8 @@ struct SuperoptimizerPass : PassInfoMixin<SuperoptimizerPass> {
 
     LoopInfo &LI = FAM.getResult<LoopAnalysis>(F);
     DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
-
-    for (auto &BB : F) {
-      for (auto &I : BB) {
-        if (I.getType()->isVoidTy())
-          continue;
-        minotaur::Slice S(F, LI, DT);
-        auto NewF = S.extractExpr(I);
-        if (!NewF.has_value())
-          continue;
-
-        llvm::TargetLibraryInfo TLI = FAM.getResult<TargetLibraryAnalysis>(*NewF);
-        smt::solver_print_queries(opt_smt_verbose);
-        minotaur::synthesize(*NewF, TLI);
-      }
-    }
+    TargetLibraryInfo &TLI = FAM.getResult<TargetLibraryAnalysis>(F);
+    optimize_function(F, LI, DT, TLI);
     return PA;
   }
 };

@@ -106,7 +106,6 @@ int main(int argc, char **argv) {
   config::disable_poison_input = true;
 
   config::debug = opt_debug;
-
   auto M = openInputFile(Context, opt_file);
   if (!M.get())
     llvm::report_fatal_error(
