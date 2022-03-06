@@ -52,7 +52,6 @@ struct CacheExprsPass : PassInfoMixin<CacheExprsPass> {
 
     LoopInfo &LI = FAM.getResult<LoopAnalysis>(F);
     DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
-    PostDominatorTree &PDT = FAM.getResult<PostDominatorTreeAnalysis>(F);
 
     redisContext *c = redisConnect("127.0.0.1", 6379);
     if (c == NULL || c->err) {
