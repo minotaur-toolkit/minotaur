@@ -20,8 +20,15 @@ void Var::print(ostream &os) const {
 }
 
 void ReservedConst::print(ostream &os) const {
-  const char *str = "reservedconst";
-  os << str;
+  if (C) {
+    string str;
+    llvm::raw_string_ostream ss(str);
+    C->print(ss);
+    ss.flush();
+    os << "(const '" << str << "')";
+  } else {
+    os << "reservedconst";
+  }
 }
 
 void CopyInst::print(ostream &os) const {
