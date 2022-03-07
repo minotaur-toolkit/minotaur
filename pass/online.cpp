@@ -99,7 +99,8 @@ llvm::cl::opt<unsigned> opt_omit_array_size(
                    "this number"),
     llvm::cl::init(-1));
 
-bool hGet(const char* s, unsigned sz, std::string &Value, redisContext *c) {
+static bool
+hGet(const char* s, unsigned sz, std::string &Value, redisContext *c) {
   redisReply *reply = (redisReply *)redisCommand(c, "HGET %b rewrite", s, sz);
   if (!reply || c->err) {
     llvm::report_fatal_error((llvm::StringRef)"redis error" + c->errstr);
@@ -118,6 +119,20 @@ bool hGet(const char* s, unsigned sz, std::string &Value, redisContext *c) {
       std::to_string(reply->type));
     UNREACHABLE();
   }
+}
+
+static void
+hSet(const char* s, unsigned sz, llvm::StringRef Value, redisContext *c) {
+  redisReply *reply = (redisReply *)redisCommand(c, "HSET %b rewrite %s",
+    s, sz, Value.data());
+  if (!reply || c->err)
+    llvm::report_fatal_error((llvm::StringRef)"Redis error: " + c->errstr);
+  if (reply->type != REDIS_REPLY_INTEGER) {
+    llvm::report_fatal_error((llvm::StringRef)
+      "Redis protocol error for cache fill, didn't expect reply type " +
+      std::to_string(reply->type));
+  }
+  freeReplyObject(reply);
 }
 
 static bool
@@ -142,8 +157,9 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibr
       if (!NewF.has_value())
         continue;
       auto [R, constMap] = minotaur::synthesize(*NewF, TLI);
-
       if (!R) continue;
+
+      hSet(bytecode.c_str(), bytecode.size(), "helloworld", c);
       std::unordered_set<llvm::Function *> IntrinsicDecls;
       llvm::ValueToValueMapTy VMap;
       llvm::Value *V = minotaur::LLVMGen(&I, IntrinsicDecls).codeGen(R, VMap, &constMap);
