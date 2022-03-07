@@ -140,8 +140,9 @@ hSet(const char* s, unsigned sz, llvm::StringRef Value, redisContext *c) {
 static bool
 optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibraryInfo &TLI) {
   redisContext *c = redisConnect("127.0.0.1", 6379);
+  bool changed = false;
   for (auto &BB : F) {
-    for (auto &I : BB) {
+    for (auto &I : make_early_inc_range(BB)) {
       if (I.getType()->isVoidTy())
         continue;
       minotaur::Slice S(F, LI, DT);
@@ -173,11 +174,13 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibr
       V = llvm::IRBuilder<>(&I).CreateBitCast(V, I.getType());
       I.replaceAllUsesWith(V);
       minotaur::eliminate_dead_code(F);
-      return true;
+      changed = true;
     }
   }
+  if (changed)
+    minotaur::eliminate_dead_code(F);
   redisFree(c);
-  return false;
+  return changed;
 }
 
 struct SuperoptimizerLegacyPass final : public llvm::FunctionPass {
