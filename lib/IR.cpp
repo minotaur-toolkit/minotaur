@@ -4,6 +4,7 @@
 #include "ir/instr.h"
 
 #include <string>
+#include <iostream>
 
 using namespace std;
 
@@ -30,6 +31,7 @@ void CopyInst::print(ostream &os) const {
 }
 
 void BinaryInst::print(ostream &os) const {
+  cout<<"patched"<<endl;
   const char *str = nullptr;
   switch (op) {
   case band:       str = "and"; break;
@@ -46,6 +48,7 @@ void BinaryInst::print(ostream &os) const {
   }
   os << "(" << str << " ";
   lhs->print(os);
+    cout<<"patched2"<<endl;
   os << ", ";
   rhs->print(os);
   os << ")";
@@ -63,8 +66,10 @@ void ICmpInst::print(ostream &os) const {
   }
   os << "(icmp " << str << " ";
   lhs->print(os);
+  os << lhs;
   os << ", ";
-  rhs->print(os);
+  os << rhs;
+  //rhs->print(os);
   os << ")";
 }
 

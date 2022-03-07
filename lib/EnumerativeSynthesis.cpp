@@ -44,10 +44,11 @@ void calculateAndInitConstants(Transform &t);
 
 namespace minotaur {
 
-static void findInputs(llvm::Value *Root,
-                       set<unique_ptr<Var>> &Cands,
-                       set<unique_ptr<Addr>> &Pointers,
-                       unsigned Max) {
+void
+EnumerativeSynthesis::findInputs(llvm::Value *Root,
+                                 set<Var*> &Cands,
+                                 set<Addr*> &Pointers,
+                                 unsigned Max) {
   // breadth-first search
   unordered_set<llvm::Value *> Visited;
   queue<llvm::Value *> Q;
@@ -67,24 +68,29 @@ static void findInputs(llvm::Value *Root,
         continue;
       if (V == Root)
         continue;
-      if (V->getType()->isIntOrIntVectorTy())
-        Cands.insert(make_unique<Var>(V));
-      else if (V->getType()->isPointerTy())
-        Pointers.insert(make_unique<Addr>(V));
-      if (Cands.size() >= Max)
+      if (V->getType()->isIntOrIntVectorTy()) {
+        auto T = make_unique<Var>(V);
+        Cands.insert(T.get());
+        exprs.emplace_back(move(T));
+      }
+      else if (V->getType()->isPointerTy()) {
+        auto T = make_unique<Addr>(V);
+        Pointers.insert(T.get());
+        exprs.emplace_back(move(T));
+      } if (Cands.size() >= Max)
         return;
     }
   }
 }
 
-static bool getSketches(llvm::Value *V,
-                        set<unique_ptr<Var>> &Inputs,
-                        set<unique_ptr<Addr>> &Pointers,
-                        vector<pair<unique_ptr<Inst>,
-                        set<unique_ptr<ReservedConst>>>> &R) {
+bool
+EnumerativeSynthesis::getSketches(llvm::Value *V,
+                                  set<Var*> &Inputs,
+                                  set<Addr*> &Pointers,
+                                  vector<pair<Inst*, set<ReservedConst*>>> &sketches) {
   vector<Inst*> Comps;
   for (auto &I : Inputs) {
-    Comps.emplace_back(I.get());
+    Comps.emplace_back(I);
   }
 
   auto RC1 = make_unique<ReservedConst>(type(-1, -1, false));
@@ -129,7 +135,7 @@ static bool getSketches(llvm::Value *V,
         }
         for (auto workty : tys) {
           Inst *I = nullptr, *J = nullptr;
-          set<unique_ptr<ReservedConst>> RCs;
+          set<ReservedConst*> RCs;
 
           // (op rc, var)
           if (dynamic_cast<ReservedConst *>(*Op0)) {
@@ -139,7 +145,8 @@ static bool getSketches(llvm::Value *V,
                 continue;
               auto T = make_unique<ReservedConst>(workty);
               I = T.get();
-              RCs.insert(move(T));
+              RCs.insert(T.get());
+              exprs.emplace_back(move(T));
               J = R;
               if (BinaryInst::isCommutative(Op)) {
                 swap(I, J);
@@ -157,7 +164,8 @@ static bool getSketches(llvm::Value *V,
               I = L;
               auto T = make_unique<ReservedConst>(workty);
               J = T.get();
-              RCs.insert(move(T));
+              RCs.insert(T.get());
+              exprs.emplace_back(move(T));
             } else continue;
           }
           // (op var, var)
@@ -172,7 +180,8 @@ static bool getSketches(llvm::Value *V,
             J = *Op1;
           }
           auto BO = make_unique<BinaryInst>(Op, *I, *J, workty);
-          R.push_back(make_pair(move(BO), move(RCs)));
+          sketches.push_back(make_pair(BO.get(), move(RCs)));
+          exprs.emplace_back(move(BO));
         }
       }
     }
@@ -191,7 +200,7 @@ static bool getSketches(llvm::Value *V,
           continue;
         for (unsigned C = ICmpInst::Cond::eq; C <= ICmpInst::Cond::sle; ++C) {
           ICmpInst::Cond Cond = static_cast<ICmpInst::Cond>(C);
-          set<unique_ptr<ReservedConst>> RCs;
+          set<ReservedConst*> RCs;
           Inst *I = nullptr, *J = nullptr;
 
           if (auto L = dynamic_cast<Var*>(*Op0)) {
@@ -205,7 +214,8 @@ static bool getSketches(llvm::Value *V,
               auto jty = type(expected, L->getWidth() / expected, false);
               auto T = make_unique<ReservedConst>(jty);
               J = T.get();
-              RCs.insert(move(T));
+              RCs.insert(T.get());
+              exprs.emplace_back(move(T));
             // (icmp var, var)
             } else if (auto R = dynamic_cast<Var*>(*Op1)) {
               if (L->getWidth() != R->getWidth())
@@ -215,7 +225,8 @@ static bool getSketches(llvm::Value *V,
             } else UNREACHABLE();
           } else UNREACHABLE();
           auto BO = make_unique<ICmpInst>(Cond, *I, *J, expected);
-          R.push_back(make_pair(move(BO), move(RCs)));
+          sketches.push_back(make_pair(BO.get(), move(RCs)));
+          exprs.emplace_back(move(BO));
         }
       }
     }
@@ -238,7 +249,7 @@ static bool getSketches(llvm::Value *V,
           continue;
 
         Inst *I = nullptr;
-        set<unique_ptr<ReservedConst>> RCs;
+        set<ReservedConst*> RCs;
 
         if (auto L = dynamic_cast<Var *> (*Op0)) {
           // typecheck for op0
@@ -248,7 +259,8 @@ static bool getSketches(llvm::Value *V,
         } else if (dynamic_cast<ReservedConst *>(*Op0)) {
           auto T = make_unique<ReservedConst>(op0_ty);
           I = T.get();
-          RCs.insert(move(T));
+          RCs.insert(T.get());
+          exprs.emplace_back(move(T));
         }
         Inst *J = nullptr;
         if (auto R = dynamic_cast<Var *>(*Op1)) {
@@ -259,10 +271,12 @@ static bool getSketches(llvm::Value *V,
         } else if (dynamic_cast<ReservedConst *>(*Op1)) {
           auto T = make_unique<ReservedConst>(op1_ty);
           J = T.get();
-          RCs.insert(move(T));
+          RCs.insert(T.get());
+          exprs.emplace_back(move(T));
         }
         auto B = make_unique<SIMDBinOpInst>(op, *I, *J, expected);
-        R.push_back(make_pair(move(B), move(RCs)));
+        sketches.push_back(make_pair(B.get(), move(RCs)));
+        exprs.emplace_back(move(B));
       }
     }
   }
@@ -449,7 +463,7 @@ static void removeUnusedDecls(unordered_set<llvm::Function *> IntrinsicDecls) {
 }
 
 pair<Inst*, unordered_map<llvm::Argument*, llvm::Constant*>>
-synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
+EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
   unsigned machinecost = get_machine_cost(&F);
   config::disable_undef_input = true;
   config::disable_poison_input = true;
@@ -471,19 +485,21 @@ synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
     if (!llvm::isa<llvm::Instruction>(S))
       continue;
     llvm::Instruction *I = cast<llvm::Instruction>(S);
-    set<unique_ptr<Var>> Inputs;
-    set<unique_ptr<Addr>> Pointers;
+    set<Var*> Inputs;
+    set<Addr*> Pointers;
     findInputs(&*I, Inputs, Pointers, 20);
 
-    vector<pair<unique_ptr<Inst>,set<unique_ptr<ReservedConst>>>> Sketches;
+    vector<pair<Inst*,set<ReservedConst*>>> Sketches;
 
     // immediate constant synthesis
     if (!I->getType()->isPointerTy()) {
-      set<unique_ptr<ReservedConst>> RCs;
+      set<ReservedConst*> RCs;
       auto RC = make_unique<ReservedConst>(type(I->getType()));
       auto CI = make_unique<CopyInst>(*RC.get());
-      RCs.insert(move(RC));
-      Sketches.push_back(make_pair(move(CI), move(RCs)));
+      RCs.insert(RC.get());
+      Sketches.push_back(make_pair(CI.get(), move(RCs)));
+      exprs.emplace_back(move(CI));
+      exprs.emplace_back(move(RC));
     }
     // nops
     {
@@ -493,9 +509,10 @@ synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
           continue;
         if (V->getWidth() != I->getType()->getPrimitiveSizeInBits())
           continue;
-        set<unique_ptr<ReservedConst>> RCs;
+        set<ReservedConst*> RCs;
         auto VA = make_unique<Var>(V->V());
-        Sketches.push_back(make_pair(move(VA), move(RCs)));
+        Sketches.push_back(make_pair(VA.get(), move(RCs)));
+        exprs.emplace_back(move(VA));
       }
     }
     getSketches(&*I, Inputs, Pointers, Sketches);
@@ -582,7 +599,7 @@ synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
 
       llvm::Instruction *PrevI = llvm::cast<llvm::Instruction>(VMap[&*I]);
       llvm::Value *V =
-         LLVMGen(PrevI, IntrinsicDecls).codeGen(G.get(), VMap, nullptr);
+         LLVMGen(PrevI, IntrinsicDecls).codeGen(G, VMap, nullptr);
       V = llvm::IRBuilder<>(PrevI).CreateBitCast(V, PrevI->getType());
       PrevI->replaceAllUsesWith(V);
 
@@ -596,15 +613,15 @@ synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
         continue;
       }
 
-      Fns.push_back(make_tuple(Tgt, Src, G.get(), !Sketch.second.empty()));
+      Fns.push_back(make_tuple(Tgt, Src, G, !Sketch.second.empty()));
     }
     std::stable_sort(Fns.begin(), Fns.end(), ac_cmp);
     // llvm functions -> alive2 functions
     auto iter = Fns.begin();
-    Inst *R = nullptr;
+    Inst *R;
+    bool success = false;
     for (;iter != Fns.end();) {
-      auto [Tgt, Src, G, HaveC] = *iter;
-      iter = Fns.erase(iter);
+      auto &[Tgt, Src, G, HaveC] = *iter;
       Tgt->dump();
       unsigned tgt_cost = get_approx_cost(Tgt);
       llvm::errs()<<"approx cost: " << tgt_cost <<"\n";
@@ -634,20 +651,23 @@ synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
       Tgt->eraseFromParent();
       if (goodCount) {
         R = G;
+        success = true;
+      }
+      iter ++;
+      if (goodCount) {
         break;
       }
     }
 
     for (;iter != Fns.end(); ++iter) {
-      auto &[Tgt, Src, G, HaveC] = *iter;
-      (void) G;
+      auto &[Tgt, Src, _, HaveC] = *iter;
       if (HaveC)
         Src->eraseFromParent();
       Tgt->eraseFromParent();
     }
 
     // replace
-    if (R) {
+    if (success) {
       llvm::ValueToValueMapTy VMap;
       llvm::Value *V = LLVMGen(&*I, IntrinsicDecls).codeGen(R, VMap, &constMap);
       V = llvm::IRBuilder<>(I).CreateBitCast(V, I->getType());

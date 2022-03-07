@@ -7,6 +7,7 @@
 #include "IR.h"
 
 #include <functional>
+#include <memory>
 #include <unordered_map>
 
 namespace llvm {
@@ -15,6 +16,21 @@ class TargetLibraryInfo;
 }
 
 namespace minotaur {
-std::pair<Inst*, std::unordered_map<llvm::Argument*, llvm::Constant*>>
-synthesize (llvm::Function &F1, llvm::TargetLibraryInfo &TLI);
+
+class EnumerativeSynthesis {
+  std::vector<std::unique_ptr<Inst>> exprs;
+
+  void findInputs(llvm::Value *Root,
+                  std::set<Var*> &Cands,
+                  std::set<Addr*> &Pointers,
+                  unsigned Max);
+  bool getSketches(llvm::Value *V,
+                   std::set<Var*>&,
+                   std::set<Addr*>&,
+                   std::vector<std::pair<Inst*, std::set<ReservedConst*>>>&);
+public:
+  std::pair<Inst*, std::unordered_map<llvm::Argument*, llvm::Constant*>>
+  synthesize (llvm::Function &F1, llvm::TargetLibraryInfo &TLI);
 };
+
+}

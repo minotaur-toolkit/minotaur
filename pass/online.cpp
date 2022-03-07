@@ -33,6 +33,7 @@
 #include <iostream>
 #include <random>
 #include <unordered_map>
+#include <sstream>
 #include <utility>
 
 using namespace std;
@@ -146,20 +147,34 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibr
       auto NewF = S.extractExpr(I);
 
       string bytecode;
-      llvm::raw_string_ostream ss(bytecode);
+      llvm::raw_string_ostream bs(bytecode);
       auto m = S.getNewModule();
-      WriteBitcodeToFile(*m, ss);
-      ss.flush();
+      WriteBitcodeToFile(*m, bs);
+      bs.flush();
       std::string rewrite;
-      if (hGet(bytecode.c_str(), bytecode.size(), rewrite, c))
+      if (hGet(bytecode.c_str(), bytecode.size(), rewrite, c)) {
         cout<<rewrite;
+      }
 
       if (!NewF.has_value())
         continue;
-      auto [R, constMap] = minotaur::synthesize(*NewF, TLI);
+      minotaur::EnumerativeSynthesis ES;
+      auto [R, constMap] = ES.synthesize(*NewF, TLI);
       if (!R) continue;
+      cout<<R->getWidth()<<endl;
 
-      hSet(bytecode.c_str(), bytecode.size(), "helloworld", c);
+      cout<<"foo"<<endl;
+      rewrite = "";
+      cout<<"foo1"<<endl;
+      std::stringstream rs(rewrite);
+      cout<<"foo2"<<endl;
+      R->print(cout);
+      R->print(rs);
+      cout<<"fo3"<<endl;
+      rs.flush();
+      cout<<rewrite<<endl;
+
+      hSet(bytecode.c_str(), bytecode.size(), rewrite, c);
       std::unordered_set<llvm::Function *> IntrinsicDecls;
       llvm::ValueToValueMapTy VMap;
       llvm::Value *V = minotaur::LLVMGen(&I, IntrinsicDecls).codeGen(R, VMap, &constMap);

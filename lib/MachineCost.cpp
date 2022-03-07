@@ -17,6 +17,7 @@
 #include <unistd.h>
 
 using namespace llvm;
+using namespace std;
 
 namespace minotaur {
 
@@ -102,8 +103,8 @@ unsigned get_approx_cost(llvm::Function *F) {
   return cost;
 }
 
-bool ac_cmp(std::tuple<llvm::Function*, llvm::Function*, Inst*, bool> f1,
-            std::tuple<llvm::Function*, llvm::Function*, Inst*, bool> f2) {
+bool ac_cmp(const tuple<llvm::Function*, llvm::Function*, Inst*, bool> &f1,
+            const tuple<llvm::Function*, llvm::Function*, Inst*, bool> &f2) {
   return get_approx_cost(get<0>(f1)) < get_approx_cost(get<0>(f2));
 }
 
