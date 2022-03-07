@@ -8,12 +8,14 @@
 #include "smt/smt.h"
 #include "smt/solver.h"
 #include "tools/transform.h"
+#include "util/compiler.h"
 #include "util/config.h"
 #include "util/version.h"
 
 #include "llvm/ADT/Any.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -22,7 +24,10 @@
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
+
+#include "hiredis.h"
 
 #include <fstream>
 #include <iostream>
@@ -94,14 +99,46 @@ llvm::cl::opt<unsigned> opt_omit_array_size(
                    "this number"),
     llvm::cl::init(-1));
 
+bool hGet(const char* s, unsigned sz, std::string &Value, redisContext *c) {
+  redisReply *reply = (redisReply *)redisCommand(c, "HGET %b rewrite", s, sz);
+  if (!reply || c->err) {
+    llvm::report_fatal_error((llvm::StringRef)"redis error" + c->errstr);
+    UNREACHABLE();
+  }
+  if (reply->type == REDIS_REPLY_NIL) {
+    freeReplyObject(reply);
+    return false;
+  } else if (reply->type == REDIS_REPLY_STRING) {
+    Value = reply->str;
+    freeReplyObject(reply);
+    return true;
+  } else {
+    llvm::report_fatal_error((llvm::StringRef)
+      "Redis protocol error for cache lookup, didn't expect reply type "+
+      std::to_string(reply->type));
+    UNREACHABLE();
+  }
+}
+
 static bool
 optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibraryInfo &TLI) {
+  redisContext *c = redisConnect("127.0.0.1", 6379);
   for (auto &BB : F) {
     for (auto &I : BB) {
       if (I.getType()->isVoidTy())
         continue;
       minotaur::Slice S(F, LI, DT);
       auto NewF = S.extractExpr(I);
+
+      string bytecode;
+      llvm::raw_string_ostream ss(bytecode);
+      auto m = S.getNewModule();
+      WriteBitcodeToFile(*m, ss);
+      ss.flush();
+      std::string rewrite;
+      if (hGet(bytecode.c_str(), bytecode.size(), rewrite, c))
+        cout<<rewrite;
+
       if (!NewF.has_value())
         continue;
       auto [R, constMap] = minotaur::synthesize(*NewF, TLI);
@@ -114,6 +151,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibr
       I.replaceAllUsesWith(V);
     }
   }
+  redisFree(c);
   return false;
 }
 
