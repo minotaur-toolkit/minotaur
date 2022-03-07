@@ -653,7 +653,7 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
         R = G;
         success = true;
       }
-      iter ++;
+      iter = Fns.erase(iter);
       if (goodCount) {
         break;
       }

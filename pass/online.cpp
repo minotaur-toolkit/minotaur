@@ -161,23 +161,17 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibr
       minotaur::EnumerativeSynthesis ES;
       auto [R, constMap] = ES.synthesize(*NewF, TLI);
       if (!R) continue;
-      cout<<R->getWidth()<<endl;
 
-      cout<<"foo"<<endl;
-      rewrite = "";
-      cout<<"foo1"<<endl;
-      std::stringstream rs(rewrite);
-      cout<<"foo2"<<endl;
-      R->print(cout);
+      std::stringstream rs;
       R->print(rs);
-      cout<<"fo3"<<endl;
       rs.flush();
-      cout<<rewrite<<endl;
 
-      hSet(bytecode.c_str(), bytecode.size(), rewrite, c);
+      hSet(bytecode.c_str(), bytecode.size(), rs.str(), c);
       std::unordered_set<llvm::Function *> IntrinsicDecls;
       llvm::ValueToValueMapTy VMap;
-      llvm::Value *V = minotaur::LLVMGen(&I, IntrinsicDecls).codeGen(R, VMap, &constMap);
+      llvm::Value *V = minotaur::LLVMGen(&I, IntrinsicDecls).codeGen(R, VMap);
+      V->dump();
+      I.dump();
       V = llvm::IRBuilder<>(&I).CreateBitCast(V, I.getType());
       I.replaceAllUsesWith(V);
     }
