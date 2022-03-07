@@ -16,7 +16,11 @@ ostream& operator<<(ostream &os, const Inst &val) {
 }
 
 void Var::print(ostream &os) const {
-  os << "%var";
+  string str;
+  llvm::raw_string_ostream ss(str);
+  v->printAsOperand(ss);
+  ss.flush();
+  os << "(var '" << str <<"')";
 }
 
 void ReservedConst::print(ostream &os) const {
@@ -71,9 +75,8 @@ void ICmpInst::print(ostream &os) const {
   }
   os << "(icmp " << str << " ";
   lhs->print(os);
-  os << lhs;
   os << ", ";
-  os << rhs;
+  rhs->print(os);
   //rhs->print(os);
   os << ")";
 }
