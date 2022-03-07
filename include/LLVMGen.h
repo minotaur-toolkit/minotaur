@@ -23,9 +23,7 @@ public:
     : IntrinsicDecls(IDs), b(llvm::IRBuilder<>(I)),
       M(I->getModule()), C(I->getContext()) {};
   llvm::Value *codeGen(minotaur::Inst *I,
-                       llvm::ValueToValueMapTy &VMap,
-                       std::unordered_map<llvm::Argument *,
-                                          llvm::Constant *> *constMap);
+                       llvm::ValueToValueMapTy &VMap);
 };
 
 }

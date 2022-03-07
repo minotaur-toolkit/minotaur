@@ -395,8 +395,7 @@ compareFunctions(IR::Function &Func1, IR::Function &Func2,
 static bool
 constantSynthesis(IR::Function &Func1, IR::Function &Func2,
                   unsigned &goodCount, unsigned &badCount, unsigned &errorCount,
-                  unordered_map<const IR::Value*, llvm::Argument*> &inputMap,
-                  unordered_map<llvm::Argument*, llvm::Constant*> &constMap) {
+                  unordered_map<const IR::Value*, ReservedConst*> &inputMap) {
   TransformPrintOpts print_opts;
   smt_init->reset();
   Transform t;
@@ -421,13 +420,13 @@ constantSynthesis(IR::Function &Func1, IR::Function &Func2,
 
   for (auto p : inputMap) {
     auto &ty = p.first->getType();
-    auto lty = p.second->getType();
+    auto lty = p.second->getA()->getType();
 
     if (ty.isIntType()) {
       // TODO, fix, do not use numeral_string()
-      constMap[p.second] =
+      p.second->setC(
         llvm::ConstantInt::get(llvm::cast<llvm::IntegerType>(lty),
-                               result[p.first].numeral_string(), 10);
+                               result[p.first].numeral_string(), 10));
     } else if (ty.isFloatType()) {
       //TODO
       UNREACHABLE();
@@ -445,7 +444,7 @@ constantSynthesis(IR::Function &Func1, IR::Function &Func2,
           return ret;
         v.push_back(llvm::ConstantInt::get(ety, elem.numeral_string(), 10));
       }
-      constMap[p.second] = llvm::ConstantVector::get(v);
+      p.second->setC(llvm::ConstantVector::get(v));
     }
   }
 
@@ -538,7 +537,7 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
       }
     };*/
 
-    unordered_map<string, llvm::Argument *> constants;
+    unordered_map<string, ReservedConst*> constants;
     unsigned CI = 0;
     /*
     priority_queue<tuple<llvm::Function*, llvm::Function*, Inst*, bool>,
@@ -580,7 +579,7 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
       for (auto &C : Sketch.second) {
         string arg_name = "_reservedc_" + std::to_string(CI);
         TgtArgI->setName(arg_name);
-        constants[arg_name] = TgtArgI;
+        constants[arg_name] = C;
         C->setA(TgtArgI);
         ++CI;
         ++TgtArgI;
@@ -599,7 +598,7 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
 
       llvm::Instruction *PrevI = llvm::cast<llvm::Instruction>(VMap[&*I]);
       llvm::Value *V =
-         LLVMGen(PrevI, IntrinsicDecls).codeGen(G, VMap, nullptr);
+         LLVMGen(PrevI, IntrinsicDecls).codeGen(G, VMap);
       V = llvm::IRBuilder<>(PrevI).CreateBitCast(V, PrevI->getType());
       PrevI->replaceAllUsesWith(V);
 
@@ -632,7 +631,7 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
         compareFunctions(*Func1, *Func2,
                          goodCount, badCount, errorCount);
       } else {
-        unordered_map<const IR::Value *, llvm::Argument *> inputMap;
+        unordered_map<const IR::Value *, ReservedConst *> inputMap;
         for (auto &I : Func2->getInputs()) {
           string input_name = I.getName();
           // remove "%"
@@ -643,8 +642,7 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
         }
         constMap.clear();
         constantSynthesis(*Func1, *Func2,
-                          goodCount, badCount, errorCount,
-                          inputMap, constMap);
+                          goodCount, badCount, errorCount, inputMap);
 
         Src->eraseFromParent();
       }
@@ -669,7 +667,7 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
     // replace
     if (success) {
       llvm::ValueToValueMapTy VMap;
-      llvm::Value *V = LLVMGen(&*I, IntrinsicDecls).codeGen(R, VMap, &constMap);
+      llvm::Value *V = LLVMGen(&*I, IntrinsicDecls).codeGen(R, VMap);
       V = llvm::IRBuilder<>(I).CreateBitCast(V, I->getType());
       I->replaceAllUsesWith(V);
       unsigned newcost = get_machine_cost(&F);

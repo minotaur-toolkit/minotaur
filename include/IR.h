@@ -40,13 +40,15 @@ public:
 
 class ReservedConst final : public Inst {
   llvm::Argument *A;
-  llvm::Value *C;
+  llvm::Constant *C;
   type ty;
 public:
   ReservedConst(type t) : Inst(t.getWidth()), A(nullptr), C(nullptr), ty(t) {}
   type getType() { return ty; }
   void print(std::ostream &os) const override;
-  llvm::Argument *getA () { return A; }
+  llvm::Argument *getA () const { return A; }
+  llvm::Constant *getC () const { return C; }
+  void setC(llvm::Constant* C) { this->C = C; }
   void setA (llvm::Argument *Arg) { A = Arg; }
 };
 
