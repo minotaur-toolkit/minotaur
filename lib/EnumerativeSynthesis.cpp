@@ -334,9 +334,9 @@ static bool getSketches(llvm::Value *V,
 }
 
 static optional<smt::smt_initializer> smt_init;
-static bool compareFunctions(IR::Function &Func1, IR::Function &Func2,
-                             unsigned &goodCount,
-                             unsigned &badCount, unsigned &errorCount) {
+static bool
+compareFunctions(IR::Function &Func1, IR::Function &Func2,
+                 unsigned &goodCount, unsigned &badCount, unsigned &errorCount){
   TransformPrintOpts print_opts;
   smt_init->reset();
   Transform t;
@@ -348,7 +348,6 @@ static bool compareFunctions(IR::Function &Func1, IR::Function &Func2,
   calculateAndInitConstants(t);
   TransformVerify verifier(t, false);
   t.print(cout, print_opts);
-
   {
     auto types = verifier.getTypings();
     if (!types) {
@@ -378,11 +377,12 @@ static bool compareFunctions(IR::Function &Func1, IR::Function &Func2,
   return result;
 }
 
+// call constant synthesizer and fill in constMap if synthesis suceeeds
 static bool
 constantSynthesis(IR::Function &Func1, IR::Function &Func2,
                   unsigned &goodCount, unsigned &badCount, unsigned &errorCount,
-                  unordered_map<const IR::Value *, llvm::Argument *> &inputMap,
-                  unordered_map<llvm::Argument *, llvm::Constant *> &constMap) {
+                  unordered_map<const IR::Value*, llvm::Argument*> &inputMap,
+                  unordered_map<llvm::Argument*, llvm::Constant*> &constMap) {
   TransformPrintOpts print_opts;
   smt_init->reset();
   Transform t;
@@ -448,10 +448,12 @@ static void removeUnusedDecls(unordered_set<llvm::Function *> IntrinsicDecls) {
   }
 }
 
-bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
+pair<Inst*, unordered_map<llvm::Argument*, llvm::Constant*>>
+synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
   unsigned machinecost = get_machine_cost(&F);
   config::disable_undef_input = true;
   config::disable_poison_input = true;
+  unordered_map<llvm::Argument *, llvm::Constant *> constMap;
   //smt::set_query_timeout("10000");
 
   bool changed = false;
@@ -469,7 +471,6 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
     if (!llvm::isa<llvm::Instruction>(S))
       continue;
     llvm::Instruction *I = cast<llvm::Instruction>(S);
-    unordered_map<llvm::Argument *, llvm::Constant *> constMap;
     set<unique_ptr<Var>> Inputs;
     set<unique_ptr<Addr>> Pointers;
     findInputs(&*I, Inputs, Pointers, 20);
@@ -659,20 +660,13 @@ bool synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
         V->replaceAllUsesWith(I);
       } else {
         eliminate_dead_code(F);
-        changed = true;
-        break;
+
+        removeUnusedDecls(IntrinsicDecls);
+        return {R, constMap};
       }
     }
-    // one change at a time
-    if (changed) break;
   }
-  if (changed)
-    llvm::errs()<<"\n\n--successfully infered RHS--"<<"\n";
-  else
-    llvm::errs()<<"\n\n--no solution found--\n\n";
-
-  removeUnusedDecls(IntrinsicDecls);
-  return changed;
+  return {nullptr, constMap};
 }
 
 };

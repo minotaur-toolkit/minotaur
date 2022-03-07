@@ -1,6 +1,7 @@
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
 #include "EnumerativeSynthesis.h"
+#include "LLVMGen.h"
 #include "Slice.h"
 
 #include "ir/instr.h"
@@ -14,6 +15,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
@@ -102,7 +104,14 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibr
       auto NewF = S.extractExpr(I);
       if (!NewF.has_value())
         continue;
-      minotaur::synthesize(*NewF, TLI);
+      auto [R, constMap] = minotaur::synthesize(*NewF, TLI);
+
+      if (!R) continue;
+      std::unordered_set<llvm::Function *> IntrinsicDecls;
+      llvm::ValueToValueMapTy VMap;
+      llvm::Value *V = minotaur::LLVMGen(&I, IntrinsicDecls).codeGen(R, VMap, &constMap);
+      V = llvm::IRBuilder<>(&I).CreateBitCast(V, I.getType());
+      I.replaceAllUsesWith(V);
     }
   }
   return false;
@@ -150,7 +159,7 @@ llvm::RegisterPass<SuperoptimizerLegacyPass> X("so", "Superoptimizer", false, fa
 namespace {
 
 struct SuperoptimizerPass : PassInfoMixin<SuperoptimizerPass> {
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM) {
+  PreservedAnalyses run(llvm::Function &F, FunctionAnalysisManager &FAM) {
     //TargetLibraryInfo &TLI = FAM.getResult<TargetLibraryAnalysis>(F);
     PreservedAnalyses PA;
     PA.preserveSet<CFGAnalyses>();
@@ -158,7 +167,7 @@ struct SuperoptimizerPass : PassInfoMixin<SuperoptimizerPass> {
     if (F.isDeclaration())
       return PA;
 
-    LoopInfo &LI = FAM.getResult<LoopAnalysis>(F);
+    LoopInfo &LI = FAM.getResult<llvm::LoopAnalysis>(F);
     DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
     TargetLibraryInfo &TLI = FAM.getResult<TargetLibraryAnalysis>(F);
     optimize_function(F, LI, DT, TLI);

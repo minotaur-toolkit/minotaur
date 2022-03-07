@@ -4,11 +4,17 @@
 
 #include "ir/function.h"
 
+#include "IR.h"
+
+#include <functional>
+#include <unordered_map>
+
 namespace llvm {
 class Function;
 class TargetLibraryInfo;
 }
 
 namespace minotaur {
-bool synthesize (llvm::Function &F1, llvm::TargetLibraryInfo &TLI);
+std::pair<Inst*, std::unordered_map<llvm::Argument*, llvm::Constant*>>
+synthesize (llvm::Function &F1, llvm::TargetLibraryInfo &TLI);
 };
