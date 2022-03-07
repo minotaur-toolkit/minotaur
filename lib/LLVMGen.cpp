@@ -152,7 +152,12 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap) {
     if (VMap.empty()) {
       return V->V();
     } else {
-      return VMap[V->V()];
+      if (VMap.count(V->V()))
+        return VMap[V->V()];
+      else {
+        V->V()->dump();
+        llvm::report_fatal_error("Value is not found in VMap");
+      }
     }
   } /*else if (auto P = dynamic_cast<Ptr *>(I)) {
     if (VMap.empty()) {

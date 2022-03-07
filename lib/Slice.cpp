@@ -374,6 +374,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   for (auto inst : insts) {
     Instruction *c = inst->clone();
     vmap[inst] = c;
+    mapping[c] = inst;
     c->setValueName(nullptr);
     SmallVector<std::pair<unsigned, MDNode *>, 8> ClonedMeta;
     c->getAllMetadata(ClonedMeta);
@@ -512,7 +513,9 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   for (auto &i : cloned_insts) {
     for (auto &op : i->operands()) {
       if (argMap.count(op.get())) {
-        op.set(F->getArg(argMap[op.get()]));
+        Argument *Arg = F->getArg(argMap[op.get()]);
+        mapping[Arg] = op;
+        op.set(Arg);
       }
     }
   }

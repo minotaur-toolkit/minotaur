@@ -3,6 +3,7 @@
 #include "EnumerativeSynthesis.h"
 #include "LLVMGen.h"
 #include "Slice.h"
+#include "Utils.h"
 
 #include "ir/instr.h"
 #include "smt/smt.h"
@@ -168,12 +169,11 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibr
 
       hSet(bytecode.c_str(), bytecode.size(), rs.str(), c);
       std::unordered_set<llvm::Function *> IntrinsicDecls;
-      llvm::ValueToValueMapTy VMap;
-      llvm::Value *V = minotaur::LLVMGen(&I, IntrinsicDecls).codeGen(R, VMap);
-      V->dump();
-      I.dump();
+      llvm::Value *V = minotaur::LLVMGen(&I, IntrinsicDecls).codeGen(R, S.getValueMap());
       V = llvm::IRBuilder<>(&I).CreateBitCast(V, I.getType());
       I.replaceAllUsesWith(V);
+      minotaur::eliminate_dead_code(F);
+      return true;
     }
   }
   redisFree(c);

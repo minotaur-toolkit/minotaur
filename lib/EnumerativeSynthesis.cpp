@@ -670,16 +670,11 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
       llvm::Value *V = LLVMGen(&*I, IntrinsicDecls).codeGen(R, VMap);
       V = llvm::IRBuilder<>(I).CreateBitCast(V, I->getType());
       I->replaceAllUsesWith(V);
+      eliminate_dead_code(F);
       unsigned newcost = get_machine_cost(&F);
       llvm::errs()<<"previous uops: "<<machinecost<<"\n";
       llvm::errs()<<"optimized uops: "<<newcost<<"\n";
-      if (newcost > machinecost) {
-        llvm::errs()<<"recover\n";
-        V->replaceAllUsesWith(I);
-      } else {
-        eliminate_dead_code(F);
-
-        removeUnusedDecls(IntrinsicDecls);
+      if (newcost <= machinecost) {
         return {R, constMap};
       }
     }

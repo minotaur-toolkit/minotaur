@@ -6,6 +6,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Value.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
 
 #include <functional>
 #include <optional>
@@ -17,6 +18,7 @@ class Slice {
   llvm::LoopInfo &LI;
   llvm::DominatorTree &DT;
   std::unique_ptr<llvm::Module> m;
+  llvm::ValueToValueMapTy mapping;
 
 public:
   Slice(llvm::Function &f, llvm::LoopInfo &LI, llvm::DominatorTree &DT)
@@ -24,6 +26,7 @@ public:
     m = std::make_unique<llvm::Module>("", f.getContext());
   }
   std::unique_ptr<llvm::Module> getNewModule() {return move(m); }
+  llvm::ValueToValueMapTy& getValueMap() { return mapping; }
   std::optional<std::reference_wrapper<llvm::Function>>
     extractExpr(llvm::Value &V);
 };
