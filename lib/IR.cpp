@@ -40,17 +40,17 @@ void CopyInst::print(ostream &os) const {
 void BinaryInst::print(ostream &os) const {
   const char *str = nullptr;
   switch (op) {
-  case band:       str = "and"; break;
-  case bor:        str = "or";  break;
-  case bxor:       str = "xor"; break;
-  case add:        str = "add"; break;
-  case sub:        str = "sub"; break;
-  case mul:        str = "mul"; break;
-  case sdiv:       str = "sdiv";break;
-  case udiv:       str = "udiv";break;
-  case lshr:       str = "lshr";break;
-  case ashr:       str = "ashr";break;
-  case shl:        str = "shl" ;break;
+  case band:       str = "and";  break;
+  case bor:        str = "or";   break;
+  case bxor:       str = "xor";  break;
+  case add:        str = "add";  break;
+  case sub:        str = "sub";  break;
+  case mul:        str = "mul";  break;
+  case sdiv:       str = "sdiv"; break;
+  case udiv:       str = "udiv"; break;
+  case lshr:       str = "lshr"; break;
+  case ashr:       str = "ashr"; break;
+  case shl:        str = "shl" ; break;
   }
   os << "(" << str << " ";
   lhs->print(os);
@@ -62,7 +62,7 @@ void BinaryInst::print(ostream &os) const {
 void ICmpInst::print(ostream &os) const {
   const char *str = nullptr;
   switch (cond) {
-  case eq:       str = "eq"; break;
+  case eq:       str = "eq";  break;
   case ne:       str = "ne";  break;
   case ult:      str = "ult"; break;
   case ule:      str = "ule"; break;
