@@ -62,7 +62,7 @@ add_library(machine_cost STATIC "lib/MachineCost.cpp")
 target_link_libraries(machine_cost PRIVATE ${LLVM_LIBS})
 
 add_library(utils STATIC "lib/Utils.cpp")
-target_link_libraries(utils PRIVATE ${LLVM_LIBS})
+target_link_libraries(utils PRIVATE ${LLVM_LIBS} ${HIREDIS_LIBRARY})
 
 add_library(slice STATIC "lib/Slice.cpp")
 target_link_libraries(slice PRIVATE utils)
@@ -71,7 +71,7 @@ add_library(synthesizer STATIC ${SYNTHESIZER_SRC})
 target_link_libraries(synthesizer PRIVATE utils machine_cost)
 
 add_llvm_library(online MODULE pass/online.cpp)
-target_link_libraries(online PRIVATE synthesizer slice ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS} ${HIREDIS_LIBRARY}
+target_link_libraries(online PRIVATE synthesizer slice ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 
 add_llvm_library(cache-exprs MODULE pass/cache-exprs.cpp)
@@ -83,7 +83,7 @@ target_link_libraries(minotaur-cs PRIVATE synthesizer ${ALIVE_LIBS} ${LLVM_LIBS}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 
 add_llvm_executable(slice-ir "tools/slice-ir.cpp")
-target_link_libraries(slice-ir PRIVATE slice ${ALIVE_LIBS} ${HIREDIS_LIBRARY}
+target_link_libraries(slice-ir PRIVATE slice ${ALIVE_LIBS}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 
 if(APPLE)

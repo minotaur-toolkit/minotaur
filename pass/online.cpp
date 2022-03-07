@@ -102,42 +102,6 @@ llvm::cl::opt<unsigned> opt_omit_array_size(
     llvm::cl::init(-1));
 
 static bool
-hGet(const char* s, unsigned sz, std::string &Value, redisContext *c) {
-  redisReply *reply = (redisReply *)redisCommand(c, "HGET %b rewrite", s, sz);
-  if (!reply || c->err) {
-    llvm::report_fatal_error((llvm::StringRef)"redis error" + c->errstr);
-    UNREACHABLE();
-  }
-  if (reply->type == REDIS_REPLY_NIL) {
-    freeReplyObject(reply);
-    return false;
-  } else if (reply->type == REDIS_REPLY_STRING) {
-    Value = reply->str;
-    freeReplyObject(reply);
-    return true;
-  } else {
-    llvm::report_fatal_error((llvm::StringRef)
-      "Redis protocol error for cache lookup, didn't expect reply type "+
-      std::to_string(reply->type));
-    UNREACHABLE();
-  }
-}
-
-static void
-hSet(const char* s, unsigned sz, llvm::StringRef Value, redisContext *c) {
-  redisReply *reply = (redisReply *)redisCommand(c, "HSET %b rewrite %s",
-    s, sz, Value.data());
-  if (!reply || c->err)
-    llvm::report_fatal_error((llvm::StringRef)"Redis error: " + c->errstr);
-  if (reply->type != REDIS_REPLY_INTEGER) {
-    llvm::report_fatal_error((llvm::StringRef)
-      "Redis protocol error for cache fill, didn't expect reply type " +
-      std::to_string(reply->type));
-  }
-  freeReplyObject(reply);
-}
-
-static bool
 optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibraryInfo &TLI) {
   redisContext *c = redisConnect("127.0.0.1", 6379);
   bool changed = false;
@@ -154,7 +118,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibr
       WriteBitcodeToFile(*m, bs);
       bs.flush();
       std::string rewrite;
-      if (hGet(bytecode.c_str(), bytecode.size(), rewrite, c)) {
+      if (minotaur::hGet(bytecode.c_str(), bytecode.size(), rewrite, c)) {
         cout<<rewrite;
       }
 
@@ -168,7 +132,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibr
       R->print(rs);
       rs.flush();
 
-      hSet(bytecode.c_str(), bytecode.size(), rs.str(), c);
+      minotaur::hSet(bytecode.c_str(), bytecode.size(), rs.str(), c);
       std::unordered_set<llvm::Function *> IntrinsicDecls;
       llvm::Value *V = minotaur::LLVMGen(&I, IntrinsicDecls).codeGen(R, S.getValueMap());
       V = llvm::IRBuilder<>(&I).CreateBitCast(V, I.getType());
