@@ -18,6 +18,20 @@ set(CMAKE_CXX_FLAGS_DEBUG          "-g -Og ${CMAKE_CXX_FLAGS_DEBUG}")
 set(CMAKE_CXX_FLAGS_RELEASE        "-O3 ${CMAKE_CXX_FLAGS_RELEASE}")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELEASE} -g ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
 
+find_program(RE2C re2c)
+if (RE2C)
+  message(STATUS "RE2C: ${RE2C}")
+else()
+  message(SEND_ERROR "re2c executable not found")
+endif()
+add_custom_command(OUTPUT "${PROJECT_BINARY_DIR}/lexer/Lexer.cpp"
+                   COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_BINARY_DIR}/lexer"
+                   COMMAND ${RE2C} ARGS "-d" "-b" "-T" "--no-generation-date"
+                   "-o" "${PROJECT_BINARY_DIR}/lexer/Lexer.cpp"
+                   "${PROJECT_SOURCE_DIR}/lib/Lexer.re"
+                   DEPENDS "lib/Lexer.re")
+
+
 find_package(LLVM REQUIRED CONFIG)
 
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
@@ -40,7 +54,9 @@ set(SYNTHESIZER_SRC
   "lib/EnumerativeSynthesis.cpp"
   "lib/IR.cpp"
   "lib/LLVMGen.cpp"
+  "lib/Parse.cpp"
   "lib/Type.cpp"
+  "${PROJECT_BINARY_DIR}/lexer/Lexer.cpp"
 )
 
 
