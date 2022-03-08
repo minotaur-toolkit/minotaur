@@ -52,9 +52,9 @@ void BinaryInst::print(ostream &os) const {
   case ashr:       str = "ashr"; break;
   case shl:        str = "shl" ; break;
   }
-  os << "(" << str << " ";
+  os << "(" << str << " " << workty << " ";
   lhs->print(os);
-  os << ", ";
+  os << " ";
   rhs->print(os);
   os << ")";
 }

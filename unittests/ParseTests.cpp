@@ -10,7 +10,8 @@ using namespace std;
 
 TEST(ParseTest, RoundTrip) {
   std::string Tests[] = {
-    "(add (var 4 %0) (var 4 %0))",
+    "(add <1 x i8> (var 4 %0) (var 4 %0))",
+    "(sub <1 x i8> (var 4 %0) (var 4 %0))",
   };
 
   for (const auto &T : Tests) {

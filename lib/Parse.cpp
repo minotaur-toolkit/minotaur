@@ -108,16 +108,22 @@ Var* parse_var(vector<unique_ptr<minotaur::Inst>>&exprs) {
   return T;
 }
 
-type parse_type() {
-  return type(8, 8, false);
-}
+static type parse_vector_type() {
+  tokenizer.ensure(VECTOR_TYPE_PREFIX);
+  unsigned elements = yylval.num;
 
+  tokenizer.ensure(INT_TYPE);
+  unsigned bits = yylval.num;
+  tokenizer.ensure(CSGT);
+
+  return type(elements, bits, false);
+}
 
 Inst* parse_binop(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
   BinaryInst::Op op;
   switch (op_token) {
   case BAND:
-    op = BinaryInst::band; break;
+  op = BinaryInst::band; break;
   case BOR:
     op = BinaryInst::bor; break;
   case BXOR:
@@ -132,7 +138,7 @@ Inst* parse_binop(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
   default:
     UNREACHABLE();
   }
-  auto workty = parse_type();
+  auto workty = parse_vector_type();
   auto a = parse_expr(exprs);
   auto b = parse_expr(exprs);
 

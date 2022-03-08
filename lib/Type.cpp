@@ -61,7 +61,7 @@ Type* type::toLLVM(llvm::LLVMContext &C) {
 }
 
 ostream& operator<<(ostream &os, const type &val) {
-  os<<"("<<val.lane<<" x i"<<val.bits<<")";
+  os<<"<"<<val.lane<<" x i"<<val.bits<<">";
   return os;
 }
 

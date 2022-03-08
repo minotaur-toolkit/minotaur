@@ -110,6 +110,7 @@ space+ {
   yylval.num = strtoull((char*)tag1, nullptr, 10);
   return VECTOR_TYPE_PREFIX;
 }
+">"  { return CSGT; }
 
 "-"?[0-9]+ {
   yylval.num = strtoull((char*)YYTEXT, nullptr, 10);
