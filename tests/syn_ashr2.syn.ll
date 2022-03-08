@@ -1,6 +1,6 @@
-; CHECK: add <2 x i16> %x, <i16 -4, i16 -5>
+; CHECK: llvm.x86.avx2.psrli.w(<16 x i16> %x, i32 4)
 define <16 x i16> @syn_ashr_1(<16 x i16> %x, <16 x i16> %y) {
   %ia = udiv <16 x i16> %x, <i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4>
-  %ib = udiv <16 x i16> %ia, <i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2>
+  %ib = udiv <16 x i16> %ia, <i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4>
   ret <16 x i16> %ib
 }

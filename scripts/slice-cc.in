@@ -7,9 +7,9 @@ use warnings;
 use strict;
 use File::Temp;
 
-if ($0 =~ /minotaur-cc$/) {
+if ($0 =~ /slice-cc$/) {
   unshift @ARGV, "@LLVM_BINARY_DIR@/bin/clang";
-} elsif ($0 =~ /minotaur-c\+\+$/) {
+} elsif ($0 =~ /slice-c\+\+$/) {
   unshift @ARGV, "@LLVM_BINARY_DIR@/bin/clang++";
 } else {
   die "Didn't expect minotuar-cc to be invoked as '$0'";

@@ -128,6 +128,8 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibr
       auto [R, constMap] = ES.synthesize(*NewF, TLI);
       if (!R) continue;
 
+      llvm::errs()<<"successfully synthesized rhs\n";
+
       std::stringstream rs;
       R->print(rs);
       rs.flush();

@@ -173,14 +173,11 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
           haveUnknownOperand = true;
           break;
         }
-        auto ot = op->getType();
-        if (ot->isPointerTy() && ot->getPointerElementType()->isFunctionTy()) {
-          haveUnknownOperand = true;
-          break;
-        }
       }
 
       if (haveUnknownOperand) {
+        if(DEBUG_LEVEL > 0)
+          llvm::errs() << "[INFO] instruction with unsupported operand found\n";
         continue;
       }
 
@@ -197,7 +194,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
         Function *callee = ci->getCalledFunction();
         if (!callee) {
           if(DEBUG_LEVEL > 0)
-            llvm::errs() << "[INFO] indirect call found" << "\n";
+            llvm::errs() << "[INFO] indirect call found\n";
           continue;
         }
         if (!callee->isIntrinsic()) {
