@@ -16,11 +16,7 @@ ostream& operator<<(ostream &os, const Inst &val) {
 }
 
 void Var::print(ostream &os) const {
-  string str;
-  llvm::raw_string_ostream ss(str);
-  v->printAsOperand(ss);
-  ss.flush();
-  os << "(var '" << str <<"')";
+  os << "(var " << width << " " << name <<")";
 }
 
 void ReservedConst::print(ostream &os) const {

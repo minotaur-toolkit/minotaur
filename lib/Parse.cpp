@@ -101,12 +101,13 @@ Var* parse_var(vector<unique_ptr<minotaur::Inst>>&exprs) {
   unsigned width = yylval.num;
   tokenizer.ensure(REGISTER);
   string id(yylval.str);
-
+  tokenizer.ensure(RPAREN);
   auto V = make_unique<Var>(id, width);
   Var *T = V.get();
-  exprs.emplace_back(move(T));
+  exprs.emplace_back(move(V));
   return T;
 }
+
 type parse_type() {
   return type(8, 8, false);
 }
@@ -167,8 +168,7 @@ minotaur::Inst* parse(string_view buf, vector<unique_ptr<minotaur::Inst>>&exprs)
   if (tokenizer.empty())
     llvm::report_fatal_error("cannot parse empty string");
 
-  parse_expr(exprs);
-  return nullptr;
+  return parse_expr(exprs);
 }
 
 }

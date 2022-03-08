@@ -8,6 +8,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/raw_ostream.h"
 #include "ir/instr.h"
 
 #include <vector>
@@ -31,8 +32,12 @@ class Var final : public Inst {
   std::string name;
   llvm::Value *v;
 public:
-  Var(llvm::Value *v) : Inst(v->getType()->getPrimitiveSizeInBits()), v(v) {}
-  Var(std::string &n, unsigned width) : Inst(width),name(n), v(nullptr) {}
+  Var(llvm::Value *v) : Inst(v->getType()->getPrimitiveSizeInBits()), v(v) {
+    llvm::raw_string_ostream ss(name);
+    v->printAsOperand(ss, false);
+    ss.flush();
+  }
+  Var(std::string &n, unsigned width) : Inst(width), name(n), v(nullptr) {}
   auto& getName() const { return name; }
   void print(std::ostream &os) const override;
   llvm::Value *V () { return v; }
