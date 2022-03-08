@@ -39,6 +39,7 @@ public:
   }
   Var(std::string &n, unsigned width) : Inst(width), name(n), v(nullptr) {}
   auto& getName() const { return name; }
+  void setValue(llvm::Value *vv) { v = vv; }
   void print(std::ostream &os) const override;
   llvm::Value *V () { return v; }
 };

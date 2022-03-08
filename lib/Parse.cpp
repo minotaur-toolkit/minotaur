@@ -8,6 +8,8 @@
 #include "util/compiler.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/Support/raw_ostream.h"
 
 #define YYDEBUG 0
 
@@ -153,8 +155,12 @@ Inst* parse_expr(vector<unique_ptr<minotaur::Inst>>&exprs) {
   tokenizer.ensure(LPAREN);
 
   switch (auto t = *tokenizer) {
+  case BAND:
+  case BOR:
+  case BXOR:
   case ADD:
   case SUB:
+  case MUL:
     return parse_binop(t, exprs);
   case VAR:
     return parse_var(exprs);
@@ -163,8 +169,40 @@ Inst* parse_expr(vector<unique_ptr<minotaur::Inst>>&exprs) {
   }
 }
 
-minotaur::Inst* parse_rewrite(const llvm::Function &F, std::string rewrite) {
-  return nullptr;
+void match_vars(const llvm::Function &F, vector<unique_ptr<minotaur::Inst>>&exprs) {
+  unordered_map<std::string, llvm::Value*> name_map;
+  for (llvm::inst_iterator I = llvm::inst_begin(F), E = inst_end(F); I != E; ++I) {
+    if (I->getType()->isVoidTy())
+      continue;
+    string name;
+    llvm::raw_string_ostream ss(name);
+    I->printAsOperand(ss, false);
+    ss.flush();
+    if (name_map.contains(name)) {
+      llvm::report_fatal_error("why there's duplicated names");
+    }
+    name_map[name] = &*I;
+  }
+  for (unsigned i = 0 ; i < F.arg_size() ; ++i) {
+    llvm::Argument *arg = F.getArg(i);
+    string name;
+    llvm::raw_string_ostream ss(name);
+    arg->printAsOperand(ss, false);
+    ss.flush();
+    if (name_map.contains(name)) {
+      llvm::report_fatal_error("why there's duplicated names");
+    }
+    name_map[name] = arg;
+  }
+  for (auto &expr : exprs) {
+    auto E = expr.get();
+    if (Var *V = dynamic_cast<Var*>(E)) {
+      if (!name_map.contains(V->getName()))
+        llvm::report_fatal_error("value not found");
+      else
+        V->setValue(name_map.at(V->getName()));
+    }
+  }
 }
 
 
