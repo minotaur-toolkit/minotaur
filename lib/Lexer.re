@@ -111,6 +111,14 @@ space+ {
   return VECTOR_TYPE_PREFIX;
 }
 
+"-"?[0-9]+ {
+  yylval.num = strtoull((char*)YYTEXT, nullptr, 10);
+  if (yylval.num == ULLONG_MAX && errno == ERANGE) {
+    COPY_STR();
+    return NUM_STR;
+  }
+  return NUM;
+}
 
 * { error("couldn't parse: '" + string((char*)YYTEXT, 16) + '\''); }
 */

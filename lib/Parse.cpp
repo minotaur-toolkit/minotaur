@@ -94,9 +94,18 @@ private:
 
 static tokenizer_t tokenizer;
 
-Inst* parse_expr(vector<unique_ptr<minotaur::Inst>>&exprs);
-Inst* parse_var(vector<unique_ptr<minotaur::Inst>>&exprs) {
-  return nullptr;
+Inst* parse_expr(vector<unique_ptr<minotaur::Inst>>&);
+
+Var* parse_var(vector<unique_ptr<minotaur::Inst>>&exprs) {
+  tokenizer.ensure(NUM);
+  unsigned width = yylval.num;
+  tokenizer.ensure(REGISTER);
+  string id(yylval.str);
+
+  auto V = make_unique<Var>(id, width);
+  Var *T = V.get();
+  exprs.emplace_back(move(T));
+  return T;
 }
 type parse_type() {
   return type(8, 8, false);

@@ -18,8 +18,6 @@ namespace minotaur {
 
 class Inst {
 protected:
-  std::string name;
-  auto& getName() const { return name; }
   unsigned width;
 public:
   Inst(unsigned width) : width (width) {}
@@ -30,9 +28,12 @@ public:
 };
 
 class Var final : public Inst {
+  std::string name;
   llvm::Value *v;
 public:
   Var(llvm::Value *v) : Inst(v->getType()->getPrimitiveSizeInBits()), v(v) {}
+  Var(std::string &n, unsigned width) : Inst(width),name(n), v(nullptr) {}
+  auto& getName() const { return name; }
   void print(std::ostream &os) const override;
   llvm::Value *V () { return v; }
 };
