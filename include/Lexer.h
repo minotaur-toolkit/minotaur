@@ -6,7 +6,7 @@
 #include <string>
 #include <string_view>
 
-namespace tools {
+namespace parse {
 
 enum token {
 #define TOKEN(x) x,

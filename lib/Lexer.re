@@ -35,16 +35,16 @@ static const YYCTYPE *tag1, *yyt1;
 #endif
 
 /*!max:re2c */
-static_assert(YYMAXFILL <= tools::LEXER_READ_AHEAD);
+static_assert(YYMAXFILL <= parse::LEXER_READ_AHEAD);
 
-namespace tools {
+namespace parse {
 
 unsigned yylineno;
 yylval_t yylval;
 
 const char *const token_name[] = {
 #define TOKEN(x) #x,
-#include "tools/tokens.h"
+#include "Tokens.h"
 #undef TOKEN
 };
 
