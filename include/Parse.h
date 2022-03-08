@@ -15,6 +15,6 @@ struct ParseException {
 };
 
 minotaur::Inst* parse_rewrite(const llvm::Function &F, std::string rewrite);
-minotaur::Inst* parse(std::string rewrite);
+minotaur::Inst* parse(std::string_view buf, std::vector<std::unique_ptr<minotaur::Inst>>&);
 
 }

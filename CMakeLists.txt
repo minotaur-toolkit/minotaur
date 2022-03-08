@@ -188,6 +188,6 @@ set(GTEST_LIBS "-lgtest_main -lgtest -lpthread")
 add_llvm_executable(parser_tests
   unittests/ParseTests.cpp
 )
-target_link_libraries(parser_tests PRIVATE synthesizer ${GTEST_LIBS}
+target_link_libraries(parser_tests PRIVATE synthesizer ${GTEST_LIBS} ${ALIVE_LIBS} ${Z3_LIBRARIES}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 #set_target_properties(parser_tests PROPERTIES COMPILE_FLAGS "${GTEST_CXXFLAGS}")

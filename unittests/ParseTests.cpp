@@ -6,13 +6,16 @@
 
 #include <sstream>
 
+using namespace std;
+
 TEST(ParseTest, RoundTrip) {
   std::string Tests[] = {
     "(add (var 'i4 %0'), (const 'i4 -3'))",
   };
 
   for (const auto &T : Tests) {
-    minotaur::Inst *I = parse::parse(T);
+    vector<unique_ptr<minotaur::Inst>> exprs;
+    minotaur::Inst *I = parse::parse(T, exprs);
     ASSERT_TRUE(I != nullptr);
     std::stringstream rs;
     I->print(rs);

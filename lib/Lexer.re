@@ -90,6 +90,12 @@ space+ {
 "("  { return LPAREN; }
 ")"  { return RPAREN; }
 
+"add" { return ADD; }
+"mul" { return MUL; }
+"sub" { return SUB; }
+"var" { return VAR; }
+"const" { return CONST; }
+
 "%" [a-zA-Z0-9_.]+ {
   COPY_STR();
   return REGISTER;
