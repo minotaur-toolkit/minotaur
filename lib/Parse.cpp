@@ -92,4 +92,8 @@ minotaur::Inst* parse_rewrite(const llvm::Function &F, std::string rewrite) {
   return nullptr;
 }
 
+minotaur::Inst* parse(std::string rewrite) {
+  return nullptr;
+}
+
 }
