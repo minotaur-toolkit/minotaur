@@ -74,7 +74,7 @@ llvm::cl::opt<bool>
 llvm::cl::opt<bool> enable_caching(
     "so-enable-cachine",
     llvm::cl::desc("Superoptimizer: enable result caching"),
-    llvm::cl::init(false));
+    llvm::cl::init(true));
 
 llvm::cl::opt<bool> opt_debug("so-dbg",
                               llvm::cl::desc("Superoptimizer: Show debug data"),
@@ -96,34 +96,40 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibr
         continue;
       minotaur::Slice S(F, LI, DT);
       auto NewF = S.extractExpr(I);
+      auto m = S.getNewModule();
+
+      if (!NewF.has_value())
+        continue;
+
 
       string bytecode;
       if (enable_caching) {
         llvm::raw_string_ostream bs(bytecode);
-        auto m = S.getNewModule();
         WriteBitcodeToFile(*m, bs);
         bs.flush();
         std::string rewrite;
         if (minotaur::hGet(bytecode.c_str(), bytecode.size(), rewrite, c)) {
-          cout<<rewrite;
+          if (rewrite == "<no-sol>")
+            continue;
         }
       }
 
-      if (!NewF.has_value())
-        continue;
       minotaur::EnumerativeSynthesis ES;
       auto [R, constMap] = ES.synthesize(*NewF, TLI);
-      if (!R) continue;
-
-      llvm::errs()<<"successfully synthesized rhs\n";
-
 
       if (enable_caching) {
-        std::stringstream rs;
-        R->print(rs);
-        rs.flush();
-        minotaur::hSet(bytecode.c_str(), bytecode.size(), rs.str(), c);
+        if (R) {
+          std::stringstream rs;
+          R->print(rs);
+          rs.flush();
+          minotaur::hSet(bytecode.c_str(), bytecode.size(), rs.str(), c);
+        } else {
+          minotaur::hSet(bytecode.c_str(), bytecode.size(), "<no-sol>", c);
+        }
       }
+
+      if (!R) continue;
+      llvm::errs()<<"successfully synthesized rhs\n";
       std::unordered_set<llvm::Function *> IntrinsicDecls;
       llvm::Value *V = minotaur::LLVMGen(&I, IntrinsicDecls).codeGen(R, S.getValueMap());
       V = llvm::IRBuilder<>(&I).CreateBitCast(V, I.getType());
