@@ -97,7 +97,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibr
       minotaur::Slice S(F, LI, DT);
       auto NewF = S.extractExpr(I);
 
-              string bytecode;
+      string bytecode;
       if (enable_caching) {
         llvm::raw_string_ostream bs(bytecode);
         auto m = S.getNewModule();
