@@ -522,21 +522,6 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
     }
     cout<<"-----------------------------"<<endl;
 
-    /*
-    struct MCComparator {
-      bool operator()(tuple<llvm::Function*, llvm::Function*, Inst*, bool>& a,
-                      tuple<llvm::Function*, llvm::Function*, Inst*, bool> &b) {
-        return get_cost_with_cache(get<0>(a)) > get_cost_with_cache(get<0>(b));
-      }
-    };
-    struct IRComparator {
-      bool operator()(tuple<llvm::Function*, llvm::Function*, Inst*, bool>& a,
-                      tuple<llvm::Function*, llvm::Function*, Inst*, bool>& b) {
-        return
-          get<0>(a)->getInstructionCount() > get<0>(b)->getInstructionCount();
-      }
-    };*/
-
     unordered_map<string, ReservedConst*> constants;
     unsigned CI = 0;
     /*
