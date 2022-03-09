@@ -129,7 +129,6 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibr
       }
 
       if (!R) continue;
-      llvm::errs()<<"successfully synthesized rhs\n";
       std::unordered_set<llvm::Function *> IntrinsicDecls;
       llvm::Value *V = minotaur::LLVMGen(&I, IntrinsicDecls).codeGen(R, S.getValueMap());
       V = llvm::IRBuilder<>(&I).CreateBitCast(V, I.getType());

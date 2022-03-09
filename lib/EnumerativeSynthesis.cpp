@@ -666,16 +666,21 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
 
     // replace
     if (success) {
+      llvm::errs()<<"=== original ir (uops="<<machinecost<<") ===\n";
+      F.dump();
       llvm::ValueToValueMapTy VMap;
       llvm::Value *V = LLVMGen(&*I, IntrinsicDecls).codeGen(R, VMap);
       V = llvm::IRBuilder<>(I).CreateBitCast(V, I->getType());
       I->replaceAllUsesWith(V);
       eliminate_dead_code(F);
       unsigned newcost = get_machine_cost(&F);
-      llvm::errs()<<"previous uops: "<<machinecost<<"\n";
-      llvm::errs()<<"optimized uops: "<<newcost<<"\n";
+      llvm::errs()<<"=== optimized ir (uops="<<newcost<<") ===\n";
+      F.dump();
       if (newcost <= machinecost) {
+        llvm::errs()<<"=== successfully synthesized rhs ===\n";
         return {R, constMap};
+      } else {
+        llvm::errs()<<"!!! fails machine cost check, keep searching !!!\n";
       }
     }
   }
