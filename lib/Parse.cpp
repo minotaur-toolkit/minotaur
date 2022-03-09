@@ -169,7 +169,7 @@ Inst* parse_expr(vector<unique_ptr<minotaur::Inst>>&exprs) {
   }
 }
 
-void match_vars(const llvm::Function &F, vector<unique_ptr<minotaur::Inst>>&exprs) {
+void match_vars(llvm::Function &F, vector<unique_ptr<minotaur::Inst>>&exprs) {
   unordered_map<std::string, llvm::Value*> name_map;
   for (llvm::inst_iterator I = llvm::inst_begin(F), E = inst_end(F); I != E; ++I) {
     if (I->getType()->isVoidTy())
@@ -204,8 +204,6 @@ void match_vars(const llvm::Function &F, vector<unique_ptr<minotaur::Inst>>&expr
     }
   }
 }
-
-
 
 minotaur::Inst* parse(string_view buf, vector<unique_ptr<minotaur::Inst>>&exprs) {
   yylex_init(buf);

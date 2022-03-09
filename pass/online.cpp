@@ -71,25 +71,10 @@ llvm::cl::opt<bool>
                     llvm::cl::desc("Superoptimizer: SMT verbose mode"),
                     llvm::cl::init(false));
 
-llvm::cl::opt<bool> opt_tactic_verbose(
-    "so-tactic-verbose",
-    llvm::cl::desc("Superoptimizer: SMT Tactic verbose mode"),
+llvm::cl::opt<bool> enable_caching(
+    "so-enable-cachine",
+    llvm::cl::desc("Superoptimizer: enable result caching"),
     llvm::cl::init(false));
-
-llvm::cl::opt<bool> opt_disable_undef_input(
-    "so-disable-undef-input",
-    llvm::cl::desc("Superoptimizer: Assume function input cannot be undef"),
-    llvm::cl::init(false));
-
-llvm::cl::opt<unsigned> opt_src_unrolling_factor(
-    "so-src-unroll",
-    llvm::cl::desc("Unrolling factor for src function (default=0)"),
-    llvm::cl::init(0));
-
-llvm::cl::opt<unsigned> opt_tgt_unrolling_factor(
-    "so-tgt-unroll",
-    llvm::cl::desc("Unrolling factor for tgt function (default=0)"),
-    llvm::cl::init(0));
 
 llvm::cl::opt<bool> opt_debug("so-dbg",
                               llvm::cl::desc("Superoptimizer: Show debug data"),
@@ -112,14 +97,16 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibr
       minotaur::Slice S(F, LI, DT);
       auto NewF = S.extractExpr(I);
 
-      string bytecode;
-      llvm::raw_string_ostream bs(bytecode);
-      auto m = S.getNewModule();
-      WriteBitcodeToFile(*m, bs);
-      bs.flush();
-      std::string rewrite;
-      if (minotaur::hGet(bytecode.c_str(), bytecode.size(), rewrite, c)) {
-        cout<<rewrite;
+              string bytecode;
+      if (enable_caching) {
+        llvm::raw_string_ostream bs(bytecode);
+        auto m = S.getNewModule();
+        WriteBitcodeToFile(*m, bs);
+        bs.flush();
+        std::string rewrite;
+        if (minotaur::hGet(bytecode.c_str(), bytecode.size(), rewrite, c)) {
+          cout<<rewrite;
+        }
       }
 
       if (!NewF.has_value())
@@ -130,11 +117,13 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibr
 
       llvm::errs()<<"successfully synthesized rhs\n";
 
-      std::stringstream rs;
-      R->print(rs);
-      rs.flush();
 
-      minotaur::hSet(bytecode.c_str(), bytecode.size(), rs.str(), c);
+      if (enable_caching) {
+        std::stringstream rs;
+        R->print(rs);
+        rs.flush();
+        minotaur::hSet(bytecode.c_str(), bytecode.size(), rs.str(), c);
+      }
       std::unordered_set<llvm::Function *> IntrinsicDecls;
       llvm::Value *V = minotaur::LLVMGen(&I, IntrinsicDecls).codeGen(R, S.getValueMap());
       V = llvm::IRBuilder<>(&I).CreateBitCast(V, I.getType());
