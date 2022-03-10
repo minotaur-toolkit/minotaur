@@ -661,7 +661,7 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
       unsigned newcost = get_machine_cost(&F);
       llvm::errs()<<"=== optimized ir (uops="<<newcost<<") ===\n";
       F.dump();
-      if (newcost <= machinecost) {
+      if (!machinecost || !newcost || newcost <= machinecost) {
         llvm::errs()<<"=== successfully synthesized rhs ===\n";
         return {R, constMap};
       } else {

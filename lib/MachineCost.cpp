@@ -76,8 +76,10 @@ unsigned get_machine_cost(llvm::Function *F) {
 
   int retval = sys::ExecuteAndWait(GET_COST_COMMAND, ArgPtrs, None, Redirects, 5);
 
-  if (retval)
-    llvm::report_fatal_error("error when analysizing cost");
+  if (retval) {
+    llvm::errs()<<"error when analysizing cost\n";
+    return 0;
+  }
 
   unsigned cycle;
   std::ifstream result((std::string(OutputPath)));
