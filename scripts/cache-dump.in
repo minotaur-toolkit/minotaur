@@ -172,7 +172,11 @@ print "\n\n";
 foreach my $opt (@all_keys) {
     my %h = $r->hgetall($opt);
     my $result = $h{"rewrite"};
-    parse($opt, $result);
+    if ($result ne "<no-sol>") {
+      parse($opt, $result);
+      print $result;
+      print "\n------------------------------------------------------\n";
+    }
     # print "\n";
     # print "; total static profile = $sprofiles{$opt}\n";
     # my %h = %{$sprofile_locs{$opt}};
@@ -186,7 +190,6 @@ foreach my $opt (@all_keys) {
     #     next if ($k eq "");
     #     print "; dprofile $h{$k} \"$k\"\n";
     # }
-    print "------------------------------------------------------\n";
 }
 
 my $cnt = 0;
