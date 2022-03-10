@@ -110,6 +110,9 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     llvm::errs() << ">>> slicing value " << v << ">>>\n";
   }
 
+  if (!v.getType()->isIntOrIntVectorTy())
+    return nullopt;
+
   assert(isa<Instruction>(&v) && "Expr to be extracted must be a Instruction");
   Instruction *vi = cast<Instruction>(&v);
   BasicBlock *vbb = vi->getParent();
