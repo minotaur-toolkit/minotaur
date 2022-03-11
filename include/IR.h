@@ -129,13 +129,14 @@ public:
 };
 
 
-class ShuffleVectorInst final : public Inst {
+class FakeShuffleInst final : public Inst {
   Inst *lhs;
   Inst *rhs;
   ReservedConst *mask;
+  type expectty;
 public:
-  ShuffleVectorInst(Inst &lhs, Inst &rhs, ReservedConst &mask)
-    : Inst(-1), lhs(&lhs), rhs(&rhs), mask(&mask) {}
+  FakeShuffleInst(Inst &lhs, Inst *rhs, ReservedConst &mask, type &ety)
+    : Inst(ety.getWidth()), lhs(&lhs), rhs(rhs), mask(&mask), expectty(ety) {}
   void print(std::ostream &os) const override;
   Inst *L() { return lhs; }
   Inst *R() { return rhs; }
