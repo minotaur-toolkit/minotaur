@@ -49,7 +49,7 @@ llvm::cl::opt<bool>
 llvm::cl::opt<unsigned>
     opt_smt_to("so-smt-to",
                llvm::cl::desc("Superoptimizer: timeout for SMT queries"),
-               llvm::cl::init(1000), llvm::cl::value_desc("ms"));
+               llvm::cl::init(2000), llvm::cl::value_desc("ms"));
 
 llvm::cl::opt<bool> opt_se_verbose(
     "so-se-verbose",
@@ -88,6 +88,8 @@ llvm::cl::opt<unsigned> opt_omit_array_size(
 
 static bool
 optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibraryInfo &TLI) {
+  smt::set_query_timeout(to_string(opt_smt_to));
+
   redisContext *c = redisConnect("127.0.0.1", 6379);
   bool changed = false;
   for (auto &BB : F) {

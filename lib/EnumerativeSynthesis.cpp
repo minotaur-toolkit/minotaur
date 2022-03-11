@@ -481,7 +481,6 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
   config::disable_undef_input = true;
   config::disable_poison_input = true;
   unordered_map<llvm::Argument *, llvm::Constant *> constMap;
-  //smt::set_query_timeout("10000");
 
   bool changed = false;
 
