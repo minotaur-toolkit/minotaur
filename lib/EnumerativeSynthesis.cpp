@@ -131,7 +131,7 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
         if (BinaryInst::isLaneIndependent(Op)) {
           tys.push_back(type(1, expected, false));
         } else {
-          tys = type::getVectorTypes(expected);
+          tys = type::getBinaryInstWorkTypes(expected);
         }
         for (auto workty : tys) {
           Inst *I = nullptr, *J = nullptr;

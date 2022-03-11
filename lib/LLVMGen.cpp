@@ -6,6 +6,7 @@
 #include "IR.h"
 #include "ir/instr.h"
 
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Intrinsics.h"
@@ -161,19 +162,28 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap) {
     } else {
       return RC->getA();
     }
-  } /*else if (auto SV = dynamic_cast<minotaur::ShuffleVectorInst *>(I)) {
-    // TODO
-    std::vector<llvm::Type*> Doubles(Args.size(),
-                              Type::getDoubleTy(getGlobalContext()));
-    FunctionType *FT = FunctionType::get(Type::getDoubleTy(getGlobalContext()),
-                                        Doubles, false);
+  } else if (auto SV = dynamic_cast<FakeShuffleInst *>(I)) {
+    auto op0 = codeGen(SV->L(), VMap);
+    llvm::Value *op1 = nullptr;
+    if (SV->R()) {
+      op1 = codeGen(SV->R(), VMap);
+    } else {
+      op1 = llvm::PoisonValue::get(op0->getType());
+    }
 
-    Function *F = Function::Create(FT, Function::ExternalLinkage, Name, TheModule);
-    auto op0 = codeGen(SV->L(), VMap, constMap);
-    auto op1 = codeGen(SV->R(), VMap, constMap);
-    auto M = codeGen(SV->M(), VMap, constMap);
-    return b.CreateCall(op0, op1, M, "syn");
+    unsigned elem_bits = SV->getElementBits();
+
+    auto op_ty = type(SV->L()->getWidth()/elem_bits, elem_bits, false);
+    std::vector<llvm::Type*> Args(2, op_ty.toLLVM(C));
+    Args.push_back(SV->M()->getType().toLLVM(C));
+    FunctionType *FT = FunctionType::get(SV->getRetTy().toLLVM(C), Args, false);
+    llvm::Function *F =
+      llvm::Function::Create(FT, llvm::Function::ExternalLinkage, "__fksv", M);
+
+    auto mask = codeGen(SV->M(), VMap);
+    return b.CreateCall(F, { op0, op1, mask }, "sv");
   }
+  /*
   else if (auto L = dynamic_cast<minotaur::Load *>(I)) {
     auto op0 = codeGen(L->addr(), VMap, constMap);
     return b.CreateLoad(L->elemTy(), op0);

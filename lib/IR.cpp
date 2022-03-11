@@ -85,11 +85,14 @@ void SIMDBinOpInst::print(ostream &os) const {
   os << ")";
 }
 
-void ShuffleVectorInst::print(ostream &os) const {
-  os << "(shufflevector ";
+void FakeShuffleInst::print(ostream &os) const {
+  os << "(fakeshuffle ";
   lhs->print(os);
   os << ", ";
-  rhs->print(os);
+  if (rhs)
+    rhs->print(os);
+  else
+    os << "poison";
   os << ", ";
   mask->print(os);
   os << ")";

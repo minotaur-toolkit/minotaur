@@ -88,7 +88,7 @@ public:
   void print(std::ostream &os) const override;
   Inst *L() { return lhs; }
   Inst *R() { return rhs; }
-  type getWorkTy() {return workty; }
+  type getWorkTy() { return workty; }
   Op K() { return op; }
   static bool isCommutative (Op k) {
     return k == Op::band || k == Op::bor || k == Op::bxor ||
@@ -140,7 +140,9 @@ public:
   void print(std::ostream &os) const override;
   Inst *L() { return lhs; }
   Inst *R() { return rhs; }
-  Inst *M() { return mask; }
+  ReservedConst *M() { return mask; }
+  unsigned getElementBits() { return expectty.getBits(); }
+  type getRetTy() { return expectty; }
 };
 
 
