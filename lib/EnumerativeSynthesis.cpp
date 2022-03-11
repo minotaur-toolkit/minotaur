@@ -290,6 +290,8 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
     for (auto ty : tys) {
       if ((*Op0)->getWidth() % ty.getBits())
         continue;
+      if ((*Op0)->getWidth() == ty.getBits())
+        continue;
       set<ReservedConst*> RCs;
       auto m = make_unique<ReservedConst>(type(ty.getLane(), 8, false));
       RCs.insert(m.get());
