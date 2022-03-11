@@ -143,6 +143,9 @@ public:
   ReservedConst *M() { return mask; }
   unsigned getElementBits() { return expectty.getBits(); }
   type getRetTy() { return expectty; }
+  type getInputTy() {
+    return type(lhs->getWidth() / getElementBits(), getElementBits(), false);
+  }
 };
 
 

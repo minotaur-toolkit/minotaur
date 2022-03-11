@@ -164,9 +164,10 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap) {
     }
   } else if (auto SV = dynamic_cast<FakeShuffleInst *>(I)) {
     auto op0 = codeGen(SV->L(), VMap);
+    op0 = b.CreateBitCast(op0, SV->getInputTy().toLLVM(C));
     llvm::Value *op1 = nullptr;
     if (SV->R()) {
-      op1 = codeGen(SV->R(), VMap);
+      op1 = b.CreateBitCast(codeGen(SV->R(), VMap), op0->getType());
     } else {
       op1 = llvm::PoisonValue::get(op0->getType());
     }

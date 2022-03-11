@@ -71,7 +71,7 @@ void ICmpInst::print(ostream &os) const {
   }
   os << "(icmp " << str << " ";
   lhs->print(os);
-  os << ", ";
+  os << " ";
   rhs->print(os);
   //rhs->print(os);
   os << ")";
@@ -80,20 +80,20 @@ void ICmpInst::print(ostream &os) const {
 void SIMDBinOpInst::print(ostream &os) const {
   os << "(" << X86IntrinBinOp::getOpName(op) << " ";
   lhs->print(os);
-  os << ", ";
+  os << " ";
   rhs->print(os);
   os << ")";
 }
 
 void FakeShuffleInst::print(ostream &os) const {
-  os << "(fakeshuffle ";
+  os << "(fakeshuffle " << expectty << " ";
   lhs->print(os);
-  os << ", ";
+  os << " ";
   if (rhs)
     rhs->print(os);
   else
     os << "poison";
-  os << ", ";
+  os << " ";
   mask->print(os);
   os << ")";
 }
