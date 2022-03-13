@@ -37,6 +37,20 @@ void CopyInst::print(ostream &os) const {
   os << ")";
 }
 
+void UnaryInst::print(ostream &os) const {
+  const char *str = nullptr;
+  switch (op) {
+  case bitreverse: str = "bitreverse"; break;
+  case bswap:      str = "bswap";      break;
+  case ctpop:      str = "ctpop";      break;
+  case ctlz:       str = "ctlz";       break;
+  case cttz:       str = "cttz";       break;
+  }
+  os << "(" << str << " " << workty << " ";
+  V->print(os);
+  os << ")";
+}
+
 void BinaryInst::print(ostream &os) const {
   const char *str = nullptr;
   switch (op) {

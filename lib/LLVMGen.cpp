@@ -58,7 +58,29 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap) {
       return VMap[P->V()];
     }
   } */
-  else if (auto U = dynamic_cast<CopyInst*>(I)) {
+  else if (auto U = dynamic_cast<UnaryInst*>(I)) {
+    type workty = U->getWorkTy();
+    auto op0 = codeGen(U->Op0(), VMap);
+    if(U->Op0()->getWidth() != workty.getWidth())
+      report_fatal_error("operand width mismatch");
+    op0 = bitcastTo(op0, workty.toLLVM(C));
+    Intrinsic::ID iid;
+    auto K = U->K();
+    switch (K) {
+    case UnaryInst::bitreverse: iid = Intrinsic::bitreverse; break;
+    case UnaryInst::bswap:      iid = Intrinsic::bswap;      break;
+    case UnaryInst::ctpop:      iid = Intrinsic::ctpop;      break;
+    case UnaryInst::ctlz:       iid = Intrinsic::ctlz;       break;
+    case UnaryInst::cttz:       iid = Intrinsic::cttz;       break;
+    }
+    llvm::Function *F = Intrinsic::getDeclaration(M, iid, workty.toLLVM(C));
+
+    if (K == UnaryInst::ctlz || K == UnaryInst::cttz) {
+      return b.CreateCall(F, { op0, ConstantInt::getFalse(C) });
+    } else {
+      return b.CreateCall(F, op0);
+    }
+  } else if (auto U = dynamic_cast<CopyInst*>(I)) {
     auto op0 = codeGen(U->Op0(), VMap);
     return op0;
   } else if (auto CI = dynamic_cast<ConversionInst*>(I)) {

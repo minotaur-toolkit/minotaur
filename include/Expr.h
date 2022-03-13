@@ -68,6 +68,21 @@ public:
   ReservedConst *Op0() { return rc; }
 };
 
+class UnaryInst final : public Inst {
+public:
+  enum Op { bitreverse, bswap, ctpop, ctlz, cttz };
+private:
+  Op op;
+  Inst *V;
+  type workty;
+public:
+  UnaryInst(Op op, Inst &V, type &workty)
+  : Inst(workty.getWidth()), op(op), V(&V), workty(workty) {}
+  void print(std::ostream &os) const override;
+  type getWorkTy() { return workty; }
+  Op K() { return op; }
+  Inst *Op0() { return V; }
+};
 
 class BinaryInst final : public Inst {
 public:
