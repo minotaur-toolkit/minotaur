@@ -52,7 +52,7 @@ include_directories(include)
 set(SYNTHESIZER_SRC
   "lib/ConstantSynthesis.cpp"
   "lib/EnumerativeSynthesis.cpp"
-  "lib/IR.cpp"
+  "lib/Expr.cpp"
   "lib/LLVMGen.cpp"
   "lib/Parse.cpp"
   "lib/Type.cpp"

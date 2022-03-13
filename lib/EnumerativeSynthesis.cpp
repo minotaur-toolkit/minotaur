@@ -2,7 +2,7 @@
 // Distributed under the MIT license that can be found in the LICENSE file.
 #include "EnumerativeSynthesis.h"
 #include "ConstantSynthesis.h"
-#include "IR.h"
+#include "Expr.h"
 #include "LLVMGen.h"
 #include "MachineCost.h"
 #include "Utils.h"

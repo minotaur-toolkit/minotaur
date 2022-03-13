@@ -2,8 +2,8 @@
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
 #include "LLVMGen.h"
+#include "Expr.h"
 
-#include "IR.h"
 #include "ir/instr.h"
 
 #include "llvm/IR/Constants.h"
@@ -22,13 +22,13 @@ using namespace llvm;
 
 namespace minotaur {
 
-static constexpr std::array<llvm::Intrinsic::ID, X86IntrinBinOp::numOfX86Intrinsics> IntrinsicIDs = {
+static constexpr std::array<llvm::Intrinsic::ID, IR::X86IntrinBinOp::numOfX86Intrinsics> IntrinsicIDs = {
 #define PROCESS(NAME,A,B,C,D,E,F) llvm::Intrinsic::NAME,
 #include "ir/intrinsics.h"
 #undef PROCESS
 };
 
-static llvm::Intrinsic::ID getIntrinsicID(X86IntrinBinOp::Op op) {
+static llvm::Intrinsic::ID getIntrinsicID(IR::X86IntrinBinOp::Op op) {
   return IntrinsicIDs[op];
 }
 
