@@ -511,7 +511,7 @@ static void removeUnusedDecls(unordered_set<llvm::Function *> IntrinsicDecls) {
 
 pair<Inst*, unordered_map<llvm::Argument*, llvm::Constant*>>
 EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
-  llvm::errs()<<"Original Function:\n";
+  llvm::errs()<<"Working on Function:\n";
   F.dump();
   unsigned machinecost = get_machine_cost(&F);
   config::disable_undef_input = true;

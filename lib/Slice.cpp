@@ -475,6 +475,8 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     RemapInstruction(i, vmap, RF_IgnoreMissingLocals);
     for (auto &op : i->operands()) {
       if (isa<Argument>(op) || isa<GlobalVariable>(op)) {
+        if (argMap.count(op.get()))
+          continue;
         argTys.push_back(op->getType());
         argMap[op.get()] = idx++;
       } else if (isa<Constant>(op)) {
