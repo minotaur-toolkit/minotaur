@@ -24,6 +24,7 @@ public:
       M(I->getModule()), C(I->getContext()) {};
   llvm::Value *codeGen(minotaur::Inst *I,
                        llvm::ValueToValueMapTy &VMap);
+  llvm::Value* bitcastTo(llvm::Value*, llvm::Type*);
 };
 
 }

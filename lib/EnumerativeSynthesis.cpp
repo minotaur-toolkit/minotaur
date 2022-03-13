@@ -409,7 +409,7 @@ compareFunctions(IR::Function &Func1, IR::Function &Func2,
   t.tgt.syncDataWithSrc(t.src);
   calculateAndInitConstants(t);
   TransformVerify verifier(t, false);
-  t.print(cout, print_opts);
+  //t.print(cout, print_opts);
   {
     auto types = verifier.getTypings();
     if (!types) {
@@ -425,7 +425,7 @@ compareFunctions(IR::Function &Func1, IR::Function &Func2,
   bool result(errs);
   if (result) {
     if (errs.isUnsound()) {
-      cerr << "Transformation doesn't verify!\n" << errs << endl;
+      cerr << "Transformation doesn't verify!\n" << endl;
       ++badCount;
     } else {
       cerr << errs << endl;
@@ -455,7 +455,7 @@ constantSynthesis(IR::Function &Func1, IR::Function &Func2,
   ::calculateAndInitConstants(t);
 
   ConstantSynthesis S(t);
-  t.print(cout, print_opts);
+  //t.print(cout, print_opts);
   // assume type verifies
   std::unordered_map<const IR::Value *, smt::expr> result;
   Errors errs = S.synthesize(result);
@@ -655,9 +655,10 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
     bool success = false;
     for (;iter != Fns.end();) {
       auto &[Tgt, Src, G, HaveC] = *iter;
-      Tgt->dump();
       unsigned tgt_cost = get_approx_cost(Tgt);
-      llvm::errs()<<"approx cost: tgt " << tgt_cost << ", src " << src_cost <<"\n";
+      llvm::errs()<<"-- candidate approx_cost(tgt) = " << tgt_cost
+                  << ", approx_cost(src) = " << src_cost <<" --\n";
+      Tgt->dump();
       auto Func1 = llvm_util::llvm2alive(*Src, TLI);
       auto Func2 = llvm_util::llvm2alive(*Tgt, TLI);
       unsigned goodCount = 0, badCount = 0, errorCount = 0;

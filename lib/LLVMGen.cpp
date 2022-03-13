@@ -9,6 +9,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicsX86.h"
 #include "llvm/Support/Casting.h"
@@ -29,6 +30,13 @@ static constexpr std::array<llvm::Intrinsic::ID, X86IntrinBinOp::numOfX86Intrins
 
 static llvm::Intrinsic::ID getIntrinsicID(X86IntrinBinOp::Op op) {
   return IntrinsicIDs[op];
+}
+
+llvm::Value *LLVMGen::bitcastTo(llvm::Value *V, llvm::Type *to) {
+  if (auto BC = dyn_cast<BitCastInst>(V)) {
+    V = BC->getOperand(0);
+  }
+  return b.CreateBitCast(V, to);
 }
 
 llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap) {
@@ -58,12 +66,12 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap) {
     auto op0 = codeGen(B->L(), VMap);
     if(B->L()->getWidth() != workty.getWidth())
       report_fatal_error("left operand width mismatch");
-    op0 = b.CreateBitCast(op0, workty.toLLVM(C));
+    op0 = bitcastTo(op0, workty.toLLVM(C));
 
     auto op1 = codeGen(B->R(), VMap);
     if(B->R()->getWidth() != workty.getWidth())
       report_fatal_error("left operand width mismatch");
-    op1 = b.CreateBitCast(op1, workty.toLLVM(C));
+    op1 = bitcastTo(op1, workty.toLLVM(C));
 
     llvm::Value *r = nullptr;
     switch (B->K()) {
@@ -107,10 +115,10 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap) {
   } else if (auto IC = dynamic_cast<ICmpInst*>(I)) {
     auto op0 = codeGen(IC->L(), VMap);
     auto workty = type(I->getWidth(), IC->L()->getWidth()/I->getWidth(), false);
-    op0 = b.CreateBitCast(op0, workty.toLLVM(C));
+    op0 = bitcastTo(op0, workty.toLLVM(C));
 
     auto op1 = codeGen(IC->R(), VMap);
-    op1 = b.CreateBitCast(op1, workty.toLLVM(C));
+    op1 = bitcastTo(op1, workty.toLLVM(C));
     llvm::Value *r = nullptr;
     switch (IC->K()) {
     case ICmpInst::eq:
@@ -140,12 +148,12 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap) {
     auto op0 = codeGen(B->L(), VMap);
     if(B->L()->getWidth() != op0_ty.getWidth())
       report_fatal_error("left operand width mismatch");
-    op0 = b.CreateBitCast(op0, op0_ty.toLLVM(C));
+    op0 = bitcastTo(op0, op0_ty.toLLVM(C));
 
     auto op1 = codeGen(B->R(), VMap);
     if(B->R()->getWidth() != op1_ty.getWidth())
       report_fatal_error("right operand width mismatch");
-    op1 = b.CreateBitCast(op1, op1_ty.toLLVM(C));
+    op1 = bitcastTo(op1, op1_ty.toLLVM(C));
 
     llvm::Function *decl = Intrinsic::getDeclaration(M, getIntrinsicID(B->K()));
     IntrinsicDecls.insert(decl);
@@ -164,10 +172,10 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap) {
     }
   } else if (auto FSV = dynamic_cast<FakeShuffleInst *>(I)) {
     auto op0 = codeGen(FSV->L(), VMap);
-    op0 = b.CreateBitCast(op0, FSV->getInputTy().toLLVM(C));
+    op0 = bitcastTo(op0, FSV->getInputTy().toLLVM(C));
     llvm::Value *op1 = nullptr;
     if (FSV->R()) {
-      op1 = b.CreateBitCast(codeGen(FSV->R(), VMap), op0->getType());
+      op1 = bitcastTo(codeGen(FSV->R(), VMap), op0->getType());
     } else {
       op1 = llvm::PoisonValue::get(op0->getType());
     }
