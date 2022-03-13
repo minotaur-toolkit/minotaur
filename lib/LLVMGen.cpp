@@ -61,6 +61,23 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap) {
   else if (auto U = dynamic_cast<CopyInst*>(I)) {
     auto op0 = codeGen(U->Op0(), VMap);
     return op0;
+  } else if (auto CI = dynamic_cast<ConversionInst*>(I)) {
+    auto op0 = codeGen(CI->V(), VMap);
+    op0 = bitcastTo(op0, CI->getPrevTy().toLLVM(C));
+    Type *new_type = CI->getNewTy().toLLVM(C);
+    llvm::Value *r = nullptr;
+    switch (CI->K()) {
+    case ConversionInst::sext:
+      r = b.CreateSExt(op0, new_type);
+      break;
+    case ConversionInst::zext:
+      r = b.CreateZExt(op0, new_type);
+      break;
+    case ConversionInst::trunc:
+      r = b.CreateTrunc(op0, new_type);
+      break;
+    }
+    return r;
   } else if (auto B = dynamic_cast<BinaryInst*>(I)) {
     type workty = B->getWorkTy();
     auto op0 = codeGen(B->L(), VMap);

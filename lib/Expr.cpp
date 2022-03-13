@@ -98,6 +98,20 @@ void FakeShuffleInst::print(ostream &os) const {
   os << ")";
 }
 
+
+void ConversionInst::print(ostream &os) const {
+  const char *str = nullptr;
+  switch (k) {
+  case sext:  str = "sext"; break;
+  case zext:  str = "zext"; break;
+  case trunc: str = "trunc"; break;
+  }
+
+  os << "(conversion "<< str << " ";
+  v->print(os);
+  os << ")";
+}
+
 /*
 BitCastOp(Inst &i, unsigned lf, unsigned wf, unsigned lt, unsigned wt);
   : i(&i), lanes_from(lf), lanes_to(lt), width_from(width_from), width_to(wt) {

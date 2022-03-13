@@ -122,6 +122,44 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
     }
   }*/
 
+
+  for (auto Comp = Comps.begin(); Comp != Comps.end(); ++Comp) {
+    auto Op = dynamic_cast<Var *>(*Comp);
+    if (!Op) continue;
+    vector<type> tys;
+    auto prev_width = Op->getWidth();
+    tys = type::getBinaryInstWorkTypes(prev_width);
+    for (auto workty : tys) {
+      unsigned prev_bits = workty.getBits();
+      unsigned lane = workty.getLane();
+
+      if (expected > prev_width) {
+        if (expected % prev_width)
+          continue;
+        unsigned nb = (expected / prev_width) * prev_bits;
+        set<ReservedConst*> RCs1;
+        auto SI = make_unique<ConversionInst>(ConversionInst::sext, *Op, lane, prev_bits, nb);
+        sketches.push_back(make_pair(SI.get(), move(RCs1)));
+        exprs.emplace_back(move(SI));
+        set<ReservedConst*> RCs2;
+        auto ZI = make_unique<ConversionInst>(ConversionInst::sext, *Op, lane, prev_bits, nb);
+        sketches.push_back(make_pair(ZI.get(), move(RCs2)));
+        exprs.emplace_back(move(ZI));
+      } else if (expected < prev_width){
+        if (prev_width % expected)
+          continue;
+
+        unsigned nb = expected * prev_bits / prev_width;
+        if (nb == 0)
+          continue;
+        set<ReservedConst*> RCs1;
+        auto SI = make_unique<ConversionInst>(ConversionInst::trunc, *Op, lane, prev_bits, nb);
+        sketches.push_back(make_pair(SI.get(), move(RCs1)));
+        exprs.emplace_back(move(SI));
+      }
+    }
+  }
+
   for (unsigned K = BinaryInst::Op::band; K <= BinaryInst::Op::mul; ++K) {
     BinaryInst::Op Op = static_cast<BinaryInst::Op>(K);
     for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
