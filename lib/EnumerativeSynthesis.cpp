@@ -206,12 +206,16 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
           if (auto L = dynamic_cast<Var*>(*Op0)) {
             if (L->getWidth() % expected)
               continue;
+
+            unsigned elem_bits = L->getWidth() / expected;
+            if (elem_bits != 8 && elem_bits != 16 && elem_bits != 32 && elem_bits != 64)
+              continue;
             // (icmp var, rc)
             if (dynamic_cast<ReservedConst*>(*Op1)) {
               if (Cond == ICmpInst::sle || Cond == ICmpInst::ule)
                 continue;
               I = L;
-              auto jty = type(expected, L->getWidth() / expected, false);
+              auto jty = type(expected, elem_bits, false);
               auto T = make_unique<ReservedConst>(jty);
               J = T.get();
               RCs.insert(T.get());
