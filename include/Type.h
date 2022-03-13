@@ -63,7 +63,7 @@ public:
     std::vector<type> types;
 
     for (unsigned i = 0 ; i < bits.size() ; ++ i) {
-      if (width % bits[i] == 0) {
+      if (width % bits[i] == 0 && width > bits[i]) {
         types.push_back(type(width/bits[i], bits[i], false));
       }
     }

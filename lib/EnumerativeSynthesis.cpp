@@ -336,7 +336,6 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
         continue;
       // (sv var, poison, mask)
       {
-
         set<ReservedConst*> RCs;
         auto m = make_unique<ReservedConst>(type(ty.getLane(), 8, false));
         RCs.insert(m.get());
