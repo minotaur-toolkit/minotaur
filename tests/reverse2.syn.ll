@@ -1,4 +1,4 @@
-; CHECK: call <16 x i8> @llvm.x86.ssse3.pshuf.b.128(<16 x i8> %v, <16 x i8> <i8 7, i8 6, i8 5, i8 4, i8 3, i8 2, i8 1, i8 0, i8 15, i8 14, i8 13, i8 12, i8 11, i8 10, i8 9, i8 8>)
+; CHECK: successful
 declare <4 x i32> @llvm.fshl.v4i32(<4 x i32>, <4 x i32>, <4 x i32>) #17
 
 declare <8 x i16> @llvm.bswap.v8i16(<8 x i16>) #17
