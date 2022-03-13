@@ -162,27 +162,32 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap) {
     } else {
       return RC->getA();
     }
-  } else if (auto SV = dynamic_cast<FakeShuffleInst *>(I)) {
-    auto op0 = codeGen(SV->L(), VMap);
-    op0 = b.CreateBitCast(op0, SV->getInputTy().toLLVM(C));
+  } else if (auto FSV = dynamic_cast<FakeShuffleInst *>(I)) {
+    auto op0 = codeGen(FSV->L(), VMap);
+    op0 = b.CreateBitCast(op0, FSV->getInputTy().toLLVM(C));
     llvm::Value *op1 = nullptr;
-    if (SV->R()) {
-      op1 = b.CreateBitCast(codeGen(SV->R(), VMap), op0->getType());
+    if (FSV->R()) {
+      op1 = b.CreateBitCast(codeGen(FSV->R(), VMap), op0->getType());
     } else {
       op1 = llvm::PoisonValue::get(op0->getType());
     }
 
-    unsigned elem_bits = SV->getElementBits();
+    auto mask = codeGen(FSV->M(), VMap);
+    llvm::Value *SV = nullptr;
+    if (isa<llvm::Constant>(mask)) {
+      SV = b.CreateShuffleVector(op0, op1, mask, "sv");
+    } else {
+      unsigned elem_bits = FSV->getElementBits();
+      auto op_ty = type(FSV->L()->getWidth()/elem_bits, elem_bits, false);
+      std::vector<llvm::Type*> Args(2, op_ty.toLLVM(C));
+      Args.push_back(FSV->M()->getType().toLLVM(C));
+      FunctionType *FT = FunctionType::get(FSV->getRetTy().toLLVM(C), Args, false);
+      llvm::Function *F =
+        llvm::Function::Create(FT, llvm::Function::ExternalLinkage, "__fksv", M);
+      SV = b.CreateCall(F, { op0, op1, mask }, "sv");
+    }
 
-    auto op_ty = type(SV->L()->getWidth()/elem_bits, elem_bits, false);
-    std::vector<llvm::Type*> Args(2, op_ty.toLLVM(C));
-    Args.push_back(SV->M()->getType().toLLVM(C));
-    FunctionType *FT = FunctionType::get(SV->getRetTy().toLLVM(C), Args, false);
-    llvm::Function *F =
-      llvm::Function::Create(FT, llvm::Function::ExternalLinkage, "__fksv", M);
-
-    auto mask = codeGen(SV->M(), VMap);
-    return b.CreateCall(F, { op0, op1, mask }, "sv");
+    return SV;
   }
   /*
   else if (auto L = dynamic_cast<minotaur::Load *>(I)) {
