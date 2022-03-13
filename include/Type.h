@@ -44,9 +44,9 @@ public:
   static type getIntrinsicOp1Ty(IR::X86IntrinBinOp::Op);
 
   static std::vector<type> getBinaryInstWorkTypes(unsigned width) {
-    std::vector<unsigned> bits = {8, 16, 32, 64};
+    std::vector<unsigned> bits = {64, 32, 16, 8};
     std::vector<type> types;
-    if (width % 8) {
+    if (width % 8 != 0) {
       types.push_back(type(1, width, false));
       return types;
     }
@@ -59,12 +59,10 @@ public:
     return types;
   }
   static std::vector<type> getVectorTypes(unsigned width) {
-    std::vector<unsigned> bits = {8, 16, 32, 64};
+    std::vector<unsigned> bits = {64, 32, 16, 8};
     std::vector<type> types;
 
     for (unsigned i = 0 ; i < bits.size() ; ++ i) {
-      if (width == bits[i])
-        continue;
       if (width % bits[i] == 0) {
         types.push_back(type(width/bits[i], bits[i], false));
       }

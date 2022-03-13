@@ -7,6 +7,7 @@
 
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -93,12 +94,19 @@ unsigned get_approx_cost(llvm::Function *F) {
   unsigned cost = 0;
   for (auto &BB : *F) {
     for (auto &I : BB) {
-      if (isa<BitCastInst>(I)) {
-        cost += 1;
-      } else if (isa<CallInst>(I)){
-        cost += 1;
+      if (isa<BitCastInst>(&I)) {
+        cost += 0;
+      } else if (CallInst *CI = dyn_cast<CallInst>(&I)) {
+        auto CalledF = CI->getCalledFunction();
+        if (CalledF && CalledF->getName().startswith("__fksv")) {
+          cost += 2;
+        } else if (CalledF && CalledF->isIntrinsic()) {
+          cost += 1;
+        } else {
+          cost += 3;
+        }
       } else {
-        cost += 5;
+        cost += 1;
       }
     }
   }

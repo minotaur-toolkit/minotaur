@@ -292,13 +292,41 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
         continue;
       if ((*Op0)->getWidth() == ty.getBits())
         continue;
-      set<ReservedConst*> RCs;
-      auto m = make_unique<ReservedConst>(type(ty.getLane(), 8, false));
-      RCs.insert(m.get());
-      auto sv = make_unique<FakeShuffleInst>(**Op0, nullptr, *m.get(), ty);
-      exprs.emplace_back(move(m));
-      sketches.push_back(make_pair(sv.get(), move(RCs)));
-      exprs.emplace_back(move(sv));
+      // (sv var, poison, mask)
+      {
+
+        set<ReservedConst*> RCs;
+        auto m = make_unique<ReservedConst>(type(ty.getLane(), 8, false));
+        RCs.insert(m.get());
+        auto sv = make_unique<FakeShuffleInst>(**Op0, nullptr, *m.get(), ty);
+        exprs.emplace_back(move(m));
+        sketches.push_back(make_pair(sv.get(), move(RCs)));
+        exprs.emplace_back(move(sv));
+      }
+      // (sv var1, var2, mask)
+      for (auto Op1 = Op0 + 1; Op1 != Comps.end(); ++Op1) {
+        set<ReservedConst*> RCs;
+        Inst *J = nullptr;
+        if (auto R = dynamic_cast<Var *>(*Op1)) {
+          // typecheck for op1
+          if (R->getWidth() != (*Op0)->getWidth())
+            continue;
+          J = R;
+        } else if (dynamic_cast<ReservedConst *>(*Op1)) {
+          type op_ty =
+            type((*Op0)->getWidth() / ty.getBits(), ty.getBits(), false);
+          auto T = make_unique<ReservedConst>(op_ty);
+          J = T.get();
+          RCs.insert(T.get());
+          exprs.emplace_back(move(T));
+        }
+        auto m = make_unique<ReservedConst>(type(ty.getLane(), 8, false));
+        RCs.insert(m.get());
+        auto sv2 = make_unique<FakeShuffleInst>(**Op0, J, *m.get(), ty);
+        exprs.emplace_back(move(m));
+        sketches.push_back(make_pair(sv2.get(), move(RCs)));
+        exprs.emplace_back(move(sv2));
+      }
     }
   }
 /*
@@ -479,6 +507,8 @@ static void removeUnusedDecls(unordered_set<llvm::Function *> IntrinsicDecls) {
 
 pair<Inst*, unordered_map<llvm::Argument*, llvm::Constant*>>
 EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
+  llvm::errs()<<"Original Function:\n";
+  F.dump();
   unsigned machinecost = get_machine_cost(&F);
   config::disable_undef_input = true;
   config::disable_poison_input = true;
@@ -623,7 +653,7 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
       auto &[Tgt, Src, G, HaveC] = *iter;
       Tgt->dump();
       unsigned tgt_cost = get_approx_cost(Tgt);
-      llvm::errs()<<"approx cost: " << tgt_cost <<"\n";
+      llvm::errs()<<"approx cost: tgt " << tgt_cost << ", src " << src_cost <<"\n";
       auto Func1 = llvm_util::llvm2alive(*Src, TLI);
       auto Func2 = llvm_util::llvm2alive(*Tgt, TLI);
       unsigned goodCount = 0, badCount = 0, errorCount = 0;
