@@ -142,7 +142,7 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
         sketches.push_back(make_pair(SI.get(), move(RCs1)));
         exprs.emplace_back(move(SI));
         set<ReservedConst*> RCs2;
-        auto ZI = make_unique<ConversionInst>(ConversionInst::sext, *Op, lane, prev_bits, nb);
+        auto ZI = make_unique<ConversionInst>(ConversionInst::zext, *Op, lane, prev_bits, nb);
         sketches.push_back(make_pair(ZI.get(), move(RCs2)));
         exprs.emplace_back(move(ZI));
       } else if (expected < prev_width){

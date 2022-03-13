@@ -155,12 +155,12 @@ private:
   unsigned lane, prev_bits, new_bits;
 public:
   ConversionInst(Op op, Inst &v, unsigned l, unsigned pb, unsigned nb)
-    : Inst(l * nb), k(op), v(&v), prev_bits(pb), new_bits(nb) {}
+    : Inst(l * nb), k(op), v(&v), lane(l), prev_bits(pb), new_bits(nb) {}
   void print(std::ostream &os) const override;
   Inst *V() { return v; }
   Op K() { return k; }
-  type getPrevTy () { return type(lane, prev_bits, false); }
-  type getNewTy () { return type(lane, new_bits, false); }
+  type getPrevTy () const { return type(lane, prev_bits, false); }
+  type getNewTy () const { return type(lane, new_bits, false); }
 };
 
 

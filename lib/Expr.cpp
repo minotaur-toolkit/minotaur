@@ -109,6 +109,8 @@ void ConversionInst::print(ostream &os) const {
 
   os << "(conversion "<< str << " ";
   v->print(os);
+  os << " from " << getPrevTy();
+  os << " to " << getNewTy();
   os << ")";
 }
 
