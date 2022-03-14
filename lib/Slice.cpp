@@ -176,7 +176,12 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
           haveUnknownOperand = true;
           break;
         }
+        if (!op->getType()->isIntOrIntVectorTy()) {
+          haveUnknownOperand = true;
+          break;
+        }
       }
+
 
       if (haveUnknownOperand) {
         if(DEBUG_LEVEL > 0)
