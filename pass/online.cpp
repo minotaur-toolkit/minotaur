@@ -88,6 +88,7 @@ llvm::cl::opt<unsigned> opt_omit_array_size(
 
 static bool
 optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibraryInfo &TLI) {
+  llvm::errs()<<"=== start of minotaur run ===\n";
   smt::set_query_timeout(to_string(opt_smt_to));
 
   redisContext *c = redisConnect("127.0.0.1", 6379);
@@ -111,12 +112,17 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibr
         bs.flush();
         std::string rewrite;
         if (minotaur::hGet(bytecode.c_str(), bytecode.size(), rewrite, c)) {
-          if (rewrite == "<no-sol>")
+          if (rewrite == "<no-sol>") {
+            llvm::errs()<<"*** cache matched, but no solution found in previous run, skipping function: \n";
+            (*NewF).get().dump();
             continue;
+          }
         }
       }
 
       minotaur::EnumerativeSynthesis ES;
+      llvm::errs()<<"*** working on Function:\n";
+      (*NewF).get().dump();
       auto [R, constMap] = ES.synthesize(*NewF, TLI);
 
       if (enable_caching) {
@@ -142,6 +148,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibr
   if (changed)
     minotaur::eliminate_dead_code(F);
   redisFree(c);
+  llvm::errs()<<"=== end of minotaur run ===\n";
   return changed;
 }
 
