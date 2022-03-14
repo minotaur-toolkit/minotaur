@@ -176,7 +176,8 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
           haveUnknownOperand = true;
           break;
         }
-        if (!op->getType()->isIntOrIntVectorTy()) {
+        auto op_ty = op->getType();
+        if (op_ty->isStructTy()) {
           haveUnknownOperand = true;
           break;
         }

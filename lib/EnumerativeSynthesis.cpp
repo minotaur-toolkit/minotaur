@@ -22,6 +22,7 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/Analysis/CGSCCPassManager.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/BasicBlock.h"
@@ -45,9 +46,10 @@ void calculateAndInitConstants(Transform &t);
 namespace minotaur {
 
 void
-EnumerativeSynthesis::findInputs(llvm::Value *Root,
+EnumerativeSynthesis::findInputs(llvm::Instruction *Root,
                                  set<Var*> &Cands,
                                  set<Addr*> &Pointers,
+                                 llvm::DominatorTree &DT,
                                  unsigned Max) {
   // breadth-first search
   unordered_set<llvm::Value *> Visited;
@@ -68,6 +70,10 @@ EnumerativeSynthesis::findInputs(llvm::Value *Root,
         continue;
       if (V == Root)
         continue;
+
+      if (!DT.dominates(V, Root))
+        continue;
+
       if (V->getType()->isIntOrIntVectorTy()) {
         auto T = make_unique<Var>(V);
         Cands.insert(T.get());
@@ -501,8 +507,8 @@ static void removeUnusedDecls(unordered_set<llvm::Function *> IntrinsicDecls) {
 
 pair<Inst*, unordered_map<llvm::Argument*, llvm::Constant*>>
 EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
-  llvm::errs()<<"Working on Function:\n";
-  F.dump();
+  llvm::DominatorTree DT(F);
+
   unsigned machinecost = get_machine_cost(&F);
   config::disable_undef_input = true;
   config::disable_poison_input = true;
@@ -525,7 +531,7 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
     llvm::Instruction *I = cast<llvm::Instruction>(S);
     set<Var*> Inputs;
     set<Addr*> Pointers;
-    findInputs(&*I, Inputs, Pointers, 20);
+    findInputs(&*I, Inputs, Pointers, DT, 20);
 
     vector<pair<Inst*,set<ReservedConst*>>> Sketches;
 

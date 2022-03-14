@@ -5,6 +5,7 @@
 #include "ir/function.h"
 
 #include "Expr.h"
+#include "llvm/IR/Dominators.h"
 
 #include <functional>
 #include <memory>
@@ -20,9 +21,10 @@ namespace minotaur {
 class EnumerativeSynthesis {
   std::vector<std::unique_ptr<Inst>> exprs;
 
-  void findInputs(llvm::Value *Root,
+  void findInputs(llvm::Instruction *Root,
                   std::set<Var*> &Cands,
                   std::set<Addr*> &Pointers,
+                  llvm::DominatorTree &DT,
                   unsigned Max);
   bool getSketches(llvm::Value *V,
                    std::set<Var*>&,
