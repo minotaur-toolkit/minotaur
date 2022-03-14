@@ -64,7 +64,7 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap) {
     if(U->Op0()->getWidth() != workty.getWidth())
       report_fatal_error("operand width mismatch");
     op0 = bitcastTo(op0, workty.toLLVM(C));
-    Intrinsic::ID iid;
+    Intrinsic::ID iid = 0;
     auto K = U->K();
     switch (K) {
     case UnaryInst::bitreverse: iid = Intrinsic::bitreverse; break;
