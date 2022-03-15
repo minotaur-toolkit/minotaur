@@ -73,11 +73,13 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap) {
     case UnaryInst::ctlz:       iid = Intrinsic::ctlz;       break;
     case UnaryInst::cttz:       iid = Intrinsic::cttz;       break;
     }
-    llvm::Function *F = Intrinsic::getDeclaration(M, iid, workty.toLLVM(C));
+
 
     if (K == UnaryInst::ctlz || K == UnaryInst::cttz) {
+      llvm::Function *F = Intrinsic::getDeclaration(M, iid, {workty.toLLVM(C), Type::getInt1Ty(C)});
       return b.CreateCall(F, { op0, ConstantInt::getFalse(C) });
     } else {
+      llvm::Function *F = Intrinsic::getDeclaration(M, iid, {workty.toLLVM(C)});
       return b.CreateCall(F, op0);
     }
   } else if (auto U = dynamic_cast<CopyInst*>(I)) {
