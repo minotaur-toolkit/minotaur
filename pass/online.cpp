@@ -14,6 +14,7 @@
 #include "util/version.h"
 
 #include "llvm/ADT/Any.h"
+#include "llvm/Analysis/DominanceFrontier.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
@@ -24,6 +25,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
@@ -86,6 +88,16 @@ llvm::cl::opt<unsigned> opt_omit_array_size(
                    "this number"),
     llvm::cl::init(-1));
 
+static bool dom_check(llvm::Value *V, DominatorTree &DT, llvm::Use &U) {
+  if (auto I = dyn_cast<Instruction> (V)) {
+    for (auto &op : I->operands()) {
+      if (auto opI = dyn_cast<Instruction> (op)) {
+        if (!DT.dominates(opI, U)) return false;
+      }
+    }
+  }
+  return true;
+}
 static bool
 optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibraryInfo &TLI) {
   llvm::errs()<<"=== start of minotaur run ===\n";
@@ -139,9 +151,13 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibr
       std::unordered_set<llvm::Function *> IntrinsicDecls;
       llvm::Value *V = minotaur::LLVMGen(&I, IntrinsicDecls).codeGen(R, S.getValueMap());
       V = llvm::IRBuilder<>(&I).CreateBitCast(V, I.getType());
-      I.replaceAllUsesWith(V);
-      minotaur::eliminate_dead_code(F);
-      changed = true;
+      I.replaceUsesWithIf(V, [&changed, &V, &DT](Use &U) {
+        if(dom_check(V, DT, U)) {
+          changed = true;
+          return true;
+        }
+        return false;
+      });
     }
   }
   if (changed)
