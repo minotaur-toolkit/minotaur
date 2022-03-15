@@ -141,35 +141,39 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
     auto Op = dynamic_cast<Var *>(*Comp);
     if (!Op) continue;
     vector<type> tys;
-    auto prev_width = Op->getWidth();
-    tys = type::getBinaryInstWorkTypes(prev_width);
+    auto op_w = Op->getWidth();
+    tys = type::getBinaryInstWorkTypes(op_w);
     for (auto workty : tys) {
-      unsigned prev_bits = workty.getBits();
+      unsigned op_bits = workty.getBits();
       unsigned lane = workty.getLane();
 
-      if (expected > prev_width) {
-        if (expected % prev_width)
+      if (expected % lane != 0)
+        continue;
+
+      if (expected > op_w) {
+        if (expected % op_w)
           continue;
-        unsigned nb = (expected / prev_width) * prev_bits;
+        unsigned nb = (expected / op_w) * op_bits;
         set<ReservedConst*> RCs1;
         auto SI = make_unique<ConversionInst>(ConversionInst::sext, *Op, lane,
-                                              prev_bits, nb);
+                                              op_bits, nb);
         sketches.push_back(make_pair(SI.get(), move(RCs1)));
         exprs.emplace_back(move(SI));
         set<ReservedConst*> RCs2;
         auto ZI = make_unique<ConversionInst>(ConversionInst::zext, *Op, lane,
-                                              prev_bits, nb);
+                                              op_bits, nb);
         sketches.push_back(make_pair(ZI.get(), move(RCs2)));
         exprs.emplace_back(move(ZI));
-      } else if (expected < prev_width){
-        if (prev_width % expected)
+      } else if (expected < op_w){
+        if (op_w % expected != 0)
           continue;
 
-        unsigned nb = expected * prev_bits / prev_width;
+        unsigned nb = expected * op_bits / op_w;
         if (nb == 0)
           continue;
         set<ReservedConst*> RCs1;
-        auto SI = make_unique<ConversionInst>(ConversionInst::trunc, *Op, lane, prev_bits, nb);
+        auto SI = make_unique<ConversionInst>(ConversionInst::trunc, *Op, lane,
+                                              op_bits, nb);
         sketches.push_back(make_pair(SI.get(), move(RCs1)));
         exprs.emplace_back(move(SI));
       }
