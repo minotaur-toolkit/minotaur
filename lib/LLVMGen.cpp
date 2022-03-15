@@ -47,6 +47,8 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap) {
       if (VMap.count(V->V()))
         return VMap[V->V()];
       else {
+        //for (auto [k, v] : VMap){k->dump();}
+        //cout<<*V<<endl;
         V->V()->dump();
         llvm::report_fatal_error("Value is not found in VMap");
       }
@@ -73,7 +75,6 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap) {
     case UnaryInst::ctlz:       iid = Intrinsic::ctlz;       break;
     case UnaryInst::cttz:       iid = Intrinsic::cttz;       break;
     }
-
 
     if (K == UnaryInst::ctlz || K == UnaryInst::cttz) {
       llvm::Function *F = Intrinsic::getDeclaration(M, iid, {workty.toLLVM(C), Type::getInt1Ty(C)});

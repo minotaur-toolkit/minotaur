@@ -104,7 +104,6 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibr
       if (!NewF.has_value())
         continue;
 
-
       string bytecode;
       if (enable_caching) {
         llvm::raw_string_ostream bs(bytecode);

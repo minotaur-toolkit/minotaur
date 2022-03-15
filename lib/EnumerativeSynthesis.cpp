@@ -46,12 +46,36 @@ void calculateAndInitConstants(Transform &t);
 namespace minotaur {
 
 void
-EnumerativeSynthesis::findInputs(llvm::Instruction *Root,
+EnumerativeSynthesis::findInputs(llvm::Function &F,
+                                 llvm::Instruction *root,
                                  set<Var*> &Cands,
                                  set<Addr*> &Pointers,
-                                 llvm::DominatorTree &DT,
-                                 unsigned Max) {
+                                 llvm::DominatorTree &DT) {
   // breadth-first search
+  for (auto &A : F.args()) {
+    if (A.getType()->isIntOrIntVectorTy()) {
+      auto T = make_unique<Var>(&A);
+      Cands.insert(T.get());
+      exprs.emplace_back(move(T));
+    }
+  }
+  for (auto &BB : F) {
+    for (auto &I : BB) {
+      if (&I == root)
+        continue;
+      if (!DT.dominates(&I, root))
+        continue;
+
+      if (I.getType()->isIntOrIntVectorTy()) {
+        auto T = make_unique<Var>(&I);
+        Cands.insert(T.get());
+        exprs.emplace_back(move(T));
+      }
+    }
+  }
+}
+/*
+
   unordered_set<llvm::Value *> Visited;
   queue<llvm::Value *> Q;
   Q.push(Root);
@@ -59,6 +83,12 @@ EnumerativeSynthesis::findInputs(llvm::Instruction *Root,
   while (!Q.empty()) {
     llvm::Value *V = Q.front();
     Q.pop();
+
+    V->dump();
+    Root->dump();
+    if (!DT.dominates(V, Root))
+      continue;
+
     if (Visited.insert(V).second) {
       if (auto I = llvm::dyn_cast<llvm::Instruction>(V)) {
         for (auto &Op : I->operands()) {
@@ -71,9 +101,6 @@ EnumerativeSynthesis::findInputs(llvm::Instruction *Root,
       if (V == Root)
         continue;
 
-      if (!DT.dominates(V, Root))
-        continue;
-
       if (V->getType()->isIntOrIntVectorTy()) {
         auto T = make_unique<Var>(V);
         Cands.insert(T.get());
@@ -83,11 +110,13 @@ EnumerativeSynthesis::findInputs(llvm::Instruction *Root,
         auto T = make_unique<Addr>(V);
         Pointers.insert(T.get());
         exprs.emplace_back(move(T));
-      } if (Cands.size() >= Max)
+      }
+
+      if (Cands.size() >= Max)
         return;
     }
   }
-}
+}*/
 
 bool
 EnumerativeSynthesis::getSketches(llvm::Value *V,
@@ -508,6 +537,7 @@ static void removeUnusedDecls(unordered_set<llvm::Function *> IntrinsicDecls) {
 pair<Inst*, unordered_map<llvm::Argument*, llvm::Constant*>>
 EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
   llvm::DominatorTree DT(F);
+  DT.recalculate(F);
 
   unsigned machinecost = get_machine_cost(&F);
   config::disable_undef_input = true;
@@ -531,7 +561,7 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
     llvm::Instruction *I = cast<llvm::Instruction>(S);
     set<Var*> Inputs;
     set<Addr*> Pointers;
-    findInputs(&*I, Inputs, Pointers, DT, 20);
+    findInputs(F, I, Inputs, Pointers, DT);
 
     vector<pair<Inst*,set<ReservedConst*>>> Sketches;
 
@@ -561,11 +591,11 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
     }
     getSketches(&*I, Inputs, Pointers, Sketches);
 
-    cout<<"---------Sketches------------"<<endl;
+    llvm::errs()<<"---------sketches------------\n";
     for (auto &Sketch : Sketches) {
-      cout<<*Sketch.first<<endl;
+      cerr<<*Sketch.first<<endl;
     }
-    cout<<"-----------------------------"<<endl;
+    llvm::errs()<<"-----------------------------\n";
 
     unordered_map<string, ReservedConst*> constants;
     unsigned CI = 0;
@@ -703,7 +733,6 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
       llvm::Value *V = LLVMGen(&*I, IntrinsicDecls).codeGen(R, VMap);
       V = llvm::IRBuilder<>(I).CreateBitCast(V, I->getType());
       I->replaceAllUsesWith(V);
-      eliminate_dead_code(F);
       unsigned newcost = get_machine_cost(&F);
       llvm::errs()<<"=== optimized ir (uops="<<newcost<<") ===\n";
       F.dump();
