@@ -540,6 +540,7 @@ static void removeUnusedDecls(unordered_set<llvm::Function *> IntrinsicDecls) {
 
 pair<Inst*, unordered_map<llvm::Argument*, llvm::Constant*>>
 EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
+  clock_t start = std::clock();
   llvm::DominatorTree DT(F);
   DT.recalculate(F);
 
@@ -717,7 +718,8 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
         success = true;
       }
       iter = Fns.erase(iter);
-      if (goodCount) {
+      unsigned duration = ( std::clock() - start ) / CLOCKS_PER_SEC;
+      if (goodCount || duration > 120) {
         break;
       }
     }
