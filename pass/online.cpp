@@ -42,6 +42,8 @@
 using namespace std;
 using namespace llvm;
 
+static constexpr unsigned DEBUG_LEVEL = 0;
+
 namespace {
 llvm::cl::opt<bool>
     opt_error_fatal("tv-exit-on-error",
@@ -100,7 +102,8 @@ static bool dom_check(llvm::Value *V, DominatorTree &DT, llvm::Use &U) {
 }
 static bool
 optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibraryInfo &TLI) {
-  llvm::errs()<<"=== start of minotaur run ===\n";
+  if (DEBUG_LEVEL > 0)
+    llvm::errs()<<"=== start of minotaur run ===\n";
   smt::set_query_timeout(to_string(opt_smt_to));
 
   redisContext *c = redisConnect("127.0.0.1", 6379);
@@ -124,16 +127,20 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibr
         std::string rewrite;
         if (minotaur::hGet(bytecode.c_str(), bytecode.size(), rewrite, c)) {
           if (rewrite == "<no-sol>") {
-            llvm::errs()<<"*** cache matched, but no solution found in previous run, skipping function: \n";
-            (*NewF).get().dump();
+            if (DEBUG_LEVEL > 0) {
+              llvm::errs()<<"*** cache matched, but no solution found in previous run, skipping function: \n";
+              (*NewF).get().dump();
+            }
             continue;
           }
         }
       }
 
       minotaur::EnumerativeSynthesis ES;
-      llvm::errs()<<"*** working on Function:\n";
-      (*NewF).get().dump();
+      if (DEBUG_LEVEL > 0) {
+        llvm::errs()<<"*** working on Function:\n";
+        (*NewF).get().dump();
+      }
       auto [R, constMap] = ES.synthesize(*NewF, TLI);
 
       if (enable_caching) {
@@ -163,7 +170,8 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibr
   if (changed)
     minotaur::eliminate_dead_code(F);
   redisFree(c);
-  llvm::errs()<<"=== end of minotaur run ===\n";
+  if (DEBUG_LEVEL > 0)
+    llvm::errs()<<"=== end of minotaur run ===\n";
   return changed;
 }
 

@@ -171,7 +171,7 @@ Errors ConstantSynthesis::synthesize(unordered_map<const Value*, expr> &result) 
       s << '\n';
     }
   }
-  config::dbg()<<s.str();
+  //config::dbg()<<s.str();
 
   return errs;
 }

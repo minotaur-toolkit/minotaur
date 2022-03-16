@@ -43,6 +43,8 @@ using namespace IR;
 
 void calculateAndInitConstants(Transform &t);
 
+unsigned SYNTHESIS_DEBUG_LEVEL = 0;
+
 namespace minotaur {
 
 void
@@ -442,8 +444,9 @@ compareFunctions(IR::Function &Func1, IR::Function &Func2,
   {
     auto types = verifier.getTypings();
     if (!types) {
-      cerr << "Transformation doesn't verify!\n"
-              "ERROR: program doesn't type check!\n\n";
+      if (SYNTHESIS_DEBUG_LEVEL > 0)
+        cerr << "Transformation doesn't verify!\n"
+                "ERROR: program doesn't type check!\n\n";
       ++errorCount;
       return true;
     }
@@ -454,14 +457,17 @@ compareFunctions(IR::Function &Func1, IR::Function &Func2,
   bool result(errs);
   if (result) {
     if (errs.isUnsound()) {
-      cerr << "Transformation doesn't verify!\n" << endl;
+      if (SYNTHESIS_DEBUG_LEVEL > 0)
+        cerr << "Transformation doesn't verify!\n" << endl;
       ++badCount;
     } else {
-      cerr << errs << endl;
+      if (SYNTHESIS_DEBUG_LEVEL > 0)
+        cerr << errs << endl;
       ++errorCount;
     }
   } else {
-    cerr << "Transformation seems to be correct!\n\n";
+    if (SYNTHESIS_DEBUG_LEVEL > 0)
+      cerr << "Transformation seems to be correct!\n\n";
     ++goodCount;
   }
 
@@ -491,7 +497,8 @@ constantSynthesis(IR::Function &Func1, IR::Function &Func2,
 
   bool ret(errs);
   if (result.empty()) {
-    llvm::errs()<<"failed to synthesize constants\n";
+    if (SYNTHESIS_DEBUG_LEVEL > 0)
+      llvm::errs()<<"failed to synthesize constants\n";
     return ret;
   }
 
@@ -596,12 +603,13 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
     }
     getSketches(&*I, Inputs, Pointers, Sketches);
 
-    llvm::errs()<<"---------sketches------------\n";
-    for (auto &Sketch : Sketches) {
-      cerr<<*Sketch.first<<endl;
+    if (SYNTHESIS_DEBUG_LEVEL > 0) {
+      llvm::errs()<<"---------sketches------------\n";
+      for (auto &Sketch : Sketches) {
+        cerr<<*Sketch.first<<endl;
+      }
+      llvm::errs()<<"-----------------------------\n";
     }
-    llvm::errs()<<"-----------------------------\n";
-
     unordered_map<string, ReservedConst*> constants;
     unsigned CI = 0;
     /*
@@ -687,9 +695,11 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
     for (;iter != Fns.end();) {
       auto &[Tgt, Src, G, HaveC] = *iter;
       unsigned tgt_cost = get_approx_cost(Tgt);
-      llvm::errs()<<"-- candidate approx_cost(tgt) = " << tgt_cost
-                  << ", approx_cost(src) = " << src_cost <<" --\n";
-      Tgt->dump();
+      if (SYNTHESIS_DEBUG_LEVEL > 0) {
+        llvm::errs()<<"-- candidate approx_cost(tgt) = " << tgt_cost
+                    << ", approx_cost(src) = " << src_cost <<" --\n";
+        Tgt->dump();
+      }
       auto Func1 = llvm_util::llvm2alive(*Src, TLI);
       auto Func2 = llvm_util::llvm2alive(*Tgt, TLI);
       unsigned goodCount = 0, badCount = 0, errorCount = 0;
@@ -733,20 +743,28 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
 
     // replace
     if (success) {
-      llvm::errs()<<"=== original ir (uops="<<machinecost<<") ===\n";
-      F.dump();
+      if (SYNTHESIS_DEBUG_LEVEL > 0) {
+        llvm::errs()<<"=== original ir (uops="<<machinecost<<") ===\n";
+        F.dump();
+      }
       llvm::ValueToValueMapTy VMap;
       llvm::Value *V = LLVMGen(&*I, IntrinsicDecls).codeGen(R, VMap);
       V = llvm::IRBuilder<>(I).CreateBitCast(V, I->getType());
       I->replaceAllUsesWith(V);
       unsigned newcost = get_machine_cost(&F);
-      llvm::errs()<<"=== optimized ir (uops="<<newcost<<") ===\n";
-      F.dump();
+      if (SYNTHESIS_DEBUG_LEVEL > 0) {
+        llvm::errs()<<"=== optimized ir (uops="<<newcost<<") ===\n";
+        F.dump();
+      }
       if (!machinecost || !newcost || newcost <= machinecost) {
-        llvm::errs()<<"=== successfully synthesized rhs ===\n";
+        if (SYNTHESIS_DEBUG_LEVEL > 0) {
+          llvm::errs()<<"=== successfully synthesized rhs ===\n";
+        }
         return {R, constMap};
       } else {
-        llvm::errs()<<"!!! fails machine cost check, keep searching !!!\n";
+        if (SYNTHESIS_DEBUG_LEVEL > 0) {
+          llvm::errs()<<"!!! fails machine cost check, keep searching !!!\n";
+        }
       }
     }
   }
