@@ -177,7 +177,11 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
           break;
         }
         auto op_ty = op->getType();
-        if (op_ty->isStructTy() || op_ty->isFloatingPointTy()) {
+        if (op_ty->isStructTy() || op_ty->isFloatingPointTy() || op_ty->isOpaquePointerTy()) {
+          haveUnknownOperand = true;
+          break;
+        }
+        if (op_ty->isPointerTy() && !op_ty->getNonOpaquePointerElementType()->isFunctionTy()) {
           haveUnknownOperand = true;
           break;
         }
