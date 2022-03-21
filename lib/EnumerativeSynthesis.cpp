@@ -18,6 +18,7 @@
 #include "util/dataflow.h"
 #include "util/version.h"
 #include "llvm_util/llvm2alive.h"
+#include "llvm_util/utils.h"
 
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/LoopAnalysisManager.h"
@@ -554,6 +555,8 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
   unsigned machinecost = get_machine_cost(&F);
   config::disable_undef_input = true;
   config::disable_poison_input = true;
+  llvm_util::set_outs(cerr);
+
   unordered_map<llvm::Argument *, llvm::Constant *> constMap;
 
   bool changed = false;
@@ -702,6 +705,13 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
       }
       auto Func1 = llvm_util::llvm2alive(*Src, TLI);
       auto Func2 = llvm_util::llvm2alive(*Tgt, TLI);
+      if (!Func1.has_value() || !Func2.has_value()) {
+        if (SYNTHESIS_DEBUG_LEVEL > 0) {
+          llvm::errs()<<"error found when converting llvm to alive2\n";
+        }
+        return {nullptr, constMap};
+      }
+
       unsigned goodCount = 0, badCount = 0, errorCount = 0;
       if (!HaveC) {
         compareFunctions(*Func1, *Func2,
