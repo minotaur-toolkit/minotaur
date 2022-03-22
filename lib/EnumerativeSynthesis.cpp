@@ -548,6 +548,10 @@ static void removeUnusedDecls(unordered_set<llvm::Function *> IntrinsicDecls) {
 
 pair<Inst*, unordered_map<llvm::Argument*, llvm::Constant*>>
 EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
+  if (SYNTHESIS_DEBUG_LEVEL > 0) {
+    llvm::errs()<<"working on function\n";
+    F.dump();
+  }
   clock_t start = std::clock();
   llvm::DominatorTree DT(F);
   DT.recalculate(F);
