@@ -150,9 +150,9 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibr
           std::stringstream rs;
           R->print(rs);
           rs.flush();
-          minotaur::hSet(bytecode.c_str(), bytecode.size(), rs.str(), c);
+          minotaur::hSet(bytecode.c_str(), bytecode.size(), rs.str(), c, oldcost, newcost);
         } else {
-          minotaur::hSet(bytecode.c_str(), bytecode.size(), "<no-sol>", c);
+          minotaur::hSet(bytecode.c_str(), bytecode.size(), "<no-sol>", c, 0, 0);
         }
       }
 
