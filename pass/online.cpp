@@ -20,6 +20,8 @@
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
@@ -156,8 +158,13 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibr
 
       if (!R) continue;
       std::unordered_set<llvm::Function *> IntrinsicDecls;
-      llvm::Value *V = minotaur::LLVMGen(&I, IntrinsicDecls).codeGen(R, S.getValueMap());
-      V = llvm::IRBuilder<>(&I).CreateBitCast(V, I.getType());
+      llvm::Instruction *insertpt = &I;
+      while(isa<PHINode>(insertpt)) {
+        insertpt = insertpt->getNextNode();
+      }
+
+      llvm::Value *V = minotaur::LLVMGen(insertpt, IntrinsicDecls).codeGen(R, S.getValueMap());
+      V = llvm::IRBuilder<>(insertpt).CreateBitCast(V, I.getType());
       I.replaceUsesWithIf(V, [&changed, &V, &DT](Use &U) {
         if(dom_check(V, DT, U)) {
           changed = true;
