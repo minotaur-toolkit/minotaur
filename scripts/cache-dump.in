@@ -172,9 +172,13 @@ print "\n\n";
 foreach my $opt (@all_keys) {
     my %h = $r->hgetall($opt);
     my $result = $h{"rewrite"};
+    my $oldcost = $h{"oldcost"};
+    my $newcost = $h{"newcost"};
     if ($result ne "<no-sol>") {
       parse($opt, $result);
-      print $result;
+      print $result, "\n";
+      print "cost before rewrite: $oldcost\n";
+      print "cost after rewrite: $newcost\n";
       print "\n------------------------------------------------------\n";
     }
     # print "\n";
