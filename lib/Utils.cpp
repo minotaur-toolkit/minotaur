@@ -7,6 +7,8 @@
 
 #include "hiredis.h"
 
+using namespace std;
+
 namespace minotaur {
 
 void eliminate_dead_code(llvm::Function &F) {
@@ -21,7 +23,7 @@ void eliminate_dead_code(llvm::Function &F) {
 }
 
 bool
-hGet(const char* s, unsigned sz, std::string &Value, redisContext *c) {
+hGet(const char* s, unsigned sz, string &Value, redisContext *c) {
   redisReply *reply = (redisReply *)redisCommand(c, "HGET %b rewrite", s, sz);
   if (!reply || c->err) {
     llvm::report_fatal_error((llvm::StringRef)"redis error" + c->errstr);
@@ -36,20 +38,24 @@ hGet(const char* s, unsigned sz, std::string &Value, redisContext *c) {
   } else {
     llvm::report_fatal_error((llvm::StringRef)
       "Redis protocol error for cache lookup, didn't expect reply type "+
-      std::to_string(reply->type));
+      to_string(reply->type));
   }
 }
 
 void
-hSet(const char* s, unsigned sz, llvm::StringRef Value, redisContext *c, unsigned oldcost, unsigned newcost) {
-  redisReply *reply = (redisReply *)redisCommand(c, "HSET %b rewrite %s oldcost %s newcost %s",
-    s, sz, Value.data(), std::to_string(oldcost).c_str(), std::to_string(newcost).c_str());
+hSet(const char* s, unsigned sz, llvm::StringRef Value, redisContext *c,
+     unsigned oldcost, unsigned newcost) {
+  redisReply *reply = (redisReply *)redisCommand(c,
+    "HSET %b rewrite %s oldcost %s newcost %s timestamp %s",
+    s, sz, Value.data(),
+    to_string(oldcost).c_str(), to_string(newcost).c_str(),
+    to_string((unsigned long)time(NULL)).c_str());
   if (!reply || c->err)
     llvm::report_fatal_error((llvm::StringRef)"Redis error: " + c->errstr);
   if (reply->type != REDIS_REPLY_INTEGER) {
     llvm::report_fatal_error((llvm::StringRef)
       "Redis protocol error for cache fill, didn't expect reply type " +
-      std::to_string(reply->type));
+      to_string(reply->type));
   }
   freeReplyObject(reply);
 }

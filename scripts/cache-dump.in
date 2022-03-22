@@ -174,11 +174,13 @@ foreach my $opt (@all_keys) {
     my $result = $h{"rewrite"};
     my $oldcost = $h{"oldcost"};
     my $newcost = $h{"newcost"};
+    my $timestamp = $h{"timestamp"};
     if ($result ne "<no-sol>") {
       parse($opt, $result);
       print $result, "\n";
       print "cost before rewrite: $oldcost\n";
       print "cost after rewrite: $newcost\n";
+      print "timestamp: $timestamp\n";
       print "\n------------------------------------------------------\n";
     }
     # print "\n";
