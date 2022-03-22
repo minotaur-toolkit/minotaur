@@ -41,9 +41,9 @@ hGet(const char* s, unsigned sz, std::string &Value, redisContext *c) {
 }
 
 void
-hSet(const char* s, unsigned sz, llvm::StringRef Value, redisContext *c) {
-  redisReply *reply = (redisReply *)redisCommand(c, "HSET %b rewrite %s",
-    s, sz, Value.data());
+hSet(const char* s, unsigned sz, llvm::StringRef Value, redisContext *c, unsigned oldcost, unsigned newcost) {
+  redisReply *reply = (redisReply *)redisCommand(c, "HSET %b rewrite %s %s %s",
+    s, sz, Value.data(), oldcost, newcost);
   if (!reply || c->err)
     llvm::report_fatal_error((llvm::StringRef)"Redis error: " + c->errstr);
   if (reply->type != REDIS_REPLY_INTEGER) {

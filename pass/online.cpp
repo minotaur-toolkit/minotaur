@@ -143,7 +143,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibr
         llvm::errs()<<"*** working on Function:\n";
         (*NewF).get().dump();
       }
-      auto [R, constMap] = ES.synthesize(*NewF, TLI);
+      auto [R, constMap, oldcost, newcost] = ES.synthesize(*NewF, TLI);
 
       if (enable_caching) {
         if (R) {

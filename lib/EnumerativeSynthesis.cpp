@@ -546,7 +546,7 @@ static void removeUnusedDecls(unordered_set<llvm::Function *> IntrinsicDecls) {
   }
 }
 
-pair<Inst*, unordered_map<llvm::Argument*, llvm::Constant*>>
+tuple<Inst*, unordered_map<llvm::Argument*, llvm::Constant*>, unsigned, unsigned>
 EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
   if (SYNTHESIS_DEBUG_LEVEL > 0) {
     llvm::errs()<<"working on function\n";
@@ -713,7 +713,7 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
         if (SYNTHESIS_DEBUG_LEVEL > 0) {
           llvm::errs()<<"error found when converting llvm to alive2\n";
         }
-        return {nullptr, constMap};
+        return {nullptr, constMap, 0, 0};
       }
 
       unsigned goodCount = 0, badCount = 0, errorCount = 0;
@@ -724,6 +724,9 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
         } catch (AliveException e) {
           if (SYNTHESIS_DEBUG_LEVEL > 0) {
             llvm::errs()<<e.msg<<"\n";
+          }
+          if (e.msg == "slow_vcgen") {
+            return {nullptr, constMap, 0, 0};
           }
         }
       } else {
@@ -743,6 +746,9 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
         } catch (AliveException e) {
           if (SYNTHESIS_DEBUG_LEVEL > 0) {
             llvm::errs()<<e.msg<<"\n";
+          }
+          if (e.msg == "slow_vcgen") {
+            return {nullptr, constMap, 0, 0};
           }
         }
 
@@ -786,7 +792,7 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
         if (SYNTHESIS_DEBUG_LEVEL > 0) {
           llvm::errs()<<"=== successfully synthesized rhs ===\n";
         }
-        return {R, constMap};
+        return {R, constMap, machinecost, newcost};
       } else {
         if (SYNTHESIS_DEBUG_LEVEL > 0) {
           llvm::errs()<<"!!! fails machine cost check, keep searching !!!\n";
@@ -794,7 +800,7 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
       }
     }
   }
-  return {nullptr, constMap};
+  return {nullptr, constMap, 0, 0};
 }
 
 };

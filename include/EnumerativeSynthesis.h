@@ -31,7 +31,7 @@ class EnumerativeSynthesis {
                    std::set<Addr*>&,
                    std::vector<std::pair<Inst*, std::set<ReservedConst*>>>&);
 public:
-  std::pair<Inst*, std::unordered_map<llvm::Argument*, llvm::Constant*>>
+  std::tuple<Inst*, std::unordered_map<llvm::Argument*, llvm::Constant*>, unsigned, unsigned>
   synthesize (llvm::Function &F1, llvm::TargetLibraryInfo &TLI);
 };
 
