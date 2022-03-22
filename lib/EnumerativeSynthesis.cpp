@@ -714,8 +714,14 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
 
       unsigned goodCount = 0, badCount = 0, errorCount = 0;
       if (!HaveC) {
-        compareFunctions(*Func1, *Func2,
-                         goodCount, badCount, errorCount);
+        try {
+          compareFunctions(*Func1, *Func2,
+                          goodCount, badCount, errorCount);
+        } catch (AliveException e) {
+          if (SYNTHESIS_DEBUG_LEVEL > 0) {
+            llvm::errs()<<e.msg<<"\n";
+          }
+        }
       } else {
         unordered_map<const IR::Value *, ReservedConst *> inputMap;
         for (auto &I : Func2->getInputs()) {
@@ -727,8 +733,14 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
           }
         }
         constMap.clear();
-        constantSynthesis(*Func1, *Func2,
-                          goodCount, badCount, errorCount, inputMap);
+        try {
+          constantSynthesis(*Func1, *Func2,
+                            goodCount, badCount, errorCount, inputMap);
+        } catch (AliveException e) {
+          if (SYNTHESIS_DEBUG_LEVEL > 0) {
+            llvm::errs()<<e.msg<<"\n";
+          }
+        }
 
         Src->eraseFromParent();
       }
