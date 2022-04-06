@@ -139,6 +139,59 @@ public:
   Inst *L() { return lhs; }
   Inst *R() { return rhs; }
   IR::X86IntrinBinOp::Op K() { return op; }
+  static bool is512 (IR::X86IntrinBinOp::Op K) {
+    return K == IR::X86IntrinBinOp::x86_avx512_pavg_w_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_pavg_b_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_pshuf_b_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psrl_w_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psrl_d_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psrl_q_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psrli_w_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psrli_d_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psrli_q_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psrlv_d_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psrlv_q_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psrlv_w_128 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psrlv_w_256 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psrlv_w_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psra_q_128 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psra_q_256 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psra_w_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psra_d_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psra_q_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psrai_q_128 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psrai_q_256 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psrai_w_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psrai_d_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psrai_q_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psrav_d_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psrav_q_128 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psrav_q_256 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psrav_q_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psrav_w_128 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psrav_w_256 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psrav_w_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psll_w_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psll_d_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psll_q_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_pslli_w_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_pslli_d_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_pslli_q_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psllv_d_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psllv_q_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psllv_w_128 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psllv_w_256 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psllv_w_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_pmulh_w_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_pmulhu_w_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_pmaddw_d_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_pmaddubs_w_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_packsswb_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_packuswb_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_packssdw_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_packusdw_512 ||
+           K == IR::X86IntrinBinOp::x86_avx512_psad_bw_512;
+  }
 };
 
 

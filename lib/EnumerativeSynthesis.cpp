@@ -45,6 +45,7 @@ using namespace IR;
 void calculateAndInitConstants(Transform &t);
 
 unsigned SYNTHESIS_DEBUG_LEVEL = 0;
+bool DISABLE_AVX512 = true;
 
 namespace minotaur {
 
@@ -183,8 +184,7 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
     }
   }
 
-  // Unary operators
-
+  // unop
   for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
     if ((*Op0)->getWidth() != expected)
       continue;
@@ -322,6 +322,8 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
   for (unsigned K = 0; K < X86IntrinBinOp::numOfX86Intrinsics; ++K) {
     // typecheck for return val
     X86IntrinBinOp::Op op = static_cast<X86IntrinBinOp::Op>(K);
+    if (DISABLE_AVX512 && SIMDBinOpInst::is512(op))
+      continue;
     type ret_ty = type::getIntrinsicRetTy(op);
     type op0_ty = type::getIntrinsicOp0Ty(op);
     type op1_ty = type::getIntrinsicOp1Ty(op);
