@@ -33,7 +33,7 @@ sub is_compiling() {
   return 0;
 }
 
-$minotaur = 0 unless is_compiling();
+$minotaur = 0 unless exists($ENV{"ENABLE_MINOTAUR"}) && is_compiling();
 
 if ($minotaur) {
   push @ARGV, ("-fpass-plugin=@ONLINE_PASS@");
