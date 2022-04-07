@@ -95,6 +95,7 @@ sub parse ($$) {
 
 my %toprint;
 my %ir;
+my %rewrite;
 my %oldcost;
 my %newcost;
 my %costdiff;
@@ -114,6 +115,7 @@ foreach my $opt (@all_keys) {
         $newcost{$opt} = $nc;
         $costdiff{$opt} = $oc - $nc;
         $timestamp{$opt} = $ts;
+        $rewrite{$opt} = $result;
     } else {
         $noopt_count++;
         #$toprint{$opt} = 0;
@@ -134,11 +136,13 @@ $byx = \&bytimestamp if ($SORT eq "timestamp");
 $byx = \&bycostdiff if ($SORT eq "costdiff");
 
 foreach my $opt (sort $byx keys %toprint) {
-    my $result = $ir{$opt};
+    my $ir = $ir{$opt};
+    my $rewrite = $rewrite{$opt};
     my $oc = $oldcost{$opt};
     my $nc = $newcost{$opt};
     my $ts = $timestamp{$opt};
-    print $result, "\n";
+    print $ir, "\n";
+    print $rewrite, "\n";
     print "cost before rewrite: $oc\n";
     print "cost after rewrite: $nc\n";
     print "timestamp: $ts\n";

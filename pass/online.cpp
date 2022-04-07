@@ -106,6 +106,9 @@ static bool
 optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibraryInfo &TLI) {
   if (DEBUG_LEVEL > 0)
     llvm::errs()<<"=== start of minotaur run ===\n";
+
+  clock_t start = std::clock();
+
   smt::set_query_timeout(to_string(opt_smt_to));
 
   redisContext *c = redisConnect("127.0.0.1", 6379);
@@ -142,6 +145,11 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibr
       if (DEBUG_LEVEL > 0) {
         llvm::errs()<<"*** working on Function:\n";
         (*NewF).get().dump();
+      }
+
+      unsigned duration = ( std::clock() - start ) / CLOCKS_PER_SEC;
+      if (duration > 1800) {
+        return false;
       }
       auto [R, constMap, oldcost, newcost] = ES.synthesize(*NewF, TLI);
 
