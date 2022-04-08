@@ -181,11 +181,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
           haveUnknownOperand = true;
           break;
         }
-        if (op_ty->isPointerTy() && !op_ty->getNonOpaquePointerElementType()->isFunctionTy()) {
-          haveUnknownOperand = true;
-          break;
-        }
-        if (op_ty->isFunctionTy() && !isa<CallInst>(i)) {
+        if (op_ty->isPointerTy() && op_ty->getNonOpaquePointerElementType()->isFunctionTy()) {
           haveUnknownOperand = true;
           break;
         }
