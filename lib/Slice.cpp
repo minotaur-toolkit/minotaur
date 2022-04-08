@@ -5,6 +5,7 @@
 #include "Slice.h"
 #include "Utils.h"
 
+#include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
@@ -30,7 +31,6 @@ using namespace std;
 static constexpr unsigned MAX_DEPTH = 5;
 static constexpr unsigned MAX_INSTNS = 20;
 static constexpr unsigned MAX_BLOCKS = 10;
-static constexpr unsigned MAX_WORKLIST = 500;
 static constexpr unsigned SLICE_DEBUG_LEVEL = 0;
 
 using edgesTy = std::vector<std::unordered_set<unsigned>>;
@@ -341,6 +341,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     unordered_set<Value *> visited;
     queue<pair<unordered_set<BasicBlock *>, BasicBlock *>> worklist;
     worklist.push({{bb}, bb});
+    unordered_set<BasicBlock*> unreachable;
 
     while (!worklist.empty()) {
       auto [path, ibb] = worklist.front();
@@ -360,10 +361,17 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
       for (BasicBlock *pred : predecessors(ibb)) {
         // do not allow loop
-        if (path.count(pred))
+        if (path.count(pred)) {
           return nullopt;
-        if (worklist.size() > MAX_WORKLIST)
-          return nullopt;
+        }
+        if (unreachable.contains(pred)) {
+          continue;
+        }
+        SmallVector<BasicBlock*, 8> sv_deps(deps.begin(), deps.end());
+        if (!isPotentiallyReachableFromMany(sv_deps, pred, nullptr, &DT, &LI)) {
+          unreachable.insert(pred);
+          continue;
+        }
         path.insert(pred);
         worklist.push({path, pred});
       }
