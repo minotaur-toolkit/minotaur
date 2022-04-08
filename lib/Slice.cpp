@@ -31,6 +31,7 @@ using namespace std;
 static constexpr unsigned MAX_DEPTH = 5;
 static constexpr unsigned MAX_INSTNS = 20;
 static constexpr unsigned MAX_BLOCKS = 10;
+static constexpr unsigned MAX_WORKLIST=500;
 static constexpr unsigned SLICE_DEBUG_LEVEL = 0;
 
 using edgesTy = std::vector<std::unordered_set<unsigned>>;
@@ -373,6 +374,8 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
           continue;
         }
         path.insert(pred);
+        if (worklist.size() > MAX_WORKLIST)
+          return nullopt;
         worklist.push({path, pred});
       }
     }
