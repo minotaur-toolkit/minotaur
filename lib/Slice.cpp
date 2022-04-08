@@ -28,6 +28,8 @@ using namespace llvm;
 using namespace std;
 
 static constexpr unsigned MAX_DEPTH = 5;
+static constexpr unsigned MAX_INSTNS = 20;
+static constexpr unsigned MAX_BLOCKS = 10;
 static constexpr unsigned SLICE_DEBUG_LEVEL = 0;
 
 using edgesTy = std::vector<std::unordered_set<unsigned>>;
@@ -265,6 +267,9 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
         havePhi = true;
       }
 
+      if (insts.size() > MAX_INSTNS)
+        return nullopt;
+
       insts.push_back(i);
       bb_insts[ibb].push_back(i);
 
@@ -341,6 +346,8 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       worklist.pop();
 
       if (deps.contains(ibb)) {
+        if (blocks.size() > MAX_BLOCKS)
+          return nullopt;
         blocks.insert(path.begin(), path.end());
         if(visited.insert(ibb).second) {
           path.clear();
