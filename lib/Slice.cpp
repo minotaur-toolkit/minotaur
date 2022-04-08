@@ -185,6 +185,10 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
           haveUnknownOperand = true;
           break;
         }
+        if (op_ty->isFunctionTy() && !isa<CallInst>(i)) {
+          haveUnknownOperand = true;
+          break;
+        }
       }
 
 
