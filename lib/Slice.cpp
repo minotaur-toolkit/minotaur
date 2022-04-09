@@ -368,11 +368,11 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
         if (unreachable.contains(pred)) {
           continue;
         }
-        SmallVector<BasicBlock*, 8> sv_deps(deps.begin(), deps.end());
-        if (!isPotentiallyReachableFromMany(sv_deps, pred, nullptr, &DT, &LI)) {
-          unreachable.insert(pred);
-          continue;
-        }
+        // SmallVector<BasicBlock*, 8> sv_deps(deps.begin(), deps.end());
+        // if (!isPotentiallyReachableFromMany(sv_deps, pred, nullptr, &DT, &LI)) {
+        //   unreachable.insert(pred);
+        //   continue;
+        // }
         path.insert(pred);
         if (worklist.size() > MAX_WORKLIST)
           return nullopt;
