@@ -189,6 +189,12 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
           haveUnknownOperand = true;
           break;
         }
+        // remove me
+        if (op_ty->isPointerTy()) {
+          haveUnknownOperand = true;
+          break;
+        }
+
       }
 
 
