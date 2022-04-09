@@ -600,7 +600,8 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     llvm::errs() << "[ERROR] found errors in the generated function\n";
     F->dump();
     llvm::errs() << err << "\n";
-    llvm::report_fatal_error("illformed function generated");
+    return nullopt;
+    //llvm::report_fatal_error("illformed function generated");
   }
   if (SLICE_DEBUG_LEVEL > 0) {
     llvm::errs() << "<<< end of %" << v.getName() << " <<<\n";
