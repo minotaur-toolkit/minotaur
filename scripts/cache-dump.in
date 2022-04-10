@@ -37,9 +37,7 @@ sub usage() {
     print <<'END';
 Options:
   -noopts       Dump not-optimizations instead of optimizations
-  -sort=size|sprofile|dprofile|combined
-                Sort optimizations by increasing size (default), decreasing
-                static profile count, or decreasing dynamic profile count
+  -sort=timestamp|costdiff|reduce     Sort optimizations
   -verbose
 END
     exit -1;
@@ -58,7 +56,8 @@ GetOptions(
     "verbose" => \$VERBOSE,
     ) or usage();
 usage() unless ($SORT eq "timestamp" ||
-                $SORT eq "costdiff");
+                $SORT eq "costdiff" ||
+                $SORT eq "reduce");
 
 my $noopt_count=0;
 
@@ -99,6 +98,7 @@ my %rewrite;
 my %oldcost;
 my %newcost;
 my %costdiff;
+my %reduce;
 my %timestamp;
 
 foreach my $opt (@all_keys) {
@@ -111,9 +111,16 @@ foreach my $opt (@all_keys) {
     if ($result ne "<no-sol>") {
         $toprint{$opt} = 1;
         $ir{$opt} = parse($opt, $result);
+        if ($oc == 0) {
+            $oc = 1;
+        }
+        if ($nc == 0) {
+            $nc = 1;
+        }
         $oldcost{$opt} = $oc;
         $newcost{$opt} = $nc;
         $costdiff{$opt} = $oc - $nc;
+        $reduce{$opt} = ($oc - $nc * 1.0) / $oc;
         $timestamp{$opt} = $ts;
         $rewrite{$opt} = $result;
     } else {
@@ -130,10 +137,12 @@ print "; Discarding ${noopt_count} not-optimizations leaving ".
 
 sub bytimestamp { $timestamp{$b} <=> $timestamp{$a} }
 sub bycostdiff { $costdiff{$b} <=> $costdiff{$a} }
+sub byreduce { $reduce{$b} <=> $reduce{$a} }
 
 my $byx;
 $byx = \&bytimestamp if ($SORT eq "timestamp");
 $byx = \&bycostdiff if ($SORT eq "costdiff");
+$byx = \&byreduce if ($SORT eq "reduce");
 
 foreach my $opt (sort $byx keys %toprint) {
     my $ir = $ir{$opt};
