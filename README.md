@@ -1,4 +1,4 @@
-# The Minotaur Program Synthesizer
+# Minotaur: A SIMD-Oriented Synthesizing Superoptimizer
 
 The Alive2 requires a LLVM compiled with RTTI and exceptions enabled, use the following command to fetch and build LLVM. The project requires `cmake`, `ninja-build`, `gcc-10`, `g++-10`, `z3`, `redis`, `redis-server`, `libhiredis-dev`, `libbsd-resource-perl`, `libredis-perl`, `libgtest-dev`, and `re2c` as dependencies.
 
