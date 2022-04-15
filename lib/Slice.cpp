@@ -5,7 +5,6 @@
 #include "Slice.h"
 #include "Utils.h"
 
-#include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
@@ -185,14 +184,16 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
           haveUnknownOperand = true;
           break;
         }
-        if (op_ty->isPointerTy() && op_ty->getNonOpaquePointerElementType()->isFunctionTy()) {
-          haveUnknownOperand = true;
-          break;
-        }
-        // remove me
-        if (op_ty->isPointerTy()) {
-          haveUnknownOperand = true;
-          break;
+        if (CallInst *CI = dyn_cast<CallInst>(w)) {
+          if (CI->getCalledOperand() != op && op_ty->isPointerTy()) {
+            haveUnknownOperand = true;
+            break;
+          }
+        } else {
+          if (op_ty->isPointerTy()) {
+            haveUnknownOperand = true;
+            break;
+          }
         }
       }
 

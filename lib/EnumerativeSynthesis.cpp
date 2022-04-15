@@ -46,7 +46,7 @@ using namespace IR;
 
 void calculateAndInitConstants(Transform &t);
 
-unsigned SYNTHESIS_DEBUG_LEVEL = 0;
+unsigned SYNTHESIS_DEBUG_LEVEL = 5;
 bool DISABLE_AVX512 = false;
 
 namespace minotaur {

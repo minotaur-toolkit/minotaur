@@ -1,4 +1,4 @@
-; CHECK: shufflevector <2 x i16> %b, <2 x i16> %a, <2 x i32> <i32 1, i32 2>
+; CHECK: shufflevector
 define <3 x i16> @syn_sv2(<3 x i16> %a, <3 x i16> %b) {
 entry:
   %ext.1 = extractelement <3 x i16> %a, i32 0
