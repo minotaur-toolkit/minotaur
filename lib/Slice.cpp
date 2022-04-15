@@ -194,9 +194,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
           haveUnknownOperand = true;
           break;
         }
-
       }
-
 
       if (haveUnknownOperand) {
         if(SLICE_DEBUG_LEVEL > 0)

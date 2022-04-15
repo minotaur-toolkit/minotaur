@@ -45,7 +45,7 @@ using namespace IR;
 void calculateAndInitConstants(Transform &t);
 
 unsigned SYNTHESIS_DEBUG_LEVEL = 0;
-bool DISABLE_AVX512 = true;
+bool DISABLE_AVX512 = false;
 
 namespace minotaur {
 
@@ -696,7 +696,7 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
 
       Fns.push_back(make_tuple(Tgt, Src, G, !Sketch.second.empty()));
     }
-    std::stable_sort(Fns.begin(), Fns.end(), ac_cmp);
+    std::stable_sort(Fns.begin(), Fns.end(), approx_cmp);
     // llvm functions -> alive2 functions
     auto iter = Fns.begin();
     Inst *R;
@@ -763,7 +763,7 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
       }
       iter = Fns.erase(iter);
       unsigned duration = ( std::clock() - start ) / CLOCKS_PER_SEC;
-      if (goodCount || duration > 120) {
+      if (goodCount || duration > 1200) {
         break;
       }
     }

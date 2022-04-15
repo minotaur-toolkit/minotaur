@@ -113,10 +113,8 @@ unsigned get_approx_cost(llvm::Function *F) {
   return cost;
 }
 
-bool ac_cmp(const tuple<llvm::Function*, llvm::Function*, Inst*, bool> &f1,
+bool approxi_cmp(const tuple<llvm::Function*, llvm::Function*, Inst*, bool> &f1,
             const tuple<llvm::Function*, llvm::Function*, Inst*, bool> &f2) {
   return get_approx_cost(get<0>(f1)) < get_approx_cost(get<0>(f2));
 }
-
-
 }

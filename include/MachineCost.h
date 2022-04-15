@@ -11,7 +11,7 @@ namespace minotaur {
 unsigned get_machine_cost(llvm::Function *F);
 unsigned get_approx_cost (llvm::Function *F);
 
-bool ac_cmp(const std::tuple<llvm::Function*, llvm::Function*, Inst*, bool> &f1,
-            const std::tuple<llvm::Function*, llvm::Function*, Inst*, bool> &f2);
+bool approx_cmp(const std::tuple<llvm::Function*, llvm::Function*, Inst*, bool> &f1,
+                const std::tuple<llvm::Function*, llvm::Function*, Inst*, bool> &f2);
 
 }
