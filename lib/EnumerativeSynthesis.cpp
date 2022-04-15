@@ -20,15 +20,17 @@
 #include "llvm_util/llvm2alive.h"
 #include "llvm_util/utils.h"
 
-#include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/Analysis/CGSCCPassManager.h"
+#include "llvm/Analysis/LoopAnalysisManager.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Support/KnownBits.h"
 
 #include <algorithm>
 #include <iostream>
@@ -195,6 +197,9 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
       vector<type> tys = type::getBinaryInstWorkTypes(expected);
 
       for (auto workty : tys) {
+        unsigned bits = workty.getBits();
+        if (K == UnaryInst::Op::bswap && (bits < 16 || bits % 8))
+          continue;
         set<ReservedConst*> RCs;
         auto U = make_unique<UnaryInst>(Op, **Op0, workty);
         sketches.push_back(make_pair(U.get(), move(RCs)));
@@ -540,14 +545,6 @@ constantSynthesis(IR::Function &Func1, IR::Function &Func2,
   return ret;
 }
 
-static void removeUnusedDecls(unordered_set<llvm::Function *> IntrinsicDecls) {
-  for (auto Intr : IntrinsicDecls) {
-    if (Intr->isDeclaration() && Intr->use_empty()) {
-      Intr->eraseFromParent();
-    }
-  }
-}
-
 tuple<Inst*, unordered_map<llvm::Argument*, llvm::Constant*>, unsigned, unsigned>
 EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
   if (SYNTHESIS_DEBUG_LEVEL > 0) {
@@ -572,6 +569,8 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
 
   unsigned src_cost = get_approx_cost(&F);
 
+  auto DL = F.getParent()->getDataLayout();
+
   for (auto &BB : F) {
     auto T = BB.getTerminator();
     if(!llvm::isa<llvm::ReturnInst>(T))
@@ -580,6 +579,11 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
     if (!llvm::isa<llvm::Instruction>(S))
       continue;
     llvm::Instruction *I = cast<llvm::Instruction>(S);
+
+    unsigned Width = I->getType()->getScalarSizeInBits();
+    llvm::KnownBits KnownI(Width);
+    computeKnownBits(I, KnownI, DL);
+
     set<Var*> Inputs;
     set<Addr*> Pointers;
     findInputs(F, I, Inputs, Pointers, DT);
@@ -685,16 +689,29 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
       PrevI->replaceAllUsesWith(V);
 
       eliminate_dead_code(*Tgt);
-
       unsigned tgt_cost = get_approx_cost(Tgt);
+
+      llvm::KnownBits KnownV(Width);
+      bool skip = false;
       if (tgt_cost >= src_cost) {
+        skip = true;
+        goto push;
+      }
+
+      computeKnownBits(V, KnownV, DL);
+      if ((KnownV.Zero & KnownI.One) != 0 || (KnownV.One & KnownI.Zero) != 0) {
+        skip = true;
+        goto push;
+      }
+
+push:
+      if (skip) {
         Tgt->eraseFromParent();
         if (HaveC)
           Src->eraseFromParent();
-        continue;
+      } else {
+        Fns.push_back(make_tuple(Tgt, Src, G, !Sketch.second.empty()));
       }
-
-      Fns.push_back(make_tuple(Tgt, Src, G, !Sketch.second.empty()));
     }
     std::stable_sort(Fns.begin(), Fns.end(), approx_cmp);
     // llvm functions -> alive2 functions

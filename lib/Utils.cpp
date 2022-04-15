@@ -60,4 +60,12 @@ hSet(const char* s, unsigned sz, llvm::StringRef Value, redisContext *c,
   freeReplyObject(reply);
 }
 
+void removeUnusedDecls(unordered_set<llvm::Function *> IntrinsicDecls) {
+  for (auto Intr : IntrinsicDecls) {
+    if (Intr->isDeclaration() && Intr->use_empty()) {
+      Intr->eraseFromParent();
+    }
+  }
+}
+
 }
