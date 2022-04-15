@@ -227,7 +227,6 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
           // (op rc, var)
           if (dynamic_cast<ReservedConst *>(*Op0)) {
             if (auto R = dynamic_cast<Var *>(*Op1)) {
-              // ignore icmp temporarily
               if (R->getWidth() != expected)
                 continue;
               auto T = make_unique<ReservedConst>(workty);
@@ -690,14 +689,16 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
 
       eliminate_dead_code(*Tgt);
       unsigned tgt_cost = get_approx_cost(Tgt);
-
       llvm::KnownBits KnownV(Width);
+
+      // check cost
       bool skip = false;
       if (tgt_cost >= src_cost) {
         skip = true;
         goto push;
       }
 
+      // pruning by knownbits
       computeKnownBits(V, KnownV, DL);
       if ((KnownV.Zero & KnownI.One) != 0 || (KnownV.One & KnownI.Zero) != 0) {
         skip = true;
