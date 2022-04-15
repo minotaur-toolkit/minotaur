@@ -78,7 +78,7 @@ llvm::cl::opt<bool>
                     llvm::cl::init(false));
 
 llvm::cl::opt<bool> enable_caching(
-    "so-enable-cachine",
+    "minotaur-enable-caching",
     llvm::cl::desc("Superoptimizer: enable result caching"),
     llvm::cl::init(true));
 

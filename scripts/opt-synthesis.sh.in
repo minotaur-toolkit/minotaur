@@ -11,4 +11,5 @@ set -ex
 #fi
 
 
-@LLVM_BINARY_DIR@/bin/opt -enable-new-pm=0 -load=@ONLINE_PASS@ -so $@ -S -o -
+@LLVM_BINARY_DIR@/bin/opt -enable-new-pm=0 -load=@ONLINE_PASS@ -so \
+  -minotaur-enable-caching=false  $@ -S -o -
