@@ -541,9 +541,8 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     argTys.push_back(Type::getInt8Ty(ctx));
 
   // create function
-  auto func_name = "sliced_" + v.getName();
   Function *F = Function::Create(FunctionType::get(v.getType(), argTys, false),
-                                 GlobalValue::ExternalLinkage, func_name, *m);
+                                 GlobalValue::ExternalLinkage, "dummy", *m);
 
   // pass 5:
   // + replace the use of unknown value with the function parameter
