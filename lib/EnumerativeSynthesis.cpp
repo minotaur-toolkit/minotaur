@@ -46,7 +46,7 @@ using namespace IR;
 
 void calculateAndInitConstants(Transform &t);
 
-unsigned SYNTHESIS_DEBUG_LEVEL = 5;
+unsigned SYNTHESIS_DEBUG_LEVEL = 0;
 bool DISABLE_AVX512 = false;
 
 namespace minotaur {
@@ -486,7 +486,6 @@ static bool
 constantSynthesis(IR::Function &Func1, IR::Function &Func2,
                   unsigned &goodCount, unsigned &badCount, unsigned &errorCount,
                   unordered_map<const IR::Value*, ReservedConst*> &inputMap) {
-  TransformPrintOpts print_opts;
   smt_init->reset();
   Transform t;
   t.src = move(Func1);
