@@ -7,6 +7,8 @@
 
 #include "hiredis.h"
 
+#include <unordered_set>
+
 using namespace std;
 
 namespace minotaur {
