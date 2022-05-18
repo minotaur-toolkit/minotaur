@@ -92,49 +92,6 @@ EnumerativeSynthesis::findInputs(llvm::Function &F,
     }
   }
 }
-/*
-
-  unordered_set<llvm::Value *> Visited;
-  queue<llvm::Value *> Q;
-  Q.push(Root);
-
-  while (!Q.empty()) {
-    llvm::Value *V = Q.front();
-    Q.pop();
-
-    V->dump();
-    Root->dump();
-    if (!DT.dominates(V, Root))
-      continue;
-
-    if (Visited.insert(V).second) {
-      if (auto I = llvm::dyn_cast<llvm::Instruction>(V)) {
-        for (auto &Op : I->operands()) {
-          Q.push(Op);
-        }
-      }
-
-      if (llvm::isa<llvm::Constant>(V))
-        continue;
-      if (V == Root)
-        continue;
-
-      if (V->getType()->isIntOrIntVectorTy()) {
-        auto T = make_unique<Var>(V);
-        Cands.insert(T.get());
-        exprs.emplace_back(move(T));
-      }
-      else if (V->getType()->isPointerTy()) {
-        auto T = make_unique<Addr>(V);
-        Pointers.insert(T.get());
-        exprs.emplace_back(move(T));
-      }
-
-      if (Cands.size() >= Max)
-        return;
-    }
-  }
-}*/
 
 bool
 EnumerativeSynthesis::getSketches(llvm::Value *V,
