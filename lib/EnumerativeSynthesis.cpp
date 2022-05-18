@@ -55,7 +55,8 @@ void
 EnumerativeSynthesis::findInputs(llvm::Function &F,
                                  llvm::Instruction *root,
                                  set<Var*> &Cands,
-                                 set<Addr*> &Pointers,
+                                 set<Pointer*> &Pointers,
+                                 set<PointerVector*> &PointerVectors,
                                  llvm::DominatorTree &DT) {
   // breadth-first search
   for (auto &A : F.args()) {
@@ -72,9 +73,20 @@ EnumerativeSynthesis::findInputs(llvm::Function &F,
       if (!DT.dominates(&I, root))
         continue;
 
-      if (I.getType()->isIntOrIntVectorTy()) {
+      auto ty = I.getType();
+      if (ty->isIntOrIntVectorTy()) {
         auto T = make_unique<Var>(&I);
         Cands.insert(T.get());
+        exprs.emplace_back(move(T));
+      }
+      else if (ty->isPointerTy()) {
+        auto T = make_unique<Addr>(&I);
+        Pointers.insert(T.get());
+        exprs.emplace_back(move(T));
+      }
+      else if (ty->isVectorTy() && ty->getScalarType()->isPointerTy()) {
+        auto T = make_unique<PointerVector>(&I);
+        PointerVectors.insert(T.get());
         exprs.emplace_back(move(T));
       }
     }
@@ -127,7 +139,7 @@ EnumerativeSynthesis::findInputs(llvm::Function &F,
 bool
 EnumerativeSynthesis::getSketches(llvm::Value *V,
                                   set<Var*> &Inputs,
-                                  set<Addr*> &Pointers,
+                                  set<Pointer*> &Pointers,
                                   vector<pair<Inst*, set<ReservedConst*>>> &sketches) {
   vector<Value*> Comps;
   for (auto &I : Inputs) {
@@ -583,8 +595,9 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
     computeKnownBits(I, KnownI, DL);
 
     set<Var*> Inputs;
-    set<Addr*> Pointers;
-    findInputs(F, I, Inputs, Pointers, DT);
+    set<Pointer*> Pointers;
+    set<PointerVector*> PointerVectors;
+    findInputs(F, I, Inputs, Pointers, PointerVectors, DT);
 
     vector<pair<Inst*,set<ReservedConst*>>> Sketches;
 
