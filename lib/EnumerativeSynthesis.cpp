@@ -129,7 +129,7 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
                                   set<Var*> &Inputs,
                                   set<Addr*> &Pointers,
                                   vector<pair<Inst*, set<ReservedConst*>>> &sketches) {
-  vector<Inst*> Comps;
+  vector<Value*> Comps;
   for (auto &I : Inputs) {
     Comps.emplace_back(I);
   }
@@ -144,7 +144,7 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
   unsigned expected = V->getType()->getPrimitiveSizeInBits();
 
   for (auto Comp = Comps.begin(); Comp != Comps.end(); ++Comp) {
-    auto Op = dynamic_cast<Var *>(*Comp);
+    auto Op = dynamic_cast<Var*>(*Comp);
     if (!Op) continue;
     vector<type> tys;
     auto op_w = Op->getWidth();
@@ -221,7 +221,7 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
           tys = type::getBinaryInstWorkTypes(expected);
         }
         for (auto workty : tys) {
-          Inst *I = nullptr, *J = nullptr;
+          Value *I = nullptr, *J = nullptr;
           set<ReservedConst*> RCs;
 
           // (op rc, var)
@@ -287,7 +287,7 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
         for (unsigned C = ICmpInst::Cond::eq; C <= ICmpInst::Cond::sle; ++C) {
           ICmpInst::Cond Cond = static_cast<ICmpInst::Cond>(C);
           set<ReservedConst*> RCs;
-          Inst *I = nullptr, *J = nullptr;
+          Value *I = nullptr, *J = nullptr;
 
           if (auto L = dynamic_cast<Var*>(*Op0)) {
             if (L->getWidth() % expected)
@@ -340,7 +340,7 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
         if (dynamic_cast<ReservedConst *>(*Op0) && dynamic_cast<ReservedConst *>(*Op1))
           continue;
 
-        Inst *I = nullptr;
+        Value *I = nullptr;
         set<ReservedConst*> RCs;
 
         if (auto L = dynamic_cast<Var *> (*Op0)) {
@@ -354,7 +354,7 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
           RCs.insert(T.get());
           exprs.emplace_back(move(T));
         }
-        Inst *J = nullptr;
+        Value *J = nullptr;
         if (auto R = dynamic_cast<Var *>(*Op1)) {
           // typecheck for op1
           if (R->getWidth() != op1_ty.getWidth())
@@ -397,7 +397,7 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
       // (sv var1, var2, mask)
       for (auto Op1 = Op0 + 1; Op1 != Comps.end(); ++Op1) {
         set<ReservedConst*> RCs;
-        Inst *J = nullptr;
+        Value *J = nullptr;
         if (auto R = dynamic_cast<Var *>(*Op1)) {
           // typecheck for op1
           if (R->getWidth() != (*Op0)->getWidth())

@@ -96,7 +96,7 @@ private:
 
 static tokenizer_t tokenizer;
 
-Inst* parse_expr(vector<unique_ptr<minotaur::Inst>>&);
+Value* parse_expr(vector<unique_ptr<minotaur::Inst>>&);
 
 Var* parse_var(vector<unique_ptr<minotaur::Inst>>&exprs) {
   tokenizer.ensure(NUM);
@@ -121,7 +121,7 @@ static type parse_vector_type() {
   return type(elements, bits, false);
 }
 
-Inst* parse_binop(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
+Value* parse_binop(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
   BinaryInst::Op op;
   switch (op_token) {
   case BAND:
@@ -146,12 +146,12 @@ Inst* parse_binop(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
 
   tokenizer.ensure(RPAREN);
   auto BI = make_unique<BinaryInst>(op, *a, *b, workty);
-  Inst *T = BI.get();
+  Value *T = BI.get();
   exprs.emplace_back(move(BI));
   return T;
 }
 
-Inst* parse_expr(vector<unique_ptr<minotaur::Inst>>&exprs) {
+Value* parse_expr(vector<unique_ptr<minotaur::Inst>>&exprs) {
   tokenizer.ensure(LPAREN);
 
   switch (auto t = *tokenizer) {

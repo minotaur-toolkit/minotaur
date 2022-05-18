@@ -16,26 +16,32 @@
 namespace minotaur {
 
 class Inst {
-protected:
-  unsigned width;
 public:
-  Inst(unsigned width) : width (width) {}
-  unsigned getWidth() { return width; }
+  Inst() {}
   virtual void print(std::ostream &os) const = 0;
   friend std::ostream& operator<<(std::ostream &os, const Inst &val);
   virtual ~Inst() {}
 };
 
-class Var final : public Inst {
+class Value : public Inst {
+protected:
+  unsigned width;
+public:
+  unsigned getWidth() { return width; }
+  virtual void print(std::ostream &os) const = 0;
+  Value(unsigned width) : width (width) {}
+};
+
+class Var final : public Value {
   std::string name;
   llvm::Value *v;
 public:
-  Var(llvm::Value *v) : Inst(v->getType()->getPrimitiveSizeInBits()), v(v) {
+  Var(llvm::Value *v) : Value(v->getType()->getPrimitiveSizeInBits()), v(v) {
     llvm::raw_string_ostream ss(name);
     v->printAsOperand(ss, false);
     ss.flush();
   }
-  Var(std::string &n, unsigned width) : Inst(width), name(n), v(nullptr) {}
+  Var(std::string &n, unsigned width) : Value(width), name(n), v(nullptr) {}
   auto& getName() const { return name; }
   void setValue(llvm::Value *vv) { v = vv; }
   void print(std::ostream &os) const override;
@@ -43,12 +49,12 @@ public:
 };
 
 
-class ReservedConst final : public Inst {
+class ReservedConst final : public Value {
   llvm::Argument *A;
   llvm::Constant *C;
   type ty;
 public:
-  ReservedConst(type t) : Inst(t.getWidth()), A(nullptr), C(nullptr), ty(t) {}
+  ReservedConst(type t) : Value(t.getWidth()), A(nullptr), C(nullptr), ty(t) {}
   type getType() { return ty; }
   void print(std::ostream &os) const override;
   llvm::Argument *getA () const { return A; }
@@ -58,49 +64,48 @@ public:
 };
 
 
-class CopyInst final : public Inst {
+class CopyInst final : public Value {
 private:
   ReservedConst *rc;
 public:
-  CopyInst(ReservedConst &rc)
-  : Inst(rc.getWidth()), rc(&rc) {}
+  CopyInst(ReservedConst &rc) : Value(rc.getWidth()), rc(&rc) {}
   void print(std::ostream &os) const override;
   ReservedConst *Op0() { return rc; }
 };
 
-class UnaryInst final : public Inst {
+class UnaryInst final : public Value {
 public:
   enum Op { bitreverse, bswap, ctpop, ctlz, cttz };
 private:
   Op op;
-  Inst *V;
+  Value *V;
   type workty;
 public:
-  UnaryInst(Op op, Inst &V, type &workty)
-  : Inst(workty.getWidth()), op(op), V(&V), workty(workty) {}
+  UnaryInst(Op op, Value &V, type &workty)
+  : Value(workty.getWidth()), op(op), V(&V), workty(workty) {}
   void print(std::ostream &os) const override;
   type getWorkTy() { return workty; }
   Op K() { return op; }
-  Inst *Op0() { return V; }
+  Value *Op0() { return V; }
 };
 
-class BinaryInst final : public Inst {
+class BinaryInst final : public Value {
 public:
   enum Op { band, bor, bxor, add, sub, mul, sdiv, udiv, lshr, ashr, shl };
 private:
   Op op;
-  Inst *lhs;
-  Inst *rhs;
+  Value *lhs;
+  Value *rhs;
   type workty;
 public:
   static bool isLaneIndependent(Op op) {
     return op == band || op == bor || op == bxor;
   }
-  BinaryInst(Op op, Inst &lhs, Inst &rhs, type &workty)
-  : Inst(workty.getWidth()), op(op), lhs(&lhs), rhs(&rhs), workty(workty) {}
+  BinaryInst(Op op, Value &lhs, Value &rhs, type &workty)
+  : Value(workty.getWidth()), op(op), lhs(&lhs), rhs(&rhs), workty(workty) {}
   void print(std::ostream &os) const override;
-  Inst *L() { return lhs; }
-  Inst *R() { return rhs; }
+  Value *L() { return lhs; }
+  Value *R() { return rhs; }
   type getWorkTy() { return workty; }
   Op K() { return op; }
   static bool isCommutative (Op k) {
@@ -110,34 +115,34 @@ public:
 };
 
 
-class ICmpInst final : public Inst {
+class ICmpInst final : public Value {
 public:
   // syntactic pruning: less than/less equal only
   enum Cond { eq, ne, ult, ule, slt, sle};
 private:
   Cond cond;
-  Inst *lhs;
-  Inst *rhs;
+  Value *lhs;
+  Value *rhs;
 public:
-  ICmpInst(Cond cond, Inst &lhs, Inst &rhs, unsigned width)
-  : Inst(width) , cond(cond), lhs(&lhs), rhs(&rhs) {}
+  ICmpInst(Cond cond, Value &lhs, Value &rhs, unsigned width)
+  : Value(width) , cond(cond), lhs(&lhs), rhs(&rhs) {}
   void print(std::ostream &os) const override;
-  Inst *L() { return lhs; }
-  Inst *R() { return rhs; }
+  Value *L() { return lhs; }
+  Value *R() { return rhs; }
   Cond K() { return cond; }
 };
 
 
-class SIMDBinOpInst final : public Inst {
+class SIMDBinOpInst final : public Value {
   IR::X86IntrinBinOp::Op op;
-  Inst *lhs;
-  Inst *rhs;
+  Value *lhs;
+  Value *rhs;
 public:
-  SIMDBinOpInst(IR::X86IntrinBinOp::Op op, Inst &lhs, Inst &rhs, unsigned width)
-    : Inst(width), op(op), lhs(&lhs), rhs(&rhs) {}
+  SIMDBinOpInst(IR::X86IntrinBinOp::Op op, Value &lhs, Value &rhs, unsigned width)
+    : Value(width), op(op), lhs(&lhs), rhs(&rhs) {}
   void print(std::ostream &os) const override;
-  Inst *L() { return lhs; }
-  Inst *R() { return rhs; }
+  Value *L() { return lhs; }
+  Value *R() { return rhs; }
   IR::X86IntrinBinOp::Op K() { return op; }
   static bool is512 (IR::X86IntrinBinOp::Op K) {
     return K == IR::X86IntrinBinOp::x86_avx512_pavg_w_512 ||
@@ -195,17 +200,17 @@ public:
 };
 
 
-class FakeShuffleInst final : public Inst {
-  Inst *lhs;
-  Inst *rhs;
+class FakeShuffleInst final : public Value {
+  Value *lhs;
+  Value *rhs;
   ReservedConst *mask;
   type expectty;
 public:
-  FakeShuffleInst(Inst &lhs, Inst *rhs, ReservedConst &mask, type &ety)
-    : Inst(ety.getWidth()), lhs(&lhs), rhs(rhs), mask(&mask), expectty(ety) {}
+  FakeShuffleInst(Value &lhs, Value *rhs, ReservedConst &mask, type &ety)
+    : Value(ety.getWidth()), lhs(&lhs), rhs(rhs), mask(&mask), expectty(ety) {}
   void print(std::ostream &os) const override;
-  Inst *L() { return lhs; }
-  Inst *R() { return rhs; }
+  Value *L() { return lhs; }
+  Value *R() { return rhs; }
   ReservedConst *M() { return mask; }
   unsigned getElementBits() { return expectty.getBits(); }
   type getRetTy() { return expectty; }
@@ -214,18 +219,18 @@ public:
   }
 };
 
-class ConversionInst final : public Inst {
+class ConversionInst final : public Value {
 public:
   enum Op { sext, zext, trunc };
 private:
   Op k;
-  Inst *v;
+  Value *v;
   unsigned lane, prev_bits, new_bits;
 public:
-  ConversionInst(Op op, Inst &v, unsigned l, unsigned pb, unsigned nb)
-    : Inst(l * nb), k(op), v(&v), lane(l), prev_bits(pb), new_bits(nb) {}
+  ConversionInst(Op op, Value &v, unsigned l, unsigned pb, unsigned nb)
+    : Value(l * nb), k(op), v(&v), lane(l), prev_bits(pb), new_bits(nb) {}
   void print(std::ostream &os) const override;
-  Inst *V() { return v; }
+  Value *V() { return v; }
   Op K() { return k; }
   type getPrevTy () const { return type(lane, prev_bits, false); }
   type getNewTy () const { return type(lane, new_bits, false); }
@@ -233,40 +238,40 @@ public:
 
 
 union idx { Inst *ptr; unsigned idx; };
-class Addr final : public Inst {
+class Addr final : public Value {
   llvm::Value *base;
   bool hasOffset = false;
 public:
-  Addr(llvm::Value *p) : Inst(-1) {}
+  Addr(llvm::Value *p) : Value(-1) {}
   void print(std::ostream &os) const override;
 };
 
 
-class VectorAddr final : public Inst {
-  Inst *base;
+class VectorAddr final : public Value {
+  Value *base;
   bool hasOffset = false;
 public:
-  VectorAddr(llvm::Value *p) : Inst(-1) {}
+  VectorAddr(llvm::Value *p) : Value(-1) {}
   void print(std::ostream &os) const override;
 };
 
 
-class Load final : public Inst {
+class Load final : public Value {
   Addr *p;
 public:
-  Load(Addr &p) : Inst(-1), p(&p) {}
+  Load(Addr &p) : Value(-1), p(&p) {}
   void print(std::ostream &os) const override;
 };
 
 
-class Gather final : public Inst {
+class Gather final : public Value {
   VectorAddr *p;
 public:
-  Gather(VectorAddr &p) : Inst(-1), p(&p) {}
+  Gather(VectorAddr &p) : Value(-1), p(&p) {}
   void print(std::ostream &os) const override;
 };
 
-
+/*
 class Store final : public Inst {
   Addr *p;
   Inst *v;
@@ -282,6 +287,7 @@ public:
   Scatter(VectorAddr &p) : Inst(-1), p(&p) {}
   void print(std::ostream &os) const override;
 };
+*/
 
 
 }

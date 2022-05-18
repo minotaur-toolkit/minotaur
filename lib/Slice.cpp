@@ -35,6 +35,7 @@ static constexpr unsigned MAX_WORKLIST=500;
 static constexpr unsigned SLICE_DEBUG_LEVEL = 0;
 
 using edgesTy = std::vector<std::unordered_set<unsigned>>;
+
 // simple Tarjan topological sort ignoring loops
 static vector<unsigned> top_sort(const edgesTy &edges) {
   vector<unsigned> sorted;

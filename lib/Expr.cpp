@@ -143,8 +143,4 @@ void Load::print(ostream &os) const {
   os << "(load " << *p << ")";
 }
 
-void Store::print(ostream &os) const {
-  os << "(store " << *v << " to " << *p << ")";
-}
-
 };

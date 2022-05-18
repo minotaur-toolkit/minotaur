@@ -156,7 +156,8 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap) {
     return r;
   } else if (auto IC = dynamic_cast<ICmpInst*>(I)) {
     auto op0 = codeGen(IC->L(), VMap);
-    auto workty = type(I->getWidth(), IC->L()->getWidth()/I->getWidth(), false);
+    auto workty = type(IC->getWidth(), IC->L()->getWidth()/IC->getWidth(),
+                       false);
     op0 = bitcastTo(op0, workty.toLLVM(C));
 
     auto op1 = codeGen(IC->R(), VMap);
