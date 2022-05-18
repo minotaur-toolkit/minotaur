@@ -237,29 +237,34 @@ public:
 };
 
 
-union idx { Inst *ptr; unsigned idx; };
-class Addr final : public Value {
+class Addr final : public Inst {
   llvm::Value *base;
-  bool hasOffset = false;
 public:
-  Addr(llvm::Value *p) : Value(-1) {}
+  Addr(llvm::Value *p) : Inst() {}
+  void print(std::ostream &os) const override;
+};
+
+class GEP final : public Inst {
+  llvm::Value *base;
+  ReservedConst *offset;
+  type &ty;
+public:
+  GEP(llvm::Value *p, ReservedConst &o, type &ty): Inst(), offset(&o), ty(ty) {}
   void print(std::ostream &os) const override;
 };
 
 
-class VectorAddr final : public Value {
-  Value *base;
-  bool hasOffset = false;
+class VectorAddr final : public Inst {
+  std::vector<llvm::Value*> bases;
 public:
-  VectorAddr(llvm::Value *p) : Value(-1) {}
+  VectorAddr(llvm::Value *p) : Inst() {}
   void print(std::ostream &os) const override;
 };
-
 
 class Load final : public Value {
   Addr *p;
 public:
-  Load(Addr &p) : Value(-1), p(&p) {}
+  Load(Addr &p, type &loadty) : Value(loadty.getWidth()), p(&p) {}
   void print(std::ostream &os) const override;
 };
 
