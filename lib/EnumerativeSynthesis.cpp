@@ -54,15 +54,12 @@ namespace minotaur {
 void
 EnumerativeSynthesis::findInputs(llvm::Function &F,
                                  llvm::Instruction *root,
-                                 set<Var*> &Cands,
-                                 set<Pointer*> &Pointers,
-                                 set<PointerVector*> &PointerVectors,
                                  llvm::DominatorTree &DT) {
   // breadth-first search
   for (auto &A : F.args()) {
     if (A.getType()->isIntOrIntVectorTy()) {
       auto T = make_unique<Var>(&A);
-      Cands.insert(T.get());
+      Values.insert(T.get());
       exprs.emplace_back(move(T));
     }
   }
@@ -76,7 +73,7 @@ EnumerativeSynthesis::findInputs(llvm::Function &F,
       auto ty = I.getType();
       if (ty->isIntOrIntVectorTy()) {
         auto T = make_unique<Var>(&I);
-        Cands.insert(T.get());
+        Values.insert(T.get());
         exprs.emplace_back(move(T));
       }
       else if (ty->isPointerTy()) {
@@ -95,11 +92,9 @@ EnumerativeSynthesis::findInputs(llvm::Function &F,
 
 bool
 EnumerativeSynthesis::getSketches(llvm::Value *V,
-                                  set<Var*> &Inputs,
-                                  set<Pointer*> &Pointers,
                                   vector<pair<Inst*, set<ReservedConst*>>> &sketches) {
   vector<Value*> Comps;
-  for (auto &I : Inputs) {
+  for (auto &I : Values) {
     Comps.emplace_back(I);
   }
 
@@ -403,6 +398,7 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
 }
 
 static optional<smt::smt_initializer> smt_init;
+
 static bool
 compareFunctions(IR::Function &Func1, IR::Function &Func2,
                  unsigned &goodCount, unsigned &badCount, unsigned &errorCount){
@@ -551,10 +547,7 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
     llvm::KnownBits KnownI(Width);
     computeKnownBits(I, KnownI, DL);
 
-    set<Var*> Inputs;
-    set<Pointer*> Pointers;
-    set<PointerVector*> PointerVectors;
-    findInputs(F, I, Inputs, Pointers, PointerVectors, DT);
+    findInputs(F, I, DT);
 
     vector<pair<Inst*,set<ReservedConst*>>> Sketches;
 
@@ -570,7 +563,7 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
     }
     // nops
     {
-      for (auto &V : Inputs) {
+      for (auto &V : Values) {
         auto vty = V->V()->getType();
         if (vty->isPointerTy())
           continue;
@@ -582,7 +575,7 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
         exprs.emplace_back(move(VA));
       }
     }
-    getSketches(&*I, Inputs, Pointers, Sketches);
+    getSketches(&*I, Sketches);
 
     if (SYNTHESIS_DEBUG_LEVEL > 0) {
       llvm::errs()<<"---------sketches------------\n";

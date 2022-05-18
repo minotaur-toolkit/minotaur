@@ -21,15 +21,14 @@ namespace minotaur {
 class EnumerativeSynthesis {
   std::vector<std::unique_ptr<Inst>> exprs;
 
+  std::set<Var*> Values;
+  std::set<Pointer*> Pointers;
+  std::set<PointerVector*> PointerVectors;
+
   void findInputs(llvm::Function&,
                   llvm::Instruction*,
-                  std::set<Var*>&,
-                  std::set<Pointer*>&,
-                  std::set<PointerVector*>&,
                   llvm::DominatorTree&);
   bool getSketches(llvm::Value *V,
-                   std::set<Var*>&,
-                   std::set<Pointer*>&,
                    std::vector<std::pair<Inst*, std::set<ReservedConst*>>>&);
 public:
   std::tuple<Inst*, std::unordered_map<llvm::Argument*, llvm::Constant*>, unsigned, unsigned>
