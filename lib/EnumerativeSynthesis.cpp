@@ -77,7 +77,7 @@ EnumerativeSynthesis::findInputs(llvm::Function &F,
         exprs.emplace_back(move(T));
       }
       else if (ty->isPointerTy()) {
-        auto T = make_unique<Addr>(&I);
+        auto T = make_unique<Pointer>(&I);
         Pointers.insert(T.get());
         exprs.emplace_back(move(T));
       }

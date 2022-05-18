@@ -237,33 +237,37 @@ public:
 };
 
 
+/*
 class Pointer : public Inst {
 public:
   virtual void print(std::ostream &os) const = 0;
 };
+*/
 
-class Addr final : public Pointer {
-  llvm::Value *base_addr;
-public:
-  Addr(llvm::Value *p) : base_addr(p) {}
-  void print(std::ostream &os) const override;
-};
-
-
-class GEP final : public Pointer {
-  llvm::Value *base_addr;
+class Pointer final : public Inst {
+  llvm::Value *v;
   ReservedConst *offset;
-  type &ty;
+  std::optional<type> ty;
+  std::string name;
 public:
-  GEP(llvm::Value *p, ReservedConst &o, type &ty):
-    base_addr(p), offset(&o), ty(ty) {}
+  Pointer(llvm::Value *p) : v(p), ty(std::nullopt) {
+    llvm::raw_string_ostream ss(name);
+    v->printAsOperand(ss, false);
+    ss.flush();
+  }
   void print(std::ostream &os) const override;
 };
+
 
 class PointerVector final: public Inst {
   llvm::Value *addrs;
+  std::string name;
 public:
-  PointerVector(llvm::Value *v) : addrs(v) {};
+  PointerVector(llvm::Value *v) : addrs(v) {
+    llvm::raw_string_ostream ss(name);
+    v->printAsOperand(ss, false);
+    ss.flush();
+  }
   void print(std::ostream &os) const override;
 };
 
