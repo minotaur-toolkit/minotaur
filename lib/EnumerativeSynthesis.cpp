@@ -89,14 +89,14 @@ EnumerativeSynthesis::findInputs(llvm::Function &F,
     }
   }
 }
-/*
 
+/*
 bool
-EnumerativeSynthesis::getAddrSketches(llvm::Value *V,
-                                      vector<Sketch>& sketches) {
-  return false;
+EnumerativeSynthesis::propagateAddrsWithGEPs(llvm::Value *V) {
+
 }
 */
+
 
 bool
 EnumerativeSynthesis::getSketches(llvm::Value *V,
@@ -392,16 +392,16 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
       }
     }
   }
-/*
 
   for (auto &P : Pointers) {
-    auto elemTy = P->getType();
-    if (elemTy != expected)
-      continue;
-    set<unique_ptr<ReservedConst>> RCs;
-    auto V = make_unique<Load>(*P);
-    R.push_back(make_pair(move(V), move(RCs)));
-  }*/
+    auto tys = type::getVectorTypes(expected);
+    for (auto ty : tys) {
+      auto L = make_unique<Load>(*P, ty);
+      set<ReservedConst*> RCs;
+      sketches.push_back(make_pair(L.get(), move(RCs)));
+      exprs.emplace_back(move(L));
+    }
+  }
   return true;
 }
 
