@@ -237,42 +237,50 @@ public:
 };
 
 
-class Addr final : public Inst {
-  llvm::Value *base;
+class Pointer : public Inst {
 public:
-  Addr(llvm::Value *p) : Inst() {}
+  virtual void print(std::ostream &os) const = 0;
+};
+
+class Addr final : public Pointer {
+  llvm::Value *base_addr;
+public:
+  Addr(llvm::Value *p) : base_addr(p) {}
   void print(std::ostream &os) const override;
 };
 
-class GEP final : public Inst {
-  llvm::Value *base;
+
+class GEP final : public Pointer {
+  llvm::Value *base_addr;
   ReservedConst *offset;
   type &ty;
 public:
-  GEP(llvm::Value *p, ReservedConst &o, type &ty): Inst(), offset(&o), ty(ty) {}
+  GEP(llvm::Value *p, ReservedConst &o, type &ty):
+    base_addr(p), offset(&o), ty(ty) {}
   void print(std::ostream &os) const override;
 };
 
-
-class VectorAddr final : public Inst {
-  std::vector<llvm::Value*> bases;
+class PointerVector final: public Inst {
+  llvm::Value *addrs;
 public:
-  VectorAddr(llvm::Value *p) : Inst() {}
+  PointerVector(llvm::Value *v) : addrs(v) {};
   void print(std::ostream &os) const override;
 };
+
 
 class Load final : public Value {
-  Addr *p;
+  Pointer *p;
 public:
-  Load(Addr &p, type &loadty) : Value(loadty.getWidth()), p(&p) {}
+  Load(Pointer &p, type &loadty) : Value(loadty.getWidth()), p(&p) {}
   void print(std::ostream &os) const override;
 };
 
 
 class Gather final : public Value {
-  VectorAddr *p;
+  PointerVector *ps;
+  type ty;
 public:
-  Gather(VectorAddr &p) : Value(-1), p(&p) {}
+  Gather(PointerVector &p, type &ty): Value(ty.getWidth()), ps(&p), ty(ty) {}
   void print(std::ostream &os) const override;
 };
 
