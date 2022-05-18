@@ -288,23 +288,4 @@ public:
   void print(std::ostream &os) const override;
 };
 
-/*
-class Store final : public Inst {
-  Addr *p;
-  Inst *v;
-public:
-  Store(Addr &p, Inst &v) : Inst(-1), p(&p), v(&v) {};
-  void print(std::ostream &os) const override;
-};
-
-
-class Scatter final : public Inst {
-  VectorAddr *p;
-public:
-  Scatter(VectorAddr &p) : Inst(-1), p(&p) {}
-  void print(std::ostream &os) const override;
-};
-*/
-
-
 }
