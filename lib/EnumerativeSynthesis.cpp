@@ -89,10 +89,18 @@ EnumerativeSynthesis::findInputs(llvm::Function &F,
     }
   }
 }
+/*
+
+bool
+EnumerativeSynthesis::getAddrSketches(llvm::Value *V,
+                                      vector<Sketch>& sketches) {
+  return false;
+}
+*/
 
 bool
 EnumerativeSynthesis::getSketches(llvm::Value *V,
-                                  vector<pair<Inst*, set<ReservedConst*>>> &sketches) {
+                                  vector<Sketch> &sketches) {
   vector<Value*> Comps;
   for (auto &I : Values) {
     Comps.emplace_back(I);
@@ -549,7 +557,7 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
 
     findInputs(F, I, DT);
 
-    vector<pair<Inst*,set<ReservedConst*>>> Sketches;
+    vector<Sketch> Sketches;
 
     // immediate constant synthesis
     if (!I->getType()->isPointerTy()) {

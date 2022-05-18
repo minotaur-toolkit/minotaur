@@ -18,6 +18,8 @@ class TargetLibraryInfo;
 
 namespace minotaur {
 
+using Sketch = std::pair<Inst*, std::set<ReservedConst*>>;
+
 class EnumerativeSynthesis {
   std::vector<std::unique_ptr<Inst>> exprs;
 
@@ -29,7 +31,7 @@ class EnumerativeSynthesis {
                   llvm::Instruction*,
                   llvm::DominatorTree&);
   bool getSketches(llvm::Value *V,
-                   std::vector<std::pair<Inst*, std::set<ReservedConst*>>>&);
+                   std::vector<Sketch>&);
 public:
   std::tuple<Inst*, std::unordered_map<llvm::Argument*, llvm::Constant*>, unsigned, unsigned>
   synthesize (llvm::Function &F1, llvm::TargetLibraryInfo &TLI);
