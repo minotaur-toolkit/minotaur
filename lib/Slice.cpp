@@ -99,7 +99,6 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
   worklist.push({&v, 0});
 
-  bool havePhi = false;
   // pass 1;
   // + duplicate instructions, leave the operands untouched
   // + if there are intrinsic calls, create declares in the new module
@@ -210,8 +209,6 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
           if (find(inc_pds.begin(), inc_pds.end(), bb_i) == inc_pds.end())
             bb_deps[income].insert(bb_i);
         }
-
-        havePhi = true;
       } else if (auto LI = dyn_cast<LoadInst>(i)) {
         pointers.insert(LI->getPointerOperand());
       }
