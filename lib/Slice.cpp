@@ -381,6 +381,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     }
     cloned_insts.push_back(c);
   }
+
   // pass 3
   // + duplicate blocks
   BasicBlock *sinkbb = BasicBlock::Create(ctx, "sink");
@@ -388,7 +389,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
   unordered_set<BasicBlock *> cloned_blocks;
   unordered_map<BasicBlock *, BasicBlock *> bmap;
-  if (havePhi) {
+  {
     // pass 3.1.1;
     // + duplicate BB;
     for (BasicBlock *orig_bb : blocks) {
@@ -450,17 +451,6 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     // create ret
     ReturnInst *ret = ReturnInst::Create(ctx, vmap[&v]);
     bmap.at(vbb)->getInstList().push_back(ret);
-  } else {
-    // pass 3.2
-    // + phi free
-    BasicBlock *bb = BasicBlock::Create(ctx, "entry");
-    auto is = schedule_insts(bb_insts[vbb]);
-    for (auto inst : is) {
-      bb->getInstList().push_back(cast<Instruction>(vmap[inst]));
-    }
-    ReturnInst *ret = ReturnInst::Create(ctx, vmap[&v]);
-    bb->getInstList().push_back(ret);
-    cloned_blocks.insert(bb);
   }
 
   // pass 4;
