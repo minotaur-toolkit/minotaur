@@ -136,15 +136,15 @@ BitCastOp(Inst &i, unsigned lf, unsigned wf, unsigned lt, unsigned wt);
 
 
 void Pointer::print(ostream &os) const {
-  os << "(pointer " << name <<")";
+  os << "(ptr " << name <<")";
 }
 
 void PointerVector::print(ostream &os) const {
-  os << "(pointer " << name <<")";
+  os << "(ptr " << name <<")";
 }
 
 void Load::print(ostream &os) const {
-  os << "(load " << *p << ")";
+  os << "(ptr " << *p << ")";
 }
 
 };

@@ -23,6 +23,7 @@ public:
   virtual ~Inst() {}
 };
 
+
 class Value : public Inst {
 protected:
   unsigned width;
@@ -31,6 +32,7 @@ public:
   virtual void print(std::ostream &os) const = 0;
   Value(unsigned width) : width (width) {}
 };
+
 
 class Var final : public Value {
   std::string name;
@@ -88,6 +90,7 @@ public:
   Op K() { return op; }
   Value *Op0() { return V; }
 };
+
 
 class BinaryInst final : public Value {
 public:
@@ -219,6 +222,7 @@ public:
   }
 };
 
+
 class ConversionInst final : public Value {
 public:
   enum Op { sext, zext, trunc };
@@ -236,13 +240,6 @@ public:
   type getNewTy () const { return type(lane, new_bits, false); }
 };
 
-
-/*
-class Pointer : public Inst {
-public:
-  virtual void print(std::ostream &os) const = 0;
-};
-*/
 
 class Pointer final : public Inst {
   llvm::Value *v;

@@ -32,7 +32,7 @@ static constexpr unsigned MAX_DEPTH = 5;
 static constexpr unsigned MAX_INSTNS = 20;
 static constexpr unsigned MAX_BLOCKS = 10;
 static constexpr unsigned MAX_WORKLIST=500;
-static constexpr unsigned SLICE_DEBUG_LEVEL = 0;
+static constexpr unsigned SLICE_DEBUG_LEVEL = 5;
 
 using edgesTy = std::vector<std::unordered_set<unsigned>>;
 
@@ -169,10 +169,6 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     if (!visited.insert(w).second)
       continue;
 
-    // TODO: REMOVE ME!!
-    if (isa<LoadInst>(w))
-      continue;
-
     if (Instruction *i = dyn_cast<Instruction>(w)) {
       // do not handle function operands.
       bool haveUnknownOperand = false;
@@ -188,11 +184,6 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
         }
         if (CallInst *CI = dyn_cast<CallInst>(w)) {
           if (CI->getCalledOperand() != op && op_ty->isPointerTy()) {
-            haveUnknownOperand = true;
-            break;
-          }
-        } else {
-          if (op_ty->isPointerTy()) {
             haveUnknownOperand = true;
             break;
           }
