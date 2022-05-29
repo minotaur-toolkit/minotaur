@@ -34,75 +34,21 @@ static constexpr unsigned MAX_BLOCKS = 10;
 static constexpr unsigned MAX_WORKLIST=500;
 static constexpr unsigned SLICE_DEBUG_LEVEL = 5;
 
-using edgesTy = std::vector<std::unordered_set<unsigned>>;
-
-// simple Tarjan topological sort ignoring loops
-static vector<unsigned> top_sort(const edgesTy &edges) {
-  vector<unsigned> sorted;
-  vector<unsigned char> marked;
-  marked.resize(edges.size());
-
-  function<void(unsigned)> visit = [&](unsigned v) {
-    if (marked[v])
-      return;
-    marked[v] = true;
-
-    for (auto child : edges[v]) {
-      visit(child);
-    }
-    sorted.emplace_back(v);
-  };
-
-  for (unsigned i = 1, e = edges.size(); i < e; ++i)
-    visit(i);
-  if (!edges.empty())
-    visit(0);
-
-  reverse(sorted.begin(), sorted.end());
-  return sorted;
-}
-
 // place instructions within a basicblock with topology sort
-static vector<Instruction*> schedule_insts(const vector<Instruction*> &iis) {
-  edgesTy edges(iis.size());
-  unordered_map<const Instruction*, unsigned> inst_map;
+static
+bool cmp(const pair<Instruction*, unsigned>& lhs,
+         const pair<Instruction*, unsigned>& rhs) {
+  return lhs.second < rhs.second;
+}
+static vector<Instruction*>
+schedule_insts(vector<pair<Instruction*, unsigned>> &iis) {
+  std::sort(iis.begin(), iis.end(), cmp);
 
-  unsigned i = 0;
-  for (auto ii : iis) {
-    inst_map.emplace(ii, i++);
-  }
-
-  i = 0;
-  for (auto ii : iis) {
-    for (auto &op : ii->operands()) {
-      if (!isa<Instruction>(op))
-        continue;
-      auto dst_I = inst_map.find(cast<Instruction>(&op));
-      if (dst_I != inst_map.end())
-        edges[dst_I->second].emplace(i);
-    }
-    ++i;
-  }
-
-  i = 0;
-  for (auto ii : iis) {
-    unsigned j = 0;
-    for (auto jj : iis) {
-      if (isa<PHINode>(ii) && !isa<PHINode>(jj)) {
-        edges[i].emplace(j);
-      }
-      ++j;
-    }
-    ++i;
-  }
 
   vector<Instruction*> sorted_iis;
-  sorted_iis.reserve(iis.size());
-  for (auto v : top_sort(edges)) {
-    sorted_iis.emplace_back(iis[v]);
+  for (auto ii : iis) {
+    sorted_iis.push_back(ii.first);
   }
-
-  assert(sorted_iis.size() == bbs.size());
   return sorted_iis;
 }
 
@@ -144,8 +90,9 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
   ValueToValueMapTy vmap;
   vector<Instruction *> insts;
-  unordered_map<BasicBlock *, vector<Instruction *>> bb_insts;
+  unordered_map<BasicBlock *, vector<pair<Instruction*,unsigned>>> bb_insts;
   unordered_set<BasicBlock *> blocks;
+  set<Value*> pointers;
 
   // set of predecessor bb a bb depends on
   unordered_map<BasicBlock *, unordered_set<BasicBlock *>> bb_deps;
@@ -265,13 +212,23 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
         }
 
         havePhi = true;
+      } else if (auto LI = dyn_cast<LoadInst>(i)) {
+        pointers.insert(LI->getPointerOperand());
       }
 
       if (insts.size() > MAX_INSTNS)
         return nullopt;
 
       insts.push_back(i);
-      bb_insts[ibb].push_back(i);
+      auto &instlist = ibb->getInstList();
+      unsigned idx = 0;
+      for (auto &ii : instlist) {
+        if (&ii == i)
+          break;
+        ++idx;
+      }
+
+      bb_insts[ibb].push_back({i, idx});
 
       // BB->getInstList().push_front(c);
 
@@ -280,6 +237,19 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       if (depth > MAX_DEPTH)
         continue;
 
+/*
+      if (never_visited) {
+        for (auto I : ibb) {
+          if (I == i)
+            break;
+          if (StoreInst *SI = dyn_cast<StoreInst>(I)) {
+            if (pointers.count(SI->getPointerOperand()))
+              insts.push_back(i);
+              bb_insts[ibb].push_back(i);
+          }
+        }
+      }
+*/
       // add condition to worklist
       if (ibb != vbb && never_visited) {
         Instruction *term = ibb->getTerminator();
@@ -484,7 +454,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     // pass 3.2
     // + phi free
     BasicBlock *bb = BasicBlock::Create(ctx, "entry");
-    auto is = schedule_insts(insts);
+    auto is = schedule_insts(bb_insts[vbb]);
     for (auto inst : is) {
       bb->getInstList().push_back(cast<Instruction>(vmap[inst]));
     }
