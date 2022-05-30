@@ -222,6 +222,7 @@ struct SuperoptimizerLegacyPass final : public llvm::FunctionPass {
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<LoopInfoWrapperPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
+    AU.addRequired<MemoryDependenceWrapperPass>();
     AU.setPreservesAll();
   }
 };

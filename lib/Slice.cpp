@@ -52,6 +52,17 @@ schedule_insts(vector<pair<Instruction*, unsigned>> &iis) {
   return sorted_iis;
 }
 
+unsigned getInstructionIdx(const Instruction *I) {
+  auto &instlist = I->getParent()->getInstList();
+  unsigned idx = 0;
+  for (auto &ii : instlist) {
+    if (&ii == I)
+      break;
+    ++idx;
+  }
+  return idx;
+}
+
 namespace minotaur {
 
 //  * if a external value is outside the loop, and it does not dominates v,
@@ -210,22 +221,24 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
             bb_deps[income].insert(bb_i);
         }
       } else if (auto LI = dyn_cast<LoadInst>(i)) {
-        pointers.insert(LI->getPointerOperand());
+        auto dep = MD.getDependency(LI);
+        if (dep.isDef()) {
+          auto st = dep.getInst();
+
+          if (st->getParent() == ibb) {
+            insts.push_back(st);
+            bb_insts[ibb].push_back({st, getInstructionIdx(st)});
+          }
+        }
       }
 
       if (insts.size() > MAX_INSTNS)
         return nullopt;
 
       insts.push_back(i);
-      auto &instlist = ibb->getInstList();
-      unsigned idx = 0;
-      for (auto &ii : instlist) {
-        if (&ii == i)
-          break;
-        ++idx;
-      }
 
-      bb_insts[ibb].push_back({i, idx});
+
+      bb_insts[ibb].push_back({i, getInstructionIdx(i)});
 
       // BB->getInstList().push_front(c);
 
@@ -349,19 +362,6 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
         return nullopt;
     }
   }
-
-  /*
-  // harvest stores if possible
-  for (BasicBlock *bb : blocks) {
-    for (Instruction &ii : *bb) {
-      if (StoreInst *SI = dyn_cast<StoreInst>(I)) {
-        if (pointers.count(SI->getPointerOperand()))
-          insts.push_back(i);
-          bb_insts[ibb].push_back(i);
-      }
-    }
-  }
-  */
 
   // clone instructions
   vector<Instruction *> cloned_insts;
