@@ -106,6 +106,8 @@ static bool dom_check(llvm::Value *V, DominatorTree &DT, llvm::Use &U) {
 static bool
 optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
                   TargetLibraryInfo &TLI, MemoryDependenceResults &MD) {
+
+  smt::solver_print_queries(opt_smt_verbose);
   if (DEBUG_LEVEL > 0)
     llvm::errs()<<"=== start of minotaur run ===\n";
 

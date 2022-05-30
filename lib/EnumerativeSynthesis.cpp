@@ -412,7 +412,6 @@ static optional<smt::smt_initializer> smt_init;
 static bool
 compareFunctions(IR::Function &Func1, IR::Function &Func2,
                  unsigned &goodCount, unsigned &badCount, unsigned &errorCount){
-  TransformPrintOpts print_opts;
   smt_init->reset();
   Transform t;
   t.src = move(Func1);
@@ -422,7 +421,11 @@ compareFunctions(IR::Function &Func1, IR::Function &Func2,
   t.tgt.syncDataWithSrc(t.src);
   calculateAndInitConstants(t);
   TransformVerify verifier(t, false);
-  //t.print(cout, print_opts);
+  if (SYNTHESIS_DEBUG_LEVEL > 0) {
+    TransformPrintOpts print_opts;
+    t.print(cout, print_opts);
+  }
+
   {
     auto types = verifier.getTypings();
     if (!types) {
@@ -471,7 +474,11 @@ constantSynthesis(IR::Function &Func1, IR::Function &Func2,
   ::calculateAndInitConstants(t);
 
   ConstantSynthesis S(t);
-  //t.print(cout, print_opts);
+
+  if (SYNTHESIS_DEBUG_LEVEL > 0) {
+    TransformPrintOpts print_opts;
+    t.print(cout, print_opts);
+  }
   // assume type verifies
   std::unordered_map<const IR::Value *, smt::expr> result;
   Errors errs = S.synthesize(result);
