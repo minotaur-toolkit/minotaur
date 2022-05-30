@@ -78,7 +78,7 @@ Errors ConstantSynthesis::synthesize(unordered_map<const Value*, expr> &result) 
 
     auto &ty = var->getType();
 
-    if (ty.isIntType()) {
+    if (ty.isIntType() || ty.isPtrType()) {
       qvars.insert(val.val.value);
       continue;
     }
@@ -90,6 +90,7 @@ Errors ConstantSynthesis::synthesize(unordered_map<const Value*, expr> &result) 
       }
       continue;
     }
+
 
     config::dbg()<<"[ERROR] constant synthesizer only supports "
                  <<"synthesizing integers and vector of integers"<<std::endl;

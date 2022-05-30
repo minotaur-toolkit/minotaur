@@ -393,6 +393,7 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
     }
   }
 
+/*
   for (auto &P : Pointers) {
     auto tys = type::getVectorTypes(expected);
     for (auto ty : tys) {
@@ -402,6 +403,7 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
       exprs.emplace_back(move(L));
     }
   }
+  */
   return true;
 }
 
