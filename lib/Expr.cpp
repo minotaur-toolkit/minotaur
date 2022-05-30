@@ -140,11 +140,11 @@ void Pointer::print(ostream &os) const {
 }
 
 void PointerVector::print(ostream &os) const {
-  os << "(ptr " << name <<")";
+  os << "(ptrs " << name <<")";
 }
 
 void Load::print(ostream &os) const {
-  os << "(ptr " << *p << ")";
+  os << "(load " << *p << ")";
 }
 
 };
