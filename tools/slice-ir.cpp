@@ -66,17 +66,19 @@ int main(int argc, char **argv) {
     //FAM.registerPass(llvm::LoopInfo());
     LoopInfo &LI = FAM.getResult<LoopAnalysis>(F);
     DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
+    MemoryDependenceResults &MD = FAM.getResult<MemoryDependenceAnalysis>(F);
 
     unsigned count = 0;
     for (auto &BB : F) {
       for (auto &I : BB) {
-        Slice S(F, LI, DT);
+        Slice S(F, LI, DT, MD);
         if (I.getType()->isVoidTy())
           continue;
         S.extractExpr(I);
         S.getNewModule()->dump();
         std::error_code EC;
-        string filename = "slice_" + string(F.getName()) + "_" + to_string(count++) + ".bc";
+        string filename = "slice_" + string(F.getName()) +
+                          "_" + to_string(count++) + ".bc";
         llvm::raw_fd_ostream OS(filename, EC, sys::fs::OpenFlags::OF_None);
         //WriteBitcodeToFile(*S.getNewModule(), OS);
         OS.flush();
