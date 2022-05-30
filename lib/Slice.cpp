@@ -234,19 +234,6 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       if (depth > MAX_DEPTH)
         continue;
 
-/*
-      if (never_visited) {
-        for (auto I : ibb) {
-          if (I == i)
-            break;
-          if (StoreInst *SI = dyn_cast<StoreInst>(I)) {
-            if (pointers.count(SI->getPointerOperand()))
-              insts.push_back(i);
-              bb_insts[ibb].push_back(i);
-          }
-        }
-      }
-*/
       // add condition to worklist
       if (ibb != vbb && never_visited) {
         Instruction *term = ibb->getTerminator();
@@ -362,6 +349,19 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
         return nullopt;
     }
   }
+
+  /*
+  // harvest stores if possible
+  for (BasicBlock *bb : blocks) {
+    for (Instruction &ii : *bb) {
+      if (StoreInst *SI = dyn_cast<StoreInst>(I)) {
+        if (pointers.count(SI->getPointerOperand()))
+          insts.push_back(i);
+          bb_insts[ibb].push_back(i);
+      }
+    }
+  }
+  */
 
   // clone instructions
   vector<Instruction *> cloned_insts;

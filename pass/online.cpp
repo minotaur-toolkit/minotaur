@@ -16,6 +16,7 @@
 #include "llvm/ADT/Any.h"
 #include "llvm/Analysis/DominanceFrontier.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/MemoryDependenceAnalysis.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/Dominators.h"
@@ -103,7 +104,8 @@ static bool dom_check(llvm::Value *V, DominatorTree &DT, llvm::Use &U) {
   return true;
 }
 static bool
-optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT, TargetLibraryInfo &TLI) {
+optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
+                  TargetLibraryInfo &TLI, MemoryDependenceResults &MD) {
   if (DEBUG_LEVEL > 0)
     llvm::errs()<<"=== start of minotaur run ===\n";
 
@@ -196,14 +198,16 @@ struct SuperoptimizerLegacyPass final : public llvm::FunctionPass {
   SuperoptimizerLegacyPass() : FunctionPass(ID) {}
 
   bool runOnFunction(llvm::Function &F) override {
-    TargetLibraryInfo *TLI =
-      &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    LoopInfo *LI =
-      &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-    DominatorTree *DT =
-      &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+    TargetLibraryInfo &TLI =
+      getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+    LoopInfo &LI =
+      getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+    DominatorTree &DT =
+      getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+    MemoryDependenceResults &MD =
+      getAnalysis<MemoryDependenceWrapperPass>().getMemDep();
 
-    return optimize_function(F, *LI, *DT, *TLI);
+    return optimize_function(F, LI, DT, TLI, MD);
   }
 
   bool doInitialization(llvm::Module &module) override {
@@ -243,7 +247,8 @@ struct SuperoptimizerPass : PassInfoMixin<SuperoptimizerPass> {
     LoopInfo &LI = FAM.getResult<llvm::LoopAnalysis>(F);
     DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
     TargetLibraryInfo &TLI = FAM.getResult<TargetLibraryAnalysis>(F);
-    optimize_function(F, LI, DT, TLI);
+    MemoryDependenceResults &MD = FAM.getResult<MemoryDependenceAnalysis>(F);
+    optimize_function(F, LI, DT, TLI, MD);
     return PA;
   }
 };
