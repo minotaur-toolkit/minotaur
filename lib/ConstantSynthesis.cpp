@@ -78,10 +78,13 @@ Errors ConstantSynthesis::synthesize(unordered_map<const Value*, expr> &result) 
 
     auto &ty = var->getType();
 
-    if (ty.isIntType() || ty.isPtrType()) {
+    if (ty.isIntType()) {
       qvars.insert(val.val.value);
       continue;
     }
+
+    if (ty.isPtrType())
+      continue;
 
     if (ty.isVectorType() && ty.getAsAggregateType()->getChild(0).isIntType()) {
       auto aty = ty.getAsAggregateType();
