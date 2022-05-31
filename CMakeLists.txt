@@ -50,6 +50,7 @@ include_directories(${ALIVE2_SOURCE_DIR})
 
 include_directories(include)
 set(SYNTHESIZER_SRC
+  "lib/Config.cpp"
   "lib/ConstantSynthesis.cpp"
   "lib/EnumerativeSynthesis.cpp"
   "lib/Expr.cpp"
@@ -80,7 +81,8 @@ target_link_libraries(machine_cost PRIVATE ${LLVM_LIBS})
 add_library(utils STATIC "lib/Utils.cpp")
 target_link_libraries(utils PRIVATE ${LLVM_LIBS} ${HIREDIS_LIBRARY})
 
-add_library(slice STATIC "lib/Slice.cpp")
+add_library(slice STATIC "lib/Config.cpp"
+                         "lib/Slice.cpp")
 target_link_libraries(slice PRIVATE utils)
 
 add_library(synthesizer STATIC ${SYNTHESIZER_SRC})

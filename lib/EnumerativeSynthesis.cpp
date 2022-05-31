@@ -1,6 +1,7 @@
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
 #include "EnumerativeSynthesis.h"
+#include "Config.h"
 #include "ConstantSynthesis.h"
 #include "Expr.h"
 #include "LLVMGen.h"
@@ -46,7 +47,6 @@ using namespace IR;
 
 void calculateAndInitConstants(Transform &t);
 
-unsigned SYNTHESIS_DEBUG_LEVEL = 5;
 bool DISABLE_AVX512 = false;
 
 namespace minotaur {
@@ -421,7 +421,7 @@ compareFunctions(IR::Function &Func1, IR::Function &Func2,
   t.tgt.syncDataWithSrc(t.src);
   calculateAndInitConstants(t);
   TransformVerify verifier(t, false);
-  if (SYNTHESIS_DEBUG_LEVEL > 0) {
+  if (debug_enumerator) {
     TransformPrintOpts print_opts;
     t.print(cout, print_opts);
   }
@@ -429,7 +429,7 @@ compareFunctions(IR::Function &Func1, IR::Function &Func2,
   {
     auto types = verifier.getTypings();
     if (!types) {
-      if (SYNTHESIS_DEBUG_LEVEL > 0)
+      if (debug_enumerator)
         cerr << "Transformation doesn't verify!\n"
                 "ERROR: program doesn't type check!\n\n";
       ++errorCount;
@@ -442,16 +442,16 @@ compareFunctions(IR::Function &Func1, IR::Function &Func2,
   bool result(errs);
   if (result) {
     if (errs.isUnsound()) {
-      if (SYNTHESIS_DEBUG_LEVEL > 0)
+      if (debug_enumerator)
         cerr << "Transformation doesn't verify!\n" << endl;
       ++badCount;
     } else {
-      if (SYNTHESIS_DEBUG_LEVEL > 0)
+      if (debug_enumerator)
         cerr << errs << endl;
       ++errorCount;
     }
   } else {
-    if (SYNTHESIS_DEBUG_LEVEL > 0)
+    if (debug_enumerator)
       cerr << "Transformation seems to be correct!\n\n";
     ++goodCount;
   }
@@ -475,7 +475,7 @@ constantSynthesis(IR::Function &Func1, IR::Function &Func2,
 
   ConstantSynthesis S(t);
 
-  if (SYNTHESIS_DEBUG_LEVEL > 0) {
+  if (debug_enumerator) {
     TransformPrintOpts print_opts;
     t.print(cout, print_opts);
   }
@@ -485,8 +485,9 @@ constantSynthesis(IR::Function &Func1, IR::Function &Func2,
 
   bool ret(errs);
   if (result.empty()) {
-    if (SYNTHESIS_DEBUG_LEVEL > 0)
+    if (debug_enumerator) {
       llvm::errs()<<"failed to synthesize constants\n";
+    }
     return ret;
   }
 
@@ -527,7 +528,7 @@ constantSynthesis(IR::Function &Func1, IR::Function &Func2,
 
 tuple<Inst*, unordered_map<llvm::Argument*, llvm::Constant*>, unsigned, unsigned>
 EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
-  if (SYNTHESIS_DEBUG_LEVEL > 0) {
+  if (debug_enumerator) {
     llvm::errs()<<"working on function\n";
     F.dump();
   }
@@ -536,8 +537,8 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
   DT.recalculate(F);
 
   unsigned machinecost = get_machine_cost(&F);
-  config::disable_undef_input = true;
-  config::disable_poison_input = true;
+  config::disable_undef_input = disable_undef_input;
+  config::disable_poison_input = disable_poison_input;
   llvm_util::set_outs(cerr);
 
   unordered_map<llvm::Argument *, llvm::Constant *> constMap;
@@ -594,7 +595,7 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
     }
     getSketches(&*I, Sketches);
 
-    if (SYNTHESIS_DEBUG_LEVEL > 0) {
+    if (debug_enumerator) {
       llvm::errs()<<"---------sketches------------\n";
       for (auto &Sketch : Sketches) {
         cerr<<*Sketch.first<<endl;
@@ -701,7 +702,7 @@ push:
     for (;iter != Fns.end();) {
       auto &[Tgt, Src, G, HaveC] = *iter;
       unsigned tgt_cost = get_approx_cost(Tgt);
-      if (SYNTHESIS_DEBUG_LEVEL > 0) {
+      if (debug_enumerator) {
         llvm::errs()<<"-- candidate approx_cost(tgt) = " << tgt_cost
                     << ", approx_cost(src) = " << src_cost <<" --\n";
         Tgt->dump();
@@ -709,7 +710,7 @@ push:
       auto Func1 = llvm_util::llvm2alive(*Src, TLI);
       auto Func2 = llvm_util::llvm2alive(*Tgt, TLI);
       if (!Func1.has_value() || !Func2.has_value()) {
-        if (SYNTHESIS_DEBUG_LEVEL > 0) {
+        if (debug_enumerator) {
           llvm::errs()<<"error found when converting llvm to alive2\n";
         }
         return {nullptr, constMap, 0, 0};
@@ -721,7 +722,7 @@ push:
           compareFunctions(*Func1, *Func2,
                           goodCount, badCount, errorCount);
         } catch (AliveException e) {
-          if (SYNTHESIS_DEBUG_LEVEL > 0) {
+          if (debug_enumerator) {
             llvm::errs()<<e.msg<<"\n";
           }
           if (e.msg == "slow_vcgen") {
@@ -743,7 +744,7 @@ push:
           constantSynthesis(*Func1, *Func2,
                             goodCount, badCount, errorCount, inputMap);
         } catch (AliveException e) {
-          if (SYNTHESIS_DEBUG_LEVEL > 0) {
+          if (debug_enumerator) {
             llvm::errs()<<e.msg<<"\n";
           }
           if (e.msg == "slow_vcgen") {
@@ -774,7 +775,7 @@ push:
 
     // replace
     if (success) {
-      if (SYNTHESIS_DEBUG_LEVEL > 0) {
+      if (debug_enumerator) {
         llvm::errs()<<"=== original ir (uops="<<machinecost<<") ===\n";
         F.dump();
       }
@@ -783,17 +784,17 @@ push:
       V = llvm::IRBuilder<>(I).CreateBitCast(V, I->getType());
       I->replaceAllUsesWith(V);
       unsigned newcost = get_machine_cost(&F);
-      if (SYNTHESIS_DEBUG_LEVEL > 0) {
+      if (debug_enumerator) {
         llvm::errs()<<"=== optimized ir (uops="<<newcost<<") ===\n";
         F.dump();
       }
       if (!machinecost || !newcost || newcost <= machinecost) {
-        if (SYNTHESIS_DEBUG_LEVEL > 0) {
+        if (debug_enumerator) {
           llvm::errs()<<"=== successfully synthesized rhs ===\n";
         }
         return {R, constMap, machinecost, newcost};
       } else {
-        if (SYNTHESIS_DEBUG_LEVEL > 0) {
+        if (debug_enumerator) {
           llvm::errs()<<"!!! fails machine cost check, keep searching !!!\n";
         }
       }
