@@ -48,10 +48,6 @@ using namespace llvm;
 static constexpr unsigned DEBUG_LEVEL = 0;
 
 namespace {
-llvm::cl::opt<bool>
-    opt_error_fatal("tv-exit-on-error",
-                    llvm::cl::desc("Superoptimizer: exit on error"),
-                    llvm::cl::init(false));
 
 llvm::cl::opt<unsigned>
     opt_smt_to("so-smt-to",

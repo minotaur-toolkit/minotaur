@@ -95,8 +95,9 @@ Errors ConstantSynthesis::synthesize(unordered_map<const Value*, expr> &result) 
     }
 
 
-    config::dbg()<<"[ERROR] constant synthesizer only supports "
-                 <<"synthesizing integers and vector of integers"<<std::endl;
+    config::dbg()<<"[ERROR] constant synthesizer only supports functions of "
+                 <<"pointers and vector of integers. "
+                 <<"Type "<<ty<<" is found in argument list."<<std::endl;
     return errs;
   }
   auto dom_a = sv.domain;
