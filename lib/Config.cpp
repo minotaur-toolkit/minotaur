@@ -13,6 +13,7 @@ bool disable_poison_input = true;
 bool disable_undef_input = true;
 bool debug_slicer = false;
 bool debug_enumerator = false;
+bool debug_tv = false;
 bool smt_verbose = false;
 
 ostream &dbg() {

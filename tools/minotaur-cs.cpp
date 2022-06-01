@@ -1,7 +1,8 @@
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
 
-#include "ConstantSynthesis.h"
+#include "AliveInterface.h"
+#include "Expr.h"
 #include "ir/type.h"
 #include "ir/instr.h"
 #include "ir/function.h"
@@ -116,7 +117,7 @@ int main(int argc, char **argv) {
 
   auto SRC = findFunction(*M, "src");
   auto TGT = findFunction(*M, "tgt");
-  unsigned /*goodCount = 0, badCount = 0,*/ errorCount = 0;
+  unsigned goodCount = 0, badCount = 0, errorCount = 0;
   auto Func1 =
     llvm_util::llvm2alive(*SRC, llvm::TargetLibraryInfoWrapperPass(targetTriple)
                                 .getTLI(*SRC));
@@ -149,22 +150,15 @@ int main(int argc, char **argv) {
 
   ::calculateAndInitConstants(t);
 
-  minotaur::ConstantSynthesis S(t);
+
   TransformPrintOpts print_opts;
   t.print(cout, print_opts);
 
-  std::unordered_map<const IR::Value *, smt::expr> rmap;
-  Errors errs = S.synthesize(rmap);
+  std::unordered_map<const IR::Value *, minotaur::ReservedConst*> rmap;
+  minotaur::constantSynthesis(*Func1, *Func2, goodCount, badCount, errorCount, rmap);
 
   if (opt_smt_stats)
     smt::solver_print_stats(cerr);
-
-  bool result(errs);
-  if (result) {
-    cerr << errs << endl;
-    ++errorCount;
-    return 1;
-  }
 
   return 0;
 }

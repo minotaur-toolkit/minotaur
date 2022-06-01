@@ -1,8 +1,8 @@
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
-#include "EnumerativeSynthesis.h"
+#include "AliveInterface.h"
 #include "Config.h"
-#include "ConstantSynthesis.h"
+#include "EnumerativeSynthesis.h"
 #include "Expr.h"
 #include "LLVMGen.h"
 #include "MachineCost.h"
@@ -44,8 +44,6 @@ using namespace tools;
 using namespace util;
 using namespace std;
 using namespace IR;
-
-void calculateAndInitConstants(Transform &t);
 
 bool DISABLE_AVX512 = false;
 
@@ -407,125 +405,6 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
   return true;
 }
 
-static optional<smt::smt_initializer> smt_init;
-
-static bool
-compareFunctions(IR::Function &Func1, IR::Function &Func2,
-                 unsigned &goodCount, unsigned &badCount, unsigned &errorCount){
-  smt_init->reset();
-  Transform t;
-  t.src = move(Func1);
-  t.tgt = move(Func2);
-
-  t.preprocess();
-  t.tgt.syncDataWithSrc(t.src);
-  calculateAndInitConstants(t);
-  TransformVerify verifier(t, false);
-  if (debug_enumerator) {
-    TransformPrintOpts print_opts;
-    t.print(cout, print_opts);
-  }
-
-  {
-    auto types = verifier.getTypings();
-    if (!types) {
-      if (debug_enumerator)
-        cerr << "Transformation doesn't verify!\n"
-                "ERROR: program doesn't type check!\n\n";
-      ++errorCount;
-      return true;
-    }
-    assert(types.hasSingleTyping());
-  }
-
-  Errors errs = verifier.verify();
-  bool result(errs);
-  if (result) {
-    if (errs.isUnsound()) {
-      if (debug_enumerator)
-        cerr << "Transformation doesn't verify!\n" << endl;
-      ++badCount;
-    } else {
-      if (debug_enumerator)
-        cerr << errs << endl;
-      ++errorCount;
-    }
-  } else {
-    if (debug_enumerator)
-      cerr << "Transformation seems to be correct!\n\n";
-    ++goodCount;
-  }
-
-  return result;
-}
-
-// call constant synthesizer and fill in constMap if synthesis suceeeds
-static bool
-constantSynthesis(IR::Function &Func1, IR::Function &Func2,
-                  unsigned &goodCount, unsigned &badCount, unsigned &errorCount,
-                  unordered_map<const IR::Value*, ReservedConst*> &inputMap) {
-  smt_init->reset();
-  Transform t;
-  t.src = move(Func1);
-  t.tgt = move(Func2);
-
-  t.preprocess();
-  t.tgt.syncDataWithSrc(t.src);
-  ::calculateAndInitConstants(t);
-
-  ConstantSynthesis S(t);
-
-  if (debug_enumerator) {
-    TransformPrintOpts print_opts;
-    t.print(cout, print_opts);
-  }
-  // assume type verifies
-  std::unordered_map<const IR::Value *, smt::expr> result;
-  Errors errs = S.synthesize(result);
-
-  bool ret(errs);
-  if (result.empty()) {
-    if (debug_enumerator) {
-      llvm::errs()<<"failed to synthesize constants\n";
-    }
-    return ret;
-  }
-
-  for (auto p : inputMap) {
-    auto &ty = p.first->getType();
-    auto lty = p.second->getA()->getType();
-
-    if (ty.isIntType()) {
-      // TODO, fix, do not use numeral_string()
-      p.second->setC(
-        llvm::ConstantInt::get(llvm::cast<llvm::IntegerType>(lty),
-                               result[p.first].numeral_string(), 10));
-    } else if (ty.isFloatType()) {
-      //TODO
-      UNREACHABLE();
-    } else if (ty.isVectorType()) {
-      auto trunk = result[p.first];
-      llvm::FixedVectorType *vty = llvm::cast<llvm::FixedVectorType>(lty);
-      llvm::IntegerType *ety =
-        llvm::cast<llvm::IntegerType>(vty->getElementType());
-      vector<llvm::Constant *> v;
-      for (int i = vty->getElementCount().getKnownMinValue()-1; i >= 0; i --) {
-        unsigned bits = ety->getBitWidth();
-        auto elem = trunk.extract((i + 1) * bits - 1, i * bits);
-        // TODO: support undef
-        if (!elem.isConst())
-          return ret;
-        v.push_back(llvm::ConstantInt::get(ety, elem.numeral_string(), 10));
-      }
-      p.second->setC(llvm::ConstantVector::get(v));
-    }
-  }
-
-  goodCount++;
-
-  return ret;
-}
-
 tuple<Inst*, unordered_map<llvm::Argument*, llvm::Constant*>, unsigned, unsigned>
 EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
   if (debug_enumerator) {
@@ -545,7 +424,7 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
 
   bool changed = false;
 
-  smt_init.emplace();
+  //smt_init.emplace();
   std::unordered_set<llvm::Function *> IntrinsicDecls;
 
   unsigned src_cost = get_approx_cost(&F);

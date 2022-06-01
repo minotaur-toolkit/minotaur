@@ -50,8 +50,8 @@ include_directories(${ALIVE2_SOURCE_DIR})
 
 include_directories(include)
 set(SYNTHESIZER_SRC
+  "lib/AliveInterface.cpp"
   "lib/Config.cpp"
-  "lib/ConstantSynthesis.cpp"
   "lib/EnumerativeSynthesis.cpp"
   "lib/Expr.cpp"
   "lib/LLVMGen.cpp"

@@ -1,6 +1,8 @@
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
-#include "ConstantSynthesis.h"
+#include "AliveInterface.h"
+#include "Config.h"
+#include "Expr.h"
 
 #include "ir/globals.h"
 #include "smt/smt.h"
@@ -42,10 +44,78 @@ static expr preprocess(Transform &t, const set<expr> &qvars0,
   return expr::mkForAll(qvars, move(e));
 }
 
+void calculateAndInitConstants(Transform &t);
+
 namespace minotaur {
 
-Errors ConstantSynthesis::synthesize(unordered_map<const Value*, expr> &result) const {
-  //  calculateAndInitConstants(t);
+static optional<smt::smt_initializer> smt_init;
+
+bool
+compareFunctions(IR::Function &Func1, IR::Function &Func2,
+                 unsigned &goodCount, unsigned &badCount, unsigned &errorCount){
+  smt_init->reset();
+  Transform t;
+  t.src = move(Func1);
+  t.tgt = move(Func2);
+
+  t.preprocess();
+  t.tgt.syncDataWithSrc(t.src);
+  calculateAndInitConstants(t);
+  TransformVerify verifier(t, false);
+  if (debug_tv) {
+    TransformPrintOpts print_opts;
+    t.print(dbg(), print_opts);
+  }
+
+  {
+    auto types = verifier.getTypings();
+    if (!types) {
+      if (debug_tv)
+        dbg() << "Transformation doesn't verify!\n"
+                 "ERROR: program doesn't type check!\n\n";
+      ++errorCount;
+      return true;
+    }
+    assert(types.hasSingleTyping());
+  }
+
+  Errors errs = verifier.verify();
+  bool result(errs);
+  if (result) {
+    if (errs.isUnsound()) {
+      if (debug_tv)
+        dbg() << "Transformation doesn't verify!\n" << endl;
+      ++badCount;
+    } else {
+      if (debug_tv)
+        dbg() << errs << endl;
+      ++errorCount;
+    }
+  } else {
+    if (debug_tv)
+      dbg() << "Transformation seems to be correct!\n\n";
+    ++goodCount;
+  }
+
+  return result;
+}
+
+static Errors find_model(IR::Function &src, IR::Function &tgt,
+                         unordered_map<const IR::Value*, smt::expr> &result) {
+  smt_init->reset();
+  Transform t;
+  t.src = move(src);
+  t.tgt = move(tgt);
+
+  if (debug_tv) {
+    TransformPrintOpts print_opts;
+    t.print(dbg(), print_opts);
+  }
+
+  t.preprocess();
+  t.tgt.syncDataWithSrc(t.src);
+  ::calculateAndInitConstants(t);
+
   State::resetGlobals();
   IR::State src_state(t.src, true);
   util::sym_exec(src_state);
@@ -122,15 +192,15 @@ Errors ConstantSynthesis::synthesize(unordered_map<const Value*, expr> &result) 
 
   const Type &ty = t.src.getType();
   auto [poison_cnstr, value_cnstr] = ty.refines(src_state, tgt_state, sv.val, tv.val);
-  if (config::debug) {
-    config::dbg()<<"SV"<<std::endl;
-    config::dbg()<<sv.val<<std::endl;
-    config::dbg()<<"TV"<<std::endl;
-    config::dbg()<<tv.val<<std::endl;
-    config::dbg()<<"Value Constraints"<<std::endl;
-    config::dbg()<<value_cnstr<<std::endl;
-    config::dbg()<<"Poison Constraints"<<std::endl;
-    config::dbg()<<poison_cnstr<<std::endl;
+  if (debug_tv) {
+    dbg()<<"SV"<<std::endl;
+    dbg()<<sv.val<<std::endl;
+    dbg()<<"TV"<<std::endl;
+    dbg()<<tv.val<<std::endl;
+    dbg()<<"Value Constraints"<<std::endl;
+    dbg()<<value_cnstr<<std::endl;
+    dbg()<<"Poison Constraints"<<std::endl;
+    dbg()<<poison_cnstr<<std::endl;
   }
 
   auto r = check_expr(mk_fml(dom && value_cnstr && poison_cnstr));
@@ -179,6 +249,59 @@ Errors ConstantSynthesis::synthesize(unordered_map<const Value*, expr> &result) 
   //config::dbg()<<s.str();
 
   return errs;
+}
+
+// call constant synthesizer and fill in constMap if synthesis suceeeds
+bool
+constantSynthesis(IR::Function &Func1, IR::Function &Func2,
+                  unsigned &goodCount, unsigned &badCount, unsigned &errorCount,
+                  unordered_map<const IR::Value*, ReservedConst*> &inputMap) {
+  // assume type verifies
+  std::unordered_map<const IR::Value *, smt::expr> result;
+
+  Errors errs = find_model(Func1, Func2, result);
+
+  bool ret(errs);
+  if (result.empty()) {
+    if (debug_tv) {
+      dbg()<<"failed to synthesize constants\n";
+    }
+    return ret;
+  }
+
+  for (auto p : inputMap) {
+    auto &ty = p.first->getType();
+    auto lty = p.second->getA()->getType();
+
+    if (ty.isIntType()) {
+      // TODO, fix, do not use numeral_string()
+      p.second->setC(
+        llvm::ConstantInt::get(llvm::cast<llvm::IntegerType>(lty),
+                               result[p.first].numeral_string(), 10));
+    } else if (ty.isFloatType()) {
+      //TODO
+      UNREACHABLE();
+    } else if (ty.isVectorType()) {
+      auto trunk = result[p.first];
+      llvm::FixedVectorType *vty = llvm::cast<llvm::FixedVectorType>(lty);
+      llvm::IntegerType *ety =
+        llvm::cast<llvm::IntegerType>(vty->getElementType());
+      vector<llvm::Constant *> v;
+      for (int i = vty->getElementCount().getKnownMinValue()-1; i >= 0; i --) {
+        unsigned bits = ety->getBitWidth();
+        auto elem = trunk.extract((i + 1) * bits - 1, i * bits);
+        // TODO: support undef
+        if (!elem.isConst())
+          return ret;
+        v.push_back(llvm::ConstantInt::get(ety, elem.numeral_string(), 10));
+      }
+      p.second->setC(llvm::ConstantVector::get(v));
+    }
+  }
+
+  goodCount++;
+
+  return ret;
 }
 
 }
