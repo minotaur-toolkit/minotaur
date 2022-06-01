@@ -103,7 +103,6 @@ static bool dom_check(llvm::Value *V, DominatorTree &DT, llvm::Use &U) {
 static bool
 optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
                   TargetLibraryInfo &TLI, MemoryDependenceResults &MD) {
-  llvm_util::initializer llvm_util_init(cerr, F.getParent()->getDataLayout());
 
   smt::solver_print_queries(opt_smt_verbose);
   if (DEBUG_LEVEL > 0)
@@ -153,7 +152,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
       if (duration > 3600) {
         return false;
       }
-      auto [R, constMap, oldcost, newcost] = ES.synthesize(*NewF, TLI);
+      auto [R, oldcost, newcost] = ES.synthesize(*NewF, TLI);
 
       if (enable_caching) {
         if (R) {

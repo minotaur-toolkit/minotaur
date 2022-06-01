@@ -99,12 +99,8 @@ AliveEngine::compareFunctions(IR::Function &Func1, IR::Function &Func2,
   return result;
 }
 
-static Errors find_model(IR::Function &src, IR::Function &tgt,
+static Errors find_model(Transform &t,
                          unordered_map<const IR::Value*, smt::expr> &result) {
-  Transform t;
-  t.src = move(src);
-  t.tgt = move(tgt);
-
   if (debug_tv) {
     TransformPrintOpts print_opts;
     t.print(dbg(), print_opts);
@@ -161,7 +157,6 @@ static Errors find_model(IR::Function &src, IR::Function &tgt,
       }
       continue;
     }
-
 
     dbg()<<"[ERROR] constant synthesizer only supports functions of "
          <<"pointers and vector of integers. "
@@ -254,10 +249,13 @@ AliveEngine::constantSynthesis(IR::Function &Func1, IR::Function &Func2,
                                unsigned &goodCount, unsigned &badCount, unsigned &errorCount,
                                unordered_map<const IR::Value*, ReservedConst*> &inputMap) {
   smt_init->reset();
+  Transform t;
+  t.src = move(Func1);
+  t.tgt = move(Func2);
   // assume type verifies
   std::unordered_map<const IR::Value *, smt::expr> result;
 
-  Errors errs = find_model(Func1, Func2, result);
+  Errors errs = find_model(t, result);
 
   bool ret(errs);
   if (result.empty()) {
