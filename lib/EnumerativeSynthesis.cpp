@@ -397,10 +397,10 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
   return true;
 }
 
-tuple<Inst*, unordered_map<llvm::Argument*, llvm::Constant*>, unsigned, unsigned>
+tuple<Inst*, unsigned, unsigned>
 EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
   if (debug_enumerator) {
-    llvm::errs()<<"working on function\n";
+    dbg()<<"working on function\n";
     F.dump();
   }
   clock_t start = std::clock();
@@ -409,7 +409,6 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
 
   unsigned machinecost = get_machine_cost(&F);
 
-  unordered_map<llvm::Argument *, llvm::Constant *> constMap;
 
   bool changed = false;
 
@@ -464,11 +463,11 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
     getSketches(&*I, Sketches);
 
     if (debug_enumerator) {
-      llvm::errs()<<"---------sketches------------\n";
+      dbg()<<"---------sketches------------\n";
       for (auto &Sketch : Sketches) {
-        cerr<<*Sketch.first<<endl;
+        dbg()<<*Sketch.first<<endl;
       }
-      llvm::errs()<<"-----------------------------\n";
+      dbg()<<"-----------------------------\n";
     }
     unordered_map<string, ReservedConst*> constants;
     unsigned CI = 0;
@@ -574,8 +573,8 @@ push:
       auto &[Tgt, Src, G, HaveC] = *iter;
       unsigned tgt_cost = get_approx_cost(Tgt);
       if (debug_enumerator) {
-        llvm::errs()<<"-- candidate approx_cost(tgt) = " << tgt_cost
-                    << ", approx_cost(src) = " << src_cost <<" --\n";
+        dbg()<<"-- candidate approx_cost(tgt) = " << tgt_cost
+             << ", approx_cost(src) = " << src_cost <<" --\n";
         Tgt->dump();
       }
       auto Func1 = llvm_util::llvm2alive(*Src, TLI);
@@ -584,20 +583,20 @@ push:
         if (debug_enumerator) {
           llvm::errs()<<"error found when converting llvm to alive2\n";
         }
-        return {nullptr, constMap, 0, 0};
+        return {nullptr, 0, 0};
       }
 
       unsigned goodCount = 0, badCount = 0, errorCount = 0;
       if (!HaveC) {
         try {
           AE.compareFunctions(*Func1, *Func2,
-                          goodCount, badCount, errorCount);
+                              goodCount, badCount, errorCount);
         } catch (AliveException e) {
           if (debug_enumerator) {
             llvm::errs()<<e.msg<<"\n";
           }
           if (e.msg == "slow_vcgen") {
-            return {nullptr, constMap, 0, 0};
+            return {nullptr, 0, 0};
           }
         }
       } else {
@@ -610,16 +609,15 @@ push:
             inputMap[&I] = constants[input_name];
           }
         }
-        constMap.clear();
         try {
           AE.constantSynthesis(*Func1, *Func2,
-                            goodCount, badCount, errorCount, inputMap);
+                               goodCount, badCount, errorCount, inputMap);
         } catch (AliveException e) {
           if (debug_enumerator) {
             llvm::errs()<<e.msg<<"\n";
           }
           if (e.msg == "slow_vcgen") {
-            return {nullptr, constMap, 0, 0};
+            return {nullptr, 0, 0};
           }
         }
 
@@ -663,7 +661,7 @@ push:
         if (debug_enumerator) {
           llvm::errs()<<"=== successfully synthesized rhs ===\n";
         }
-        return {R, constMap, machinecost, newcost};
+        return {R, machinecost, newcost};
       } else {
         if (debug_enumerator) {
           llvm::errs()<<"!!! fails machine cost check, keep searching !!!\n";
@@ -671,7 +669,7 @@ push:
       }
     }
   }
-  return {nullptr, constMap, 0, 0};
+  return {nullptr, 0, 0};
 }
 
 };
