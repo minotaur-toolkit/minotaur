@@ -408,9 +408,6 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
   DT.recalculate(F);
 
   unsigned machinecost = get_machine_cost(&F);
-  config::disable_undef_input = disable_undef_input;
-  config::disable_poison_input = disable_poison_input;
-  llvm_util::set_outs(cerr);
 
   unordered_map<llvm::Argument *, llvm::Constant *> constMap;
 
