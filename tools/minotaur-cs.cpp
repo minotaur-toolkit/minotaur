@@ -155,7 +155,8 @@ int main(int argc, char **argv) {
   t.print(cout, print_opts);
 
   std::unordered_map<const IR::Value *, minotaur::ReservedConst*> rmap;
-  minotaur::constantSynthesis(*Func1, *Func2, goodCount, badCount, errorCount, rmap);
+  minotaur::AliveEngine AE;
+  AE.constantSynthesis(*Func1, *Func2, goodCount, badCount, errorCount, rmap);
 
   if (opt_smt_stats)
     smt::solver_print_stats(cerr);

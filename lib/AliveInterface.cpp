@@ -48,11 +48,10 @@ void calculateAndInitConstants(Transform &t);
 
 namespace minotaur {
 
-static optional<smt::smt_initializer> smt_init;
-
 bool
-compareFunctions(IR::Function &Func1, IR::Function &Func2,
-                 unsigned &goodCount, unsigned &badCount, unsigned &errorCount){
+AliveEngine::compareFunctions(IR::Function &Func1, IR::Function &Func2,
+                              unsigned &goodCount, unsigned &badCount,
+                              unsigned &errorCount) {
   smt_init->reset();
   Transform t;
   t.src = move(Func1);
@@ -102,7 +101,6 @@ compareFunctions(IR::Function &Func1, IR::Function &Func2,
 
 static Errors find_model(IR::Function &src, IR::Function &tgt,
                          unordered_map<const IR::Value*, smt::expr> &result) {
-  smt_init->reset();
   Transform t;
   t.src = move(src);
   t.tgt = move(tgt);
@@ -165,9 +163,9 @@ static Errors find_model(IR::Function &src, IR::Function &tgt,
     }
 
 
-    config::dbg()<<"[ERROR] constant synthesizer only supports functions of "
-                 <<"pointers and vector of integers. "
-                 <<"Type "<<ty<<" is found in argument list."<<std::endl;
+    dbg()<<"[ERROR] constant synthesizer only supports functions of "
+         <<"pointers and vector of integers. "
+         <<"Type "<<ty<<" is found in argument list."<<std::endl;
     return errs;
   }
   auto dom_a = sv.domain;
@@ -246,16 +244,16 @@ static Errors find_model(IR::Function &src, IR::Function &tgt,
       s << '\n';
     }
   }
-  //config::dbg()<<s.str();
 
   return errs;
 }
 
 // call constant synthesizer and fill in constMap if synthesis suceeeds
 bool
-constantSynthesis(IR::Function &Func1, IR::Function &Func2,
-                  unsigned &goodCount, unsigned &badCount, unsigned &errorCount,
-                  unordered_map<const IR::Value*, ReservedConst*> &inputMap) {
+AliveEngine::constantSynthesis(IR::Function &Func1, IR::Function &Func2,
+                               unsigned &goodCount, unsigned &badCount, unsigned &errorCount,
+                               unordered_map<const IR::Value*, ReservedConst*> &inputMap) {
+  smt_init->reset();
   // assume type verifies
   std::unordered_map<const IR::Value *, smt::expr> result;
 

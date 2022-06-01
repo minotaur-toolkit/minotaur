@@ -88,14 +88,6 @@ EnumerativeSynthesis::findInputs(llvm::Function &F,
   }
 }
 
-/*
-bool
-EnumerativeSynthesis::propagateAddrsWithGEPs(llvm::Value *V) {
-
-}
-*/
-
-
 bool
 EnumerativeSynthesis::getSketches(llvm::Value *V,
                                   vector<Sketch> &sketches) {
@@ -490,6 +482,9 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
     vector<tuple<llvm::Function*, llvm::Function*, Inst*, bool>> Fns;
     auto FT = F.getFunctionType();
     // sketches -> llvm functions
+
+    AliveEngine AE;
+
     for (auto &Sketch : Sketches) {
       bool HaveC = !Sketch.second.empty();
       auto &G = Sketch.first;
@@ -598,7 +593,7 @@ push:
       unsigned goodCount = 0, badCount = 0, errorCount = 0;
       if (!HaveC) {
         try {
-          compareFunctions(*Func1, *Func2,
+          AE.compareFunctions(*Func1, *Func2,
                           goodCount, badCount, errorCount);
         } catch (AliveException e) {
           if (debug_enumerator) {
@@ -620,7 +615,7 @@ push:
         }
         constMap.clear();
         try {
-          constantSynthesis(*Func1, *Func2,
+          AE.constantSynthesis(*Func1, *Func2,
                             goodCount, badCount, errorCount, inputMap);
         } catch (AliveException e) {
           if (debug_enumerator) {
