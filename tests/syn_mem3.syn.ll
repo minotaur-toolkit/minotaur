@@ -1,4 +1,4 @@
-target datalayout="e"
+target datalayout="E"
 define i128 @src(<2 x i64>* %p) {
   store <2 x i64> <i64 4094, i64 2050>, <2 x i64>* %p
   %p2 = bitcast <2 x i64>* %p to i128*
