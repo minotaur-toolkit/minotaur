@@ -166,8 +166,6 @@ static Errors find_model(Transform &t,
   auto dom_a = sv.domain;
   auto dom_b = tv.domain;
 
-  expr dom = dom_a && dom_b;
-
   auto mk_fml = [&](expr &&refines) -> expr {
     // from the check above we already know that
     // \exists v,v' . pre_tgt(v') && pre_src(v) is SAT (or timeout)
@@ -185,7 +183,16 @@ static Errors find_model(Transform &t,
 
   const Type &ty = t.src.getType();
   auto [poison_cnstr, value_cnstr] = ty.refines(src_state, tgt_state, sv.val, tv.val);
-  auto r = check_expr(mk_fml(dom && value_cnstr && poison_cnstr));
+  expr dom = dom_a && dom_b;
+
+  auto src_mem = src_state.returnMemory();
+  auto tgt_mem = tgt_state.returnMemory();
+  auto [memory_cnstr0, ptr_refinement0, mem_undef]
+    = src_mem.refined(tgt_mem, false);
+  qvars.insert(mem_undef.begin(), mem_undef.end());
+
+  auto r = check_expr(mk_fml(dom && value_cnstr && poison_cnstr && (memory_cnstr0.isTrue() ? memory_cnstr0
+                                        : value_cnstr && memory_cnstr0)));
 
   if (r.isInvalid()) {
     errs.add("Invalid expr", false);
