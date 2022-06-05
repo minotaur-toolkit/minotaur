@@ -191,8 +191,7 @@ static Errors find_model(Transform &t,
     = src_mem.refined(tgt_mem, false);
   qvars.insert(mem_undef.begin(), mem_undef.end());
 
-  auto r = check_expr(mk_fml(dom && value_cnstr && poison_cnstr && (memory_cnstr0.isTrue() ? memory_cnstr0
-                                        : value_cnstr && memory_cnstr0)));
+  auto r = check_expr(mk_fml(dom && value_cnstr && poison_cnstr && memory_cnstr0));
 
   if (r.isInvalid()) {
     errs.add("Invalid expr", false);
