@@ -247,10 +247,18 @@ AliveEngine::constantSynthesis(IR::Function &Func1, IR::Function &Func2,
   Errors errs = find_model(t, result);
 
   bool ret(errs);
+  if (ret) {
+    ++errorCount;
+    if (debug_tv) {
+      dbg()<<"errors found in synthesize constants\n";
+    }
+    return ret;
+  }
+
   if (result.empty()) {
     ++badCount;
     if (debug_tv) {
-      dbg()<<"failed to synthesize constants\n";
+      dbg()<<"unable to find constants\n";
     }
     return ret;
   }
@@ -260,12 +268,11 @@ AliveEngine::constantSynthesis(IR::Function &Func1, IR::Function &Func2,
     auto lty = p.second->getA()->getType();
 
     if (ty.isIntType()) {
-      // TODO, fix, do not use numeral_string()
       p.second->setC(
         llvm::ConstantInt::get(llvm::cast<llvm::IntegerType>(lty),
                                result[p.first].numeral_string(), 10));
     } else if (ty.isFloatType()) {
-      //TODO
+      //TODO: Add support for FP
       UNREACHABLE();
     } else if (ty.isVectorType()) {
       auto trunk = result[p.first];
@@ -276,7 +283,6 @@ AliveEngine::constantSynthesis(IR::Function &Func1, IR::Function &Func2,
       for (int i = vty->getElementCount().getKnownMinValue()-1; i >= 0; i --) {
         unsigned bits = ety->getBitWidth();
         auto elem = trunk.extract((i + 1) * bits - 1, i * bits);
-        // TODO: support undef
         if (!elem.isConst())
           return ret;
         v.push_back(llvm::ConstantInt::get(ety, elem.numeral_string(), 10));
