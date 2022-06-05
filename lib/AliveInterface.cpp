@@ -185,17 +185,6 @@ static Errors find_model(Transform &t,
 
   const Type &ty = t.src.getType();
   auto [poison_cnstr, value_cnstr] = ty.refines(src_state, tgt_state, sv.val, tv.val);
-  if (debug_tv) {
-    dbg()<<"SV"<<std::endl;
-    dbg()<<sv.val<<std::endl;
-    dbg()<<"TV"<<std::endl;
-    dbg()<<tv.val<<std::endl;
-    dbg()<<"Value Constraints"<<std::endl;
-    dbg()<<value_cnstr<<std::endl;
-    dbg()<<"Poison Constraints"<<std::endl;
-    dbg()<<poison_cnstr<<std::endl;
-  }
-
   auto r = check_expr(mk_fml(dom && value_cnstr && poison_cnstr));
 
   if (r.isInvalid()) {
@@ -259,6 +248,7 @@ AliveEngine::constantSynthesis(IR::Function &Func1, IR::Function &Func2,
 
   bool ret(errs);
   if (result.empty()) {
+    ++badCount;
     if (debug_tv) {
       dbg()<<"failed to synthesize constants\n";
     }
@@ -295,7 +285,7 @@ AliveEngine::constantSynthesis(IR::Function &Func1, IR::Function &Func2,
     }
   }
 
-  goodCount++;
+  ++goodCount;
 
   return ret;
 }
