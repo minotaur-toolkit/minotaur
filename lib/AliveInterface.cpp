@@ -147,9 +147,6 @@ static Errors find_model(Transform &t,
       continue;
     }
 
-    if (ty.isPtrType())
-      continue;
-
     if (ty.isVectorType() && ty.getAsAggregateType()->getChild(0).isIntType()) {
       auto aty = ty.getAsAggregateType();
       for (unsigned I = 0; I < aty->numElementsConst(); ++I) {

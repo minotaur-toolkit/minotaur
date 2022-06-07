@@ -1,7 +1,8 @@
 ; CHECK: 37815825351104580816894
 target datalayout="e"
-define i64 @src(<2 x i64>* %p, i1 %foo) {
+define i64 @src(i1 %foo) {
 entry:
+  %p = alloca <2 x i64>
   br i1 %foo, label %t, label %f
 t:
   store <2 x i64> <i64 4094, i64 2050>, <2 x i64>* %p

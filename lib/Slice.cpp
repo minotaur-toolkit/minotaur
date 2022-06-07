@@ -222,7 +222,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
         }
       } else if (auto LI = dyn_cast<LoadInst>(i)) {
         auto dep = MD.getDependency(LI);
-        if (dep.isDef()) {
+        if (dep.isDef() || dep.isClobber()) {
           auto st = dep.getInst();
 
           if (st->getParent() == ibb) {

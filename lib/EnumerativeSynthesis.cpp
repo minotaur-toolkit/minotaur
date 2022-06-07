@@ -400,7 +400,7 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
 tuple<Inst*, unsigned, unsigned>
 EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
   if (debug_enumerator) {
-    dbg()<<"working on function\n";
+    dbg()<<"working on sliced function\n";
     F.dump();
   }
   clock_t start = std::clock();
