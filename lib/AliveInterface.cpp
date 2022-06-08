@@ -101,14 +101,14 @@ AliveEngine::compareFunctions(IR::Function &Func1, IR::Function &Func2,
 
 static Errors find_model(Transform &t,
                          unordered_map<const IR::Value*, smt::expr> &result) {
+  t.preprocess();
+  t.tgt.syncDataWithSrc(t.src);
+  ::calculateAndInitConstants(t);
+
   if (debug_tv) {
     TransformPrintOpts print_opts;
     t.print(dbg(), print_opts);
   }
-
-  t.preprocess();
-  t.tgt.syncDataWithSrc(t.src);
-  ::calculateAndInitConstants(t);
 
   State::resetGlobals();
   IR::State src_state(t.src, true);
@@ -231,7 +231,6 @@ static Errors find_model(Transform &t,
       s << '\n';
     }
   }
-
   return errs;
 }
 
@@ -271,6 +270,8 @@ AliveEngine::constantSynthesis(IR::Function &Func1, IR::Function &Func2,
     auto lty = p.second->getA()->getType();
 
     if (ty.isIntType()) {
+      if (!result[p.first].isConst())
+          return ret;
       p.second->setC(
         llvm::ConstantInt::get(llvm::cast<llvm::IntegerType>(lty),
                                result[p.first].numeral_string(), 10));

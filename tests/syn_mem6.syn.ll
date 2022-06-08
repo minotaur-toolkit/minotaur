@@ -1,4 +1,4 @@
-; CHECK: 37815825351104580816894
+; CHECK: load
 target datalayout="e"
 define i64 @src(i1 %foo) {
 entry:
