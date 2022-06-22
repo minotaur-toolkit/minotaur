@@ -73,7 +73,7 @@ find_library(HIREDIS_LIBRARY
 
 include_directories(${HIREDIS_INCLUDE_DIR}/hiredis)
 
-llvm_map_components_to_libnames(LLVM_LIBS analysis bitwriter core irreader passes scalaropts support transformutils mc AllTargetsMCAs x86codegen x86desc x86info object x86asmparser)
+llvm_map_components_to_libnames(LLVM_LIBS analysis bitwriter core irreader passes scalaropts support transformutils mc  x86codegen x86desc x86info object x86asmparser)
 
 add_library(machine_cost STATIC "lib/MachineCost.cpp")
 target_link_libraries(machine_cost PRIVATE ${LLVM_LIBS})

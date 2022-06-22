@@ -139,6 +139,14 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
           haveUnknownOperand = true;
           break;
         }
+        if (op_ty->isVectorTy()) {
+          auto scalarty = op_ty->getScalarType();
+          if (scalarty->isFloatingPointTy() || scalarty->isPointerTy()) {
+            haveUnknownOperand = true;
+            break;
+          }
+        }
+
         if (CallInst *CI = dyn_cast<CallInst>(w)) {
           if (CI->getCalledOperand() != op && op_ty->isPointerTy()) {
             haveUnknownOperand = true;
@@ -557,4 +565,4 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   return optional<reference_wrapper<Function>>(*F);
 }
 
-} // namespace minotaur
+} // namespace minotaur/ p

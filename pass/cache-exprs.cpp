@@ -20,7 +20,7 @@ using namespace minotaur;
 using namespace std;
 
 namespace {
-
+/*
 void optimizeModule(llvm::Module *M) {
   llvm::LoopAnalysisManager LAM;
   llvm::FunctionAnalysisManager FAM;
@@ -41,7 +41,7 @@ void optimizeModule(llvm::Module *M) {
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
   MPM.run(*M, MAM);
 }
-
+*/
 struct CacheExprsPass : PassInfoMixin<CacheExprsPass> {
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM) {
     //TargetLibraryInfo &TLI = FAM.getResult<TargetLibraryAnalysis>(F);
@@ -87,6 +87,7 @@ struct CacheExprsPass : PassInfoMixin<CacheExprsPass> {
 };
 
 } // namespace
+/*
 
 bool pipelineParsingCallback(StringRef Name, FunctionPassManager &FPM,
                              ArrayRef<PassBuilder::PipelineElement>) {
@@ -100,6 +101,7 @@ bool pipelineParsingCallback(StringRef Name, FunctionPassManager &FPM,
 
   return Res;
 }
+
 
 void passBuilderCallback(PassBuilder &PB) {
   PB.registerPipelineParsingCallback(pipelineParsingCallback);
@@ -123,4 +125,4 @@ PassPluginLibraryInfo getCacheExprsPassPluginInfo() {
 
 extern "C" LLVM_ATTRIBUTE_WEAK PassPluginLibraryInfo llvmGetPassPluginInfo() {
   return getCacheExprsPassPluginInfo();
-}
+}*/

@@ -267,6 +267,7 @@ bool pipelineParsingCallback(StringRef Name, FunctionPassManager &FPM,
   return Result;
 }
 
+/*
 void passBuilderCallback(PassBuilder &PB) {
   PB.registerPipelineParsingCallback(pipelineParsingCallback);
   PB.registerVectorCombineCallback(
@@ -275,7 +276,8 @@ void passBuilderCallback(PassBuilder &PB) {
         FPM.addPass(SuperoptimizerPass());
       });
 }
-
+*/
+/*
 PassPluginLibraryInfo getSuperoptimizerPassPluginInfo() {
   llvm::PassPluginLibraryInfo Res;
 
@@ -289,4 +291,11 @@ PassPluginLibraryInfo getSuperoptimizerPassPluginInfo() {
 
 extern "C" LLVM_ATTRIBUTE_WEAK PassPluginLibraryInfo llvmGetPassPluginInfo() {
   return getSuperoptimizerPassPluginInfo();
+}
+
+*/
+
+
+llvm::Pass *createMinotaurSO(){
+  return new SuperoptimizerLegacyPass();
 }
