@@ -100,6 +100,7 @@ my %newcost;
 my %costdiff;
 my %reduce;
 my %timestamp;
+my %fn_name;
 
 foreach my $opt (@all_keys) {
     my %h = $r->hgetall($opt);
@@ -107,6 +108,7 @@ foreach my $opt (@all_keys) {
     my $oc     = $h{"oldcost"};
     my $nc     = $h{"newcost"};
     my $ts     = $h{"timestamp"};
+    my $fn     = $h{"fn"};
 
     if ($result ne "<no-sol>") {
         $toprint{$opt} = 1;
@@ -123,6 +125,7 @@ foreach my $opt (@all_keys) {
         $reduce{$opt} = ($oc - $nc * 1.0) / $oc;
         $timestamp{$opt} = $ts;
         $rewrite{$opt} = $result;
+        $fn_name{$opt} = $fn;
     } else {
         $noopt_count++;
         #$toprint{$opt} = 0;
@@ -150,11 +153,13 @@ foreach my $opt (sort $byx keys %toprint) {
     my $oc = $oldcost{$opt};
     my $nc = $newcost{$opt};
     my $ts = $timestamp{$opt};
+    my $fn = $fn_name{$opt};
     print $ir, "\n";
     print $rewrite, "\n";
     print "cost before rewrite: $oc\n";
     print "cost after rewrite: $nc\n";
     print "timestamp: $ts\n";
+    print "in fn: $fn\n";
     print "\n------------------------------------------------------\n";
     # print "\n";
     # print "; total static profile = $sprofiles{$opt}\n";

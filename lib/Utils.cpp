@@ -46,12 +46,12 @@ hGet(const char* s, unsigned sz, string &Value, redisContext *c) {
 
 void
 hSet(const char* s, unsigned sz, llvm::StringRef Value, redisContext *c,
-     unsigned oldcost, unsigned newcost) {
+     unsigned oldcost, unsigned newcost, llvm::StringRef FnName) {
   redisReply *reply = (redisReply *)redisCommand(c,
-    "HSET %b rewrite %s oldcost %s newcost %s timestamp %s",
+    "HSET %b rewrite %s oldcost %s newcost %s timestamp %s fn %s",
     s, sz, Value.data(),
     to_string(oldcost).c_str(), to_string(newcost).c_str(),
-    to_string((unsigned long)time(NULL)).c_str());
+    to_string((unsigned long)time(NULL)).c_str(), FnName.data());
   if (!reply || c->err)
     llvm::report_fatal_error((llvm::StringRef)"Redis error: " + c->errstr);
   if (reply->type != REDIS_REPLY_INTEGER) {

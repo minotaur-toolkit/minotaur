@@ -103,7 +103,6 @@ static bool dom_check(llvm::Value *V, DominatorTree &DT, llvm::Use &U) {
 static bool
 optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
                   TargetLibraryInfo &TLI, MemoryDependenceResults &MD) {
-
   smt::solver_print_queries(opt_smt_verbose);
   if (DEBUG_LEVEL > 0)
     llvm::errs()<<"=== start of minotaur run ===\n";
@@ -159,9 +158,9 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
           std::stringstream rs;
           R->print(rs);
           rs.flush();
-          minotaur::hSet(bytecode.c_str(), bytecode.size(), rs.str(), c, oldcost, newcost);
+          minotaur::hSet(bytecode.c_str(), bytecode.size(), rs.str(), c, oldcost, newcost, F.getName());
         } else {
-          minotaur::hSet(bytecode.c_str(), bytecode.size(), "<no-sol>", c, 0, 0);
+          minotaur::hSet(bytecode.c_str(), bytecode.size(), "<no-sol>", c, 0, 0, F.getName());
         }
       }
 
