@@ -231,6 +231,9 @@ static Errors find_model(Transform &t,
       s << '\n';
     }
   }
+  if (debug_tv) {
+    dbg()<<s.str()<<endl;
+  }
   return errs;
 }
 

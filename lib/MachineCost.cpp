@@ -105,6 +105,8 @@ unsigned get_approx_cost(llvm::Function *F) {
         } else {
           cost += 3;
         }
+      } else if (isa<ShuffleVectorInst>(&I)) {
+        cost += 2;
       } else {
         cost += 1;
       }

@@ -139,24 +139,14 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  smt::smt_initializer smt_init;
-  smt_init.reset();
-  Transform t;
-  t.src = move(*Func1);
-  t.tgt = move(*Func2);
-
-  t.preprocess();
-  t.tgt.syncDataWithSrc(t.src);
-
-  ::calculateAndInitConstants(t);
-
-
-  TransformPrintOpts print_opts;
-  t.print(cout, print_opts);
-
+  minotaur::debug_tv = true;
   std::unordered_map<const IR::Value *, minotaur::ReservedConst*> rmap;
   minotaur::AliveEngine AE;
-  AE.constantSynthesis(*Func1, *Func2, goodCount, badCount, errorCount, rmap);
+  try {
+    AE.constantSynthesis(*Func1, *Func2, goodCount, badCount, errorCount, rmap);
+  } catch (AliveException e) {
+    std::cerr<<e.msg<<endl;
+  }
 
   if (opt_smt_stats)
     smt::solver_print_stats(cerr);

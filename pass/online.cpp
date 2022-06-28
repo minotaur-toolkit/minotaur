@@ -53,7 +53,7 @@ namespace {
 llvm::cl::opt<unsigned>
     opt_smt_to("so-smt-to",
                llvm::cl::desc("Superoptimizer: timeout for SMT queries"),
-               llvm::cl::init(10000), llvm::cl::value_desc("ms"));
+               llvm::cl::init(1000000), llvm::cl::value_desc("ms"));
 
 llvm::cl::opt<bool> opt_se_verbose(
     "so-se-verbose",
@@ -103,6 +103,8 @@ static bool dom_check(llvm::Value *V, DominatorTree &DT, llvm::Use &U) {
 static bool
 optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
                   TargetLibraryInfo &TLI, MemoryDependenceResults &MD) {
+  // if (F.getName() != "gen_codes")
+  //     return true;
   smt::solver_print_queries(opt_smt_verbose);
   if (DEBUG_LEVEL > 0)
     llvm::errs()<<"=== start of minotaur run ===\n";
@@ -124,6 +126,8 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
       if (!NewF.has_value())
         continue;
 
+      // if (NewF->get().getReturnType()->isIntegerTy(16))
+      //   continue;
       string bytecode;
       if (enable_caching) {
         llvm::raw_string_ostream bs(bytecode);
@@ -148,7 +152,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
       }
 
       unsigned duration = ( std::clock() - start ) / CLOCKS_PER_SEC;
-      if (duration > 3600) {
+      if (duration > 3600*3) {
         return false;
       }
       auto [R, oldcost, newcost] = ES.synthesize(*NewF, TLI);
