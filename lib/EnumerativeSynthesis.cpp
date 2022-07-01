@@ -584,7 +584,7 @@ push1:
         if (debug_enumerator) {
           llvm::errs()<<"error found when converting llvm to alive2\n";
         }
-        goto push2;
+        return {nullptr, 0, 0};
       }
 
       if (!HaveC) {
@@ -596,7 +596,7 @@ push1:
             llvm::errs()<<e.msg<<"\n";
           }
           if (e.msg == "slow_vcgen") {
-            goto push2;
+             return {nullptr, 0, 0};
           }
         }
       } else {
@@ -617,12 +617,11 @@ push1:
             llvm::errs()<<e.msg<<"\n";
           }
           if (e.msg == "slow_vcgen") {
-            goto push2;
+            return {nullptr, 0, 0};
           }
         }
       }
 
-push2:
       if (HaveC)
         Src->eraseFromParent();
       Tgt->eraseFromParent();
