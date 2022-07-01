@@ -55,6 +55,11 @@ llvm::cl::opt<unsigned>
                llvm::cl::desc("Superoptimizer: timeout for SMT queries"),
                llvm::cl::init(10000), llvm::cl::value_desc("ms"));
 
+llvm::cl::opt<unsigned>
+    opt_problem_to("so-problem-to",
+                  llvm::cl::desc("Superoptimizer: timeout for SMT queries"),
+                  llvm::cl::init(1200), llvm::cl::value_desc("s"));
+
 llvm::cl::opt<bool> opt_se_verbose(
     "so-se-verbose",
     llvm::cl::desc("Superoptimizer: symbolic execution verbose mode"),
@@ -152,7 +157,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
       }
 
       unsigned duration = ( std::clock() - start ) / CLOCKS_PER_SEC;
-      if (duration > 3600) {
+      if (duration > opt_problem_to) {
         return false;
       }
       auto [R, oldcost, newcost] = ES.synthesize(*NewF, TLI);
