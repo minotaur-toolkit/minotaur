@@ -53,7 +53,7 @@ namespace {
 llvm::cl::opt<unsigned>
     opt_smt_to("so-smt-to",
                llvm::cl::desc("Superoptimizer: timeout for SMT queries"),
-               llvm::cl::init(1000000), llvm::cl::value_desc("ms"));
+               llvm::cl::init(10000), llvm::cl::value_desc("ms"));
 
 llvm::cl::opt<bool> opt_se_verbose(
     "so-se-verbose",
