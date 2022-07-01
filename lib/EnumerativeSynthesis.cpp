@@ -47,6 +47,8 @@ using namespace IR;
 
 bool DISABLE_AVX512 = false;
 
+optional<smt::smt_initializer> smt_init;
+
 namespace minotaur {
 
 void
@@ -413,7 +415,7 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
 
   bool changed = false;
 
-  //smt_init.emplace();
+  smt_init.emplace();
   std::unordered_set<llvm::Function *> IntrinsicDecls;
 
   unsigned src_cost = get_approx_cost(&F);

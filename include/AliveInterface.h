@@ -14,16 +14,12 @@ namespace minotaur {
 
 class AliveEngine {
 private:
-  std::optional<smt::smt_initializer> smt_init;
+
 public:
   AliveEngine() {
-    smt_init.emplace();
     util::config::disable_undef_input = disable_undef_input;
     util::config::disable_poison_input = disable_poison_input;
     util::config::set_debug(dbg());
-  }
-  ~AliveEngine() {
-    smt_init.reset();
   }
 
 
