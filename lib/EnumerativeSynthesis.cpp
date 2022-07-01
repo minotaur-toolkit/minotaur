@@ -586,7 +586,7 @@ push:
         }
         return {nullptr, 0, 0};
       }
-
+      smt_init.reset();
       unsigned goodCount = 0, badCount = 0, errorCount = 0;
       if (!HaveC) {
         try {
