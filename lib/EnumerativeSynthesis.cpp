@@ -581,7 +581,7 @@ push1:
 
       unsigned goodCount = 0, badCount = 0, errorCount = 0;
       if (!Func1.has_value() || !Func2.has_value()) {
-        if (debug_enumerator) {
+        if (debug_tv) {
           llvm::errs()<<"error found when converting llvm to alive2\n";
         }
         return {nullptr, 0, 0};
@@ -592,10 +592,10 @@ push1:
           AE.compareFunctions(*Func1, *Func2,
                               goodCount, badCount, errorCount);
         } catch (AliveException e) {
-          if (debug_enumerator) {
+          if (debug_tv) {
             llvm::errs()<<e.msg<<"\n";
           }
-          if (e.msg == "slow_vcgen") {
+          if (e.msg == "slow vcgen") {
              return {nullptr, 0, 0};
           }
         }
@@ -613,10 +613,10 @@ push1:
           AE.constantSynthesis(*Func1, *Func2,
                                goodCount, badCount, errorCount, inputMap);
         } catch (AliveException e) {
-          if (debug_enumerator) {
+          if (debug_tv) {
             llvm::errs()<<e.msg<<"\n";
           }
-          if (e.msg == "slow_vcgen") {
+          if (e.msg == "slow vcgen") {
             return {nullptr, 0, 0};
           }
         }
