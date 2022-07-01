@@ -47,8 +47,6 @@ using namespace IR;
 
 bool DISABLE_AVX512 = false;
 
-optional<smt::smt_initializer> smt_init;
-
 namespace minotaur {
 
 void
@@ -401,7 +399,6 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
 
 tuple<Inst*, unsigned, unsigned>
 EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
-  AliveEngine AE;
   if (debug_enumerator) {
     dbg()<<"working on sliced function\n";
     F.dump();
@@ -415,12 +412,13 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
 
   bool changed = false;
 
-  smt_init.emplace();
   std::unordered_set<llvm::Function *> IntrinsicDecls;
 
   unsigned src_cost = get_approx_cost(&F);
 
   auto DL = F.getParent()->getDataLayout();
+
+  AliveEngine AE;
 
   for (auto &BB : F) {
     auto T = BB.getTerminator();
@@ -546,17 +544,17 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
       bool skip = false;
       if (tgt_cost >= src_cost) {
         skip = true;
-        goto push;
+        goto push1;
       }
 
       // pruning by knownbits
       computeKnownBits(V, KnownV, DL);
       if ((KnownV.Zero & KnownI.One) != 0 || (KnownV.One & KnownI.Zero) != 0) {
         skip = true;
-        goto push;
+        goto push1;
       }
 
-push:
+push1:
       if (skip) {
         Tgt->eraseFromParent();
         if (HaveC)
@@ -580,14 +578,15 @@ push:
       }
       auto Func1 = llvm_util::llvm2alive(*Src, TLI);
       auto Func2 = llvm_util::llvm2alive(*Tgt, TLI);
+
+      unsigned goodCount = 0, badCount = 0, errorCount = 0;
       if (!Func1.has_value() || !Func2.has_value()) {
         if (debug_enumerator) {
           llvm::errs()<<"error found when converting llvm to alive2\n";
         }
-        return {nullptr, 0, 0};
+        goto push2;
       }
-      smt_init.reset();
-      unsigned goodCount = 0, badCount = 0, errorCount = 0;
+
       if (!HaveC) {
         try {
           AE.compareFunctions(*Func1, *Func2,
@@ -597,7 +596,7 @@ push:
             llvm::errs()<<e.msg<<"\n";
           }
           if (e.msg == "slow_vcgen") {
-            return {nullptr, 0, 0};
+            goto push2;
           }
         }
       } else {
@@ -618,12 +617,14 @@ push:
             llvm::errs()<<e.msg<<"\n";
           }
           if (e.msg == "slow_vcgen") {
-            return {nullptr, 0, 0};
+            goto push2;
           }
         }
-
-        Src->eraseFromParent();
       }
+
+push2:
+      if (HaveC)
+        Src->eraseFromParent();
       Tgt->eraseFromParent();
       if (goodCount) {
         R = G;
