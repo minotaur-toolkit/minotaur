@@ -152,7 +152,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
       }
 
       unsigned duration = ( std::clock() - start ) / CLOCKS_PER_SEC;
-      if (duration > 3600*3) {
+      if (duration > 3600) {
         return false;
       }
       auto [R, oldcost, newcost] = ES.synthesize(*NewF, TLI);
