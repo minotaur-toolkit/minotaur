@@ -399,6 +399,7 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
 
 tuple<Inst*, unsigned, unsigned>
 EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
+  AliveEngine AE;
   if (debug_enumerator) {
     dbg()<<"working on sliced function\n";
     F.dump();
@@ -478,8 +479,6 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
     vector<tuple<llvm::Function*, llvm::Function*, Inst*, bool>> Fns;
     auto FT = F.getFunctionType();
     // sketches -> llvm functions
-
-    AliveEngine AE;
 
     for (auto &Sketch : Sketches) {
       bool HaveC = !Sketch.second.empty();

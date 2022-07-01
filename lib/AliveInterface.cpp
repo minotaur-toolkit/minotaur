@@ -52,7 +52,6 @@ bool
 AliveEngine::compareFunctions(IR::Function &Func1, IR::Function &Func2,
                               unsigned &goodCount, unsigned &badCount,
                               unsigned &errorCount) {
-  smt_init->reset();
   Transform t;
   t.src = move(Func1);
   t.tgt = move(Func2);
@@ -242,7 +241,6 @@ bool
 AliveEngine::constantSynthesis(IR::Function &Func1, IR::Function &Func2,
                                unsigned &goodCount, unsigned &badCount, unsigned &errorCount,
                                unordered_map<const IR::Value*, ReservedConst*> &inputMap) {
-  smt_init->reset();
   Transform t;
   t.src = move(Func1);
   t.tgt = move(Func2);
