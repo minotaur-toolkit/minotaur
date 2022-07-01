@@ -18,6 +18,7 @@ private:
 public:
   AliveEngine() {
     smt_init.emplace();
+      smt_init->reset();
     util::config::disable_undef_input = disable_undef_input;
     util::config::disable_poison_input = disable_poison_input;
     util::config::set_debug(dbg());
