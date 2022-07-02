@@ -181,6 +181,12 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
       }
 
       llvm::Value *V = minotaur::LLVMGen(insertpt, IntrinsicDecls).codeGen(R, S.getValueMap());
+
+      if (Instruction *I = dyn_cast<Instruction>(V)) {
+        if (!DT.dominates(I, &BB))
+          continue;
+      }
+
       V = llvm::IRBuilder<>(insertpt).CreateBitCast(V, I.getType());
       I.replaceUsesWithIf(V, [&changed, &V, &DT](Use &U) {
         if(dom_check(V, DT, U)) {
