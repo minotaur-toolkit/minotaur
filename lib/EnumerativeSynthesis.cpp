@@ -544,17 +544,16 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
       bool skip = false;
       if (tgt_cost >= src_cost) {
         skip = true;
-        goto push1;
+        goto push;
       }
 
       // pruning by knownbits
       computeKnownBits(V, KnownV, DL);
       if ((KnownV.Zero & KnownI.One) != 0 || (KnownV.One & KnownI.Zero) != 0) {
         skip = true;
-        goto push1;
+        goto push;
       }
-
-push1:
+push:
       if (skip) {
         Tgt->eraseFromParent();
         if (HaveC)

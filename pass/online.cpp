@@ -191,8 +191,10 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
       });
     }
   }
-  if (changed)
+  if (changed) {
+    F.removeFnAttr("min-legal-vector-width");
     minotaur::eliminate_dead_code(F);
+  }
   redisFree(c);
   if (DEBUG_LEVEL > 0)
     llvm::errs()<<"=== end of minotaur run ===\n";
