@@ -30,6 +30,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Support/KnownBits.h"
 
@@ -536,12 +537,19 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
       V = llvm::IRBuilder<>(PrevI).CreateBitCast(V, PrevI->getType());
       PrevI->replaceAllUsesWith(V);
 
-      eliminate_dead_code(*Tgt);
       unsigned tgt_cost = get_approx_cost(Tgt);
       llvm::KnownBits KnownV(Width);
 
-      // check cost
       bool skip = false;
+      bool illformed = llvm::verifyFunction(*Tgt);
+      if (illformed) {
+        skip = true;
+        goto push;
+      }
+
+      eliminate_dead_code(*Tgt);
+
+      // check cost
       if (tgt_cost >= src_cost) {
         skip = true;
         goto push;
