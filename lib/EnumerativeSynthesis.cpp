@@ -544,7 +544,7 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
       bool skip = false;
       string err;
       llvm::raw_string_ostream err_stream(err);
-      bool illformed = llvm::verifyFunction(*Src, &err_stream);
+      bool illformed = llvm::verifyFunction(*Tgt, &err_stream);
 
       if (illformed) {
         llvm::errs()<<"Error tgt found: "<<err<<"\n";
