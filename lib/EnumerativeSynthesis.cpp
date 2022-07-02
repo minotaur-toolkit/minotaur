@@ -541,8 +541,12 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
       llvm::KnownBits KnownV(Width);
 
       bool skip = false;
-      bool illformed = llvm::verifyFunction(*Tgt);
+        string err;
+      llvm::raw_string_ostream err_stream(err);
+      bool illformed = llvm::verifyFunction(*Tgt, &err_stream);
+
       if (illformed) {
+        llvm::errs()<<err<<"\n";
         skip = true;
         goto push;
       }
