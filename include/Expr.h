@@ -193,7 +193,7 @@ public:
            K == IR::X86IntrinBinOp::x86_avx512_pmulh_w_512 ||
            K == IR::X86IntrinBinOp::x86_avx512_pmulhu_w_512 ||
            K == IR::X86IntrinBinOp::x86_avx512_pmaddw_d_512 ||
-           /*K == IR::X86IntrinBinOp::x86_avx512_pmaddubs_w_512 ||*/
+           K == IR::X86IntrinBinOp::x86_avx512_pmaddubs_w_512 ||
            K == IR::X86IntrinBinOp::x86_avx512_packsswb_512 ||
            K == IR::X86IntrinBinOp::x86_avx512_packuswb_512 ||
            K == IR::X86IntrinBinOp::x86_avx512_packssdw_512 ||
