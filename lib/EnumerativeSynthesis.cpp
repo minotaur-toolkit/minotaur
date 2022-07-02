@@ -537,21 +537,21 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
       V = llvm::IRBuilder<>(PrevI).CreateBitCast(V, PrevI->getType());
       PrevI->replaceAllUsesWith(V);
 
+      eliminate_dead_code(*Tgt);
       unsigned tgt_cost = get_approx_cost(Tgt);
       llvm::KnownBits KnownV(Width);
 
       bool skip = false;
-        string err;
+      string err;
       llvm::raw_string_ostream err_stream(err);
-      bool illformed = llvm::verifyFunction(*Tgt, &err_stream);
+      bool illformed = llvm::verifyFunction(*Src, &err_stream);
 
       if (illformed) {
-        llvm::errs()<<err<<"\n";
+        llvm::errs()<<"Error tgt found: "<<err<<"\n";
+        Tgt->dump();
         skip = true;
         goto push;
       }
-
-      eliminate_dead_code(*Tgt);
 
       // check cost
       if (tgt_cost >= src_cost) {
