@@ -155,7 +155,7 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
       continue;
     if (dynamic_cast<ReservedConst *>(*Op0))
       continue;
-    for (unsigned K = UnaryInst::Op::bitreverse; K <= UnaryInst::Op::cttz; ++K) {
+    for (unsigned K = UnaryInst::Op::bitreverse; K <= UnaryInst::Op::ctpop; ++K) {
       UnaryInst::Op Op = static_cast<UnaryInst::Op>(K);
       vector<type> tys = type::getBinaryInstWorkTypes(expected);
 
