@@ -118,7 +118,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
 
   smt::set_query_timeout(to_string(opt_smt_to));
 
-  redisContext *c = redisConnect("127.0.0.1", 6379);
+  redisContext *ctx = redisConnect("127.0.0.1", 6379);
   bool changed = false;
   for (auto &BB : F) {
     for (auto &I : make_early_inc_range(BB)) {
@@ -139,7 +139,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         WriteBitcodeToFile(*m, bs);
         bs.flush();
         std::string rewrite;
-        if (minotaur::hGet(bytecode.c_str(), bytecode.size(), rewrite, c)) {
+        if (minotaur::hGet(bytecode.c_str(), bytecode.size(), rewrite, ctx)) {
           if (rewrite == "<no-sol>") {
             if (DEBUG_LEVEL > 0) {
               llvm::errs()<<"*** cache matched, but no solution found in previous run, skipping function: \n";
@@ -167,9 +167,10 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
           std::stringstream rs;
           R->print(rs);
           rs.flush();
-          minotaur::hSet(bytecode.c_str(), bytecode.size(), rs.str(), c, oldcost, newcost, F.getName());
+          minotaur::hSet(bytecode.c_str(), bytecode.size(), rs.str(), ctx,
+                         oldcost, newcost, F.getName());
         } else {
-          minotaur::hSet(bytecode.c_str(), bytecode.size(), "<no-sol>", c, 0, 0, F.getName());
+          minotaur::hSet(bytecode.c_str(), bytecode.size(), "<no-sol>", ctx, 0, 0, F.getName());
         }
       }
 
@@ -201,7 +202,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
     F.removeFnAttr("min-legal-vector-width");
     minotaur::eliminate_dead_code(F);
   }
-  redisFree(c);
+  redisFree(ctx);
   if (DEBUG_LEVEL > 0)
     llvm::errs()<<"=== end of minotaur run ===\n";
   return changed;
