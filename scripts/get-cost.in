@@ -3,4 +3,4 @@
 set -e
 set -o pipefail
 
-@LLVM_BINARY_DIR@/bin/clang -march=skx -S -O2 -o - $@ | @LLVM_BINARY_DIR@/bin/llvm-mca --iterations 1 -mcpu=skx | grep "Total uOps" | tr ' ' '\n' | tail -1
+@LLVM_BINARY_DIR@/bin/clang -march=native -S -O2 -o - $@ | @LLVM_BINARY_DIR@/bin/llvm-mca --iterations 1 -mcpu=native | grep "Total uOps" | tr ' ' '\n' | tail -1
