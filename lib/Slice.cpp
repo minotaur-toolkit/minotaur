@@ -123,6 +123,10 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     if (isa<LandingPadInst>(w))
       continue;
 
+    if (isa<FreezeInst>(w)) {
+      continue;
+    }
+
     if (!visited.insert(w).second)
       continue;
 
@@ -131,10 +135,6 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       bool haveUnknownOperand = false;
       for (auto &op : i->operands()) {
         if (isa<ConstantExpr>(op)) {
-          haveUnknownOperand = true;
-          break;
-        }
-        if (isa<FreezeInst>(op)) {
           haveUnknownOperand = true;
           break;
         }
