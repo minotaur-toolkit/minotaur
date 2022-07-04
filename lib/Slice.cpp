@@ -134,6 +134,10 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
           haveUnknownOperand = true;
           break;
         }
+        if (isa<FreezeInst>(op)) {
+          haveUnknownOperand = true;
+          break;
+        }
         auto op_ty = op->getType();
         if (op_ty->isStructTy() || op_ty->isFloatingPointTy() || op_ty->isOpaquePointerTy()) {
           haveUnknownOperand = true;
