@@ -36,21 +36,21 @@ sub runit ($) {
 sub usage() {
     print <<'END';
 Options:
-  -noopts       Dump not-optimizations instead of optimizations
-  -sort=timestamp|costdiff|reduce     Sort optimizations
+  -dumpall                            dump all optimizations
+  -sort=timestamp|costdiff|reduce     sort optimizations
   -verbose
 END
     exit -1;
 }
 
 my $REDISPORT = 6379;
-my $NOOPTS = 0;
+my $DUMPALL = 0;
 my $SORT = "timestamp";
 my $VERBOSE = 0;
 my $UNIX = 0;
 
 GetOptions(
-    "noopts" => \$NOOPTS,
+    "dumpall" => \$DUMPALL,
     "redis-port=i" => \$REDISPORT,
     "sort=s" => \$SORT,
     "verbose" => \$VERBOSE,
@@ -101,34 +101,38 @@ my %costdiff;
 my %reduce;
 my %timestamp;
 my %fn_name;
+my %isnoopt;
 
 foreach my $opt (@all_keys) {
     my %h = $r->hgetall($opt);
     my $result = $h{"rewrite"};
     my $oc     = $h{"oldcost"};
     my $nc     = $h{"newcost"};
-    my $ts     = $h{"timestamp"};
+    my $time   = $h{"timestamp"};
     my $fn     = $h{"fn"};
 
-    if ($result ne "<no-sol>") {
+    if ($oc == 0) {
+        $oc = 1;
+    }
+    if ($nc == 0) {
+        $nc = 1;
+    }
+
+    $isnoopt{$opt} = $result ne "<no-sol>";
+    if ($isnoopt{$opt}) {
         $toprint{$opt} = 1;
         $ir{$opt} = parse($opt, $result);
-        if ($oc == 0) {
-            $oc = 1;
-        }
-        if ($nc == 0) {
-            $nc = 1;
-        }
         $oldcost{$opt} = $oc;
         $newcost{$opt} = $nc;
         $costdiff{$opt} = $oc - $nc;
         $reduce{$opt} = ($oc - $nc * 1.0) / $oc;
-        $timestamp{$opt} = $ts;
+        $timestamp{$opt} = $time;
         $rewrite{$opt} = $result;
         $fn_name{$opt} = $fn;
     } else {
+        $toprint{$opt} = $DUMPALL;
+        $ir{$opt} = parse($opt, $result);
         $noopt_count++;
-        #$toprint{$opt} = 0;
     }
 
 }
@@ -148,18 +152,23 @@ $byx = \&bycostdiff if ($SORT eq "costdiff");
 $byx = \&byreduce if ($SORT eq "reduce");
 
 foreach my $opt (sort $byx keys %toprint) {
-    my $ir = $ir{$opt};
-    my $rewrite = $rewrite{$opt};
-    my $oc = $oldcost{$opt};
-    my $nc = $newcost{$opt};
-    my $ts = $timestamp{$opt};
-    my $fn = $fn_name{$opt};
-    print $ir, "\n";
-    print $rewrite, "\n";
-    print "cost before rewrite: $oc\n";
-    print "cost after rewrite: $nc\n";
-    print "timestamp: $ts\n";
-    print "in fn: $fn\n";
+    my $ir   = $ir{$opt};
+    my $time = $timestamp{$opt};
+    my $fn   = $fn_name{$opt};
+    if (isnoopt{$opt}) {
+        print $ir, "\n";
+    }
+    else {
+        my $rewrite = $rewrite{$opt};
+        my $oc = $oldcost{$opt};
+        my $nc = $newcost{$opt};
+        print $ir, "\n";
+        print $rewrite, "\n";
+        print "cost before rewrite: $oc\n";
+        print "cost after rewrite: $nc\n";
+        print "timestamp: $time\n";
+        print "in fn: $fn\n";
+    }
     print "\n------------------------------------------------------\n";
     # print "\n";
     # print "; total static profile = $sprofiles{$opt}\n";
