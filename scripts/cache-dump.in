@@ -120,6 +120,7 @@ if ($DUMPALL) {
             open(my $fh, ">", "dump_$count.ll");
             print $fh $ir;
             $fh->flush();
+            close $fh;
         } else {
             print $ir, "\n";
             print "timestamp: $time\n";
