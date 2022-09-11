@@ -36,7 +36,8 @@ sub runit ($) {
 sub usage() {
     print <<'END';
 Options:
-  -dumpall                            dump all optimizations
+  -dumpall                            dump all LHSs
+  -tofiles                            dump all LHSs to files
   -sort=timestamp|costdiff|reduce     sort optimizations
   -verbose
 END
@@ -45,12 +46,14 @@ END
 
 my $REDISPORT = 6379;
 my $DUMPALL = 0;
+my $TOFILES = 0;
 my $SORT = "timestamp";
 my $VERBOSE = 0;
 my $UNIX = 0;
 
 GetOptions(
     "dumpall" => \$DUMPALL,
+    "tofiles" => \$TOFILES,
     "redis-port=i" => \$REDISPORT,
     "sort=s" => \$SORT,
     "verbose" => \$VERBOSE,
@@ -104,17 +107,26 @@ my %timestamp;
 my %fn_name;
 my %noopt;
 
+
 if ($DUMPALL) {
     print "; Dumping all ".scalar(keys @all_keys)." rewrites\n";
+    my $count = 0;
     foreach my $opt (@all_keys) {
         my %h = $r->hgetall($opt);
         my $time   = $h{"timestamp"};
         my $fn     = $h{"fn"};
         my $ir     = parse($opt);
-        print $ir, "\n";
-        print "timestamp: $time\n";
-        print "in fn: $fn\n";
-        print "\n------------------------------------------------------\n";
+        if ($TOFILES) {
+            open(my $fh, ">", "dump_$count.ll");
+            print $fh $ir;
+            $fh->flush();
+        } else {
+            print $ir, "\n";
+            print "timestamp: $time\n";
+            print "in fn: $fn\n";
+            print "\n------------------------------------------------------\n";
+        }
+        $count = $count + 1;
     }
     exit(0);
 }
