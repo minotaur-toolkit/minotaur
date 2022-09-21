@@ -587,8 +587,8 @@ push:
              << ", approx_cost(src) = " << src_cost <<" --\n";
         Tgt->dump();
       }
-      auto Func1 = llvm_util::llvm2alive(*Src, TLI);
-      auto Func2 = llvm_util::llvm2alive(*Tgt, TLI);
+      auto Func1 = llvm_util::llvm2alive(*Src, TLI, true);
+      auto Func2 = llvm_util::llvm2alive(*Tgt, TLI, true);
 
       unsigned goodCount = 0, badCount = 0, errorCount = 0;
       if (!Func1.has_value() || !Func2.has_value()) {

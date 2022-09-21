@@ -120,7 +120,7 @@ int main(int argc, char **argv) {
   unsigned goodCount = 0, badCount = 0, errorCount = 0;
   auto Func1 =
     llvm_util::llvm2alive(*SRC, llvm::TargetLibraryInfoWrapperPass(targetTriple)
-                                .getTLI(*SRC));
+                                .getTLI(*SRC), true);
 
   if (!Func1) {
     cerr << "ERROR: Could not translate '" << SRC->getName().str()
@@ -131,7 +131,7 @@ int main(int argc, char **argv) {
 
   auto Func2 =
     llvm_util::llvm2alive(*TGT, llvm::TargetLibraryInfoWrapperPass(targetTriple)
-                                .getTLI(*TGT));
+                                .getTLI(*TGT), true);
   if (!Func2) {
     cerr << "ERROR: Could not translate '" << TGT->getName().str()
          << "' to Alive IR\n";

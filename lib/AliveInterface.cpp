@@ -181,13 +181,13 @@ static Errors find_model(Transform &t,
   auto [poison_cnstr, value_cnstr] = ty.refines(src_state, tgt_state, sv.val, tv.val);
   expr dom = dom_a && dom_b;
 
-  auto src_mem = src_state.returnMemory();
+/*  auto src_mem = src_state.returnMemory();
   auto tgt_mem = tgt_state.returnMemory();
   auto [memory_cnstr0, ptr_refinement0, mem_undef]
     = src_mem.refined(tgt_mem, false);
-  qvars.insert(mem_undef.begin(), mem_undef.end());
+  qvars.insert(mem_undef.begin(), mem_undef.end());*/
 
-  auto r = check_expr(mk_fml(dom && value_cnstr && poison_cnstr && memory_cnstr0));
+  auto r = check_expr(mk_fml(dom && value_cnstr && poison_cnstr /*&& memory_cnstr0*/));
 
   if (r.isInvalid()) {
     errs.add("Invalid expr", false);
