@@ -7,6 +7,7 @@
 #include <sstream>
 
 using namespace std;
+using namespace parse;
 
 TEST(ParseTest, RoundTrip) {
   std::string Tests[] = {
@@ -17,7 +18,12 @@ TEST(ParseTest, RoundTrip) {
 
   for (const auto &T : Tests) {
     vector<unique_ptr<minotaur::Inst>> exprs;
-    minotaur::Inst *I = parse::parse(T, exprs);
+    minotaur::Inst *I = nullptr;
+    try {
+      I = parse::parse(T, exprs);
+    } catch (parse::ParseException E) {
+      cerr<<E.str<<endl;
+    }
     ASSERT_TRUE(I != nullptr);
     std::stringstream rs;
     I->print(rs);
