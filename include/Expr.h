@@ -3,6 +3,7 @@
 #pragma once
 
 #include <Type.h>
+#include "llvm/ADT/APInt.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/IRBuilder.h"
@@ -57,6 +58,8 @@ class ReservedConst final : public Value {
   type ty;
 public:
   ReservedConst(type t) : Value(t.getWidth()), A(nullptr), C(nullptr), ty(t) {}
+  ReservedConst(type t, llvm::APInt value);
+  ReservedConst(type t, std::vector<llvm::APInt> Values);
   type getType() { return ty; }
   void print(std::ostream &os) const override;
   llvm::Argument *getA () const { return A; }

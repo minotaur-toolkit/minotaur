@@ -143,6 +143,7 @@ ReservedConst* parse_const(vector<unique_ptr<minotaur::Inst>>&exprs) {
     unsigned value = yylval.num;
   }
   tokenizer.ensure(RPAREN);
+  return nullptr;
   /*
   tokenizer.ensure(NUM);
   unsigned width = yylval.num;
