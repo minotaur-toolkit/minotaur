@@ -96,19 +96,7 @@ private:
 
 static tokenizer_t tokenizer;
 
-Value* parse_expr(vector<unique_ptr<minotaur::Inst>>&);
-
-Var* parse_var(vector<unique_ptr<minotaur::Inst>>&exprs) {
-  tokenizer.ensure(NUM);
-  unsigned width = yylval.num;
-  tokenizer.ensure(REGISTER);
-  string id(yylval.str);
-  tokenizer.ensure(RPAREN);
-  auto V = make_unique<Var>(id, width);
-  Var *T = V.get();
-  exprs.emplace_back(move(V));
-  return T;
-}
+static Value* parse_expr(vector<unique_ptr<minotaur::Inst>>&);
 
 static type parse_vector_type() {
   tokenizer.ensure(VECTOR_TYPE_PREFIX);
@@ -120,6 +108,50 @@ static type parse_vector_type() {
 
   return type(elements, bits, false);
 }
+
+static type parse_scalar_type() {
+  tokenizer.ensure(INT_TYPE);
+  unsigned bits = yylval.num;
+  return type(1, bits, false);
+}
+
+static type parse_type(token op_token) {
+  switch (op_token) {
+  case VECTOR_TYPE_PREFIX:
+    return parse_vector_type();
+  case INT_TYPE:
+    return parse_scalar_type();
+  default:
+    UNREACHABLE();
+  }
+}
+
+static Var* parse_var(vector<unique_ptr<minotaur::Inst>>&exprs) {
+  tokenizer.ensure(NUM);
+  unsigned width = yylval.num;
+  tokenizer.ensure(REGISTER);
+  string id(yylval.str);
+  tokenizer.ensure(RPAREN);
+  auto V = make_unique<Var>(id, width);
+  Var *T = V.get();
+  exprs.emplace_back(move(V));
+  return T;
+}
+
+ReservedConst* parse_const(vector<unique_ptr<minotaur::Inst>>&exprs) {
+  /*
+  tokenizer.ensure(NUM);
+  unsigned width = yylval.num;
+  tokenizer.ensure(REGISTER);
+  string id(yylval.str);
+  tokenizer.ensure(RPAREN);
+  auto V = make_unique<Var>(id, width);
+  Var *T = V.get();
+  exprs.emplace_back(move(V));
+  return T;
+  */
+}
+
 
 Value* parse_binop(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
   BinaryInst::Op op;
@@ -164,6 +196,8 @@ Value* parse_expr(vector<unique_ptr<minotaur::Inst>>&exprs) {
     return parse_binop(t, exprs);
   case VAR:
     return parse_var(exprs);
+  case CONST:
+    return parse_const(exprs);
   default:
     UNREACHABLE();
   }

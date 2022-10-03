@@ -25,7 +25,7 @@ void ReservedConst::print(ostream &os) const {
     llvm::raw_string_ostream ss(str);
     C->print(ss);
     ss.flush();
-    os << "(const '" << str << "')";
+    os << "(const " << str << ")";
   } else {
     os << "reservedconst";
   }
