@@ -1,7 +1,6 @@
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
 #include "Expr.h"
-#include "Type.h"
 #include "ir/instr.h"
 
 #include <string>
@@ -19,14 +18,6 @@ ostream& operator<<(ostream &os, const Inst &val) {
 
 void Var::print(ostream &os) const {
   os << "(var " << width << " " << name <<")";
-}
-
-ReservedConst::ReservedConst(type t, APInt value) : Value(t.getWidth()), ty(t) {
-
-}
-
-ReservedConst::ReservedConst(type t, vector<APInt> values) : Value(t.getWidth()), ty(t) {
-  
 }
 
 void ReservedConst::print(ostream &os) const {

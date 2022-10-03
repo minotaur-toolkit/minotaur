@@ -58,8 +58,8 @@ class ReservedConst final : public Value {
   type ty;
 public:
   ReservedConst(type t) : Value(t.getWidth()), A(nullptr), C(nullptr), ty(t) {}
-  ReservedConst(type t, llvm::APInt value);
-  ReservedConst(type t, std::vector<llvm::APInt> Values);
+  ReservedConst(type t, llvm::Constant *C) 
+    : Value(t.getWidth()), A(nullptr), C(C), ty(t) {}
   type getType() { return ty; }
   void print(std::ostream &os) const override;
   llvm::Argument *getA () const { return A; }

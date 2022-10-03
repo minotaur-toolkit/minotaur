@@ -136,11 +136,13 @@ static Var* parse_var(vector<unique_ptr<minotaur::Inst>>&exprs) {
 
 ReservedConst* parse_const(vector<unique_ptr<minotaur::Inst>>&exprs) {
   type t = parse_type();
+  ReservedConst *RC = nullptr;
   if (t.isVector()) {
 
   } else {
     tokenizer.ensure(NUM);
     unsigned value = yylval.num;
+
   }
   tokenizer.ensure(RPAREN);
   return nullptr;
