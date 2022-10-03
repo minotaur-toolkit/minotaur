@@ -13,7 +13,7 @@ TEST(ParseTest, RoundTrip) {
   std::string Tests[] = {
     "(add <1 x i32> (var 4 %0) (var 4 %0))",
     "(sub <1 x i8> (var 4 %0) (var 4 %0))",
-    "(sub <1 x i8> (var 4 %0) (var 4 16))",
+    "(sub <1 x i8> (var 4 %0) (const i4 16))",
   };
 
   for (const auto &T : Tests) {

@@ -105,7 +105,6 @@ static type parse_vector_type() {
   tokenizer.ensure(INT_TYPE);
   unsigned bits = yylval.num;
   tokenizer.ensure(CSGT);
-
   return type(elements, bits, false);
 }
 
@@ -115,15 +114,12 @@ static type parse_scalar_type() {
   return type(1, bits, false);
 }
 
-static type parse_type(token op_token) {
-  switch (op_token) {
-  case VECTOR_TYPE_PREFIX:
-    return parse_vector_type();
-  case INT_TYPE:
+static type parse_type() {
+  if (tokenizer.isScalarType())
     return parse_scalar_type();
-  default:
-    UNREACHABLE();
-  }
+  else if (tokenizer.isVectorType())
+    return parse_vector_type();
+  UNREACHABLE();
 }
 
 static Var* parse_var(vector<unique_ptr<minotaur::Inst>>&exprs) {
@@ -139,6 +135,14 @@ static Var* parse_var(vector<unique_ptr<minotaur::Inst>>&exprs) {
 }
 
 ReservedConst* parse_const(vector<unique_ptr<minotaur::Inst>>&exprs) {
+  type t = parse_type();
+  if (t.isVector()) {
+
+  } else {
+    tokenizer.ensure(NUM);
+    unsigned value = yylval.num;
+  }
+  tokenizer.ensure(RPAREN);
   /*
   tokenizer.ensure(NUM);
   unsigned width = yylval.num;
