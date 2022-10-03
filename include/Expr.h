@@ -8,6 +8,7 @@
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "ir/instr.h"
@@ -54,17 +55,18 @@ public:
 
 class ReservedConst final : public Value {
   llvm::Argument *A;
-  llvm::Constant *C;
+  //llvm::Constant *C;
+  std::vector<llvm::APInt> Values;
   type ty;
 public:
-  ReservedConst(type t) : Value(t.getWidth()), A(nullptr), C(nullptr), ty(t) {}
-  ReservedConst(type t, llvm::Constant *C) 
-    : Value(t.getWidth()), A(nullptr), C(C), ty(t) {}
+  ReservedConst(type t) : Value(t.getWidth()), A(nullptr), ty(t) {}
+  ReservedConst(type t, llvm::Constant *C);
   type getType() { return ty; }
   void print(std::ostream &os) const override;
   llvm::Argument *getA () const { return A; }
-  llvm::Constant *getC () const { return C; }
-  void setC(llvm::Constant* C) { this->C = C; }
+  std::vector<llvm::APInt> getValues () const { return Values; }
+  llvm::Constant *getAsLLVMConstant(llvm::LLVMContext &) const;
+  void setC(std::vector<llvm::APInt> values) { this->Values = values; }
   void setA (llvm::Argument *Arg) { A = Arg; }
 };
 

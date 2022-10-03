@@ -6,6 +6,7 @@
 
 #include "iostream"
 #include "util/compiler.h"
+#include "llvm/ADT/APInt.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/IR/InstIterator.h"

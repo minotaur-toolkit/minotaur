@@ -2,6 +2,8 @@
 // Distributed under the MIT license that can be found in the LICENSE file.
 #include "Expr.h"
 #include "ir/instr.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/LLVMContext.h"
 
 #include <string>
 #include <iostream>
@@ -20,11 +22,29 @@ void Var::print(ostream &os) const {
   os << "(var " << width << " " << name <<")";
 }
 
+ReservedConst::ReservedConst(type t, llvm::Constant *C)
+    : Value(t.getWidth()), A(nullptr), ty(t) {
+  if (ConstantInt *CI = dyn_cast<ConstantInt>(C)){
+    Values.push_back(CI->getValue());
+  } else if (ConstantVector *CV = dyn_cast<ConstantVector>(C)) {
+    for (auto V : CV->operand_values()) {
+      ConstantInt *CI = cast<llvm::ConstantInt>(V);
+      Values.push_back(CI->getValue());
+    }
+  }
+}
+
+llvm::Constant *ReservedConst::getAsLLVMConstant(llvm::LLVMContext &C) const {
+  return nullptr;
+}
+
 void ReservedConst::print(ostream &os) const {
-  if (C) {
+  if (!Values.empty()) {
     string str;
     llvm::raw_string_ostream ss(str);
-    C->print(ss);
+    for (auto V: Values) {
+      V.print(ss, false);
+    }
     ss.flush();
     os << "(const " << str << ")";
   } else {

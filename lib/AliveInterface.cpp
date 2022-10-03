@@ -273,9 +273,9 @@ AliveEngine::constantSynthesis(IR::Function &Func1, IR::Function &Func2,
     if (ty.isIntType()) {
       if (!result[p.first].isConst())
           return ret;
-      p.second->setC(
-        llvm::ConstantInt::get(llvm::cast<llvm::IntegerType>(lty),
-                               result[p.first].numeral_string(), 10));
+      unsigned bits = llvm::cast<llvm::IntegerType>(lty)->getBitWidth();
+      p.second->setC({
+        llvm::APInt(bits, result[p.first].numeral_string(), 10)});
     } else if (ty.isFloatType()) {
       //TODO: Add support for FP
       UNREACHABLE();
@@ -284,15 +284,16 @@ AliveEngine::constantSynthesis(IR::Function &Func1, IR::Function &Func2,
       llvm::FixedVectorType *vty = llvm::cast<llvm::FixedVectorType>(lty);
       llvm::IntegerType *ety =
         llvm::cast<llvm::IntegerType>(vty->getElementType());
-      vector<llvm::Constant *> v;
+      vector<llvm::APInt> v;
       for (int i = vty->getElementCount().getKnownMinValue()-1; i >= 0; i --) {
         unsigned bits = ety->getBitWidth();
         auto elem = trunk.extract((i + 1) * bits - 1, i * bits);
         if (!elem.isConst())
           return ret;
-        v.push_back(llvm::ConstantInt::get(ety, elem.numeral_string(), 10));
+        v.push_back(
+          llvm::APInt(bits, result[p.first].numeral_string(), 10));
       }
-      p.second->setC(llvm::ConstantVector::get(v));
+      p.second->setC(v);
     }
   }
 

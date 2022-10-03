@@ -19,9 +19,10 @@ public:
   type(const type &t)
   : lane(t.getLane()), bits(t.getBits()), pointer(t.isPointer()) {}
 
-  bool isVector() {
-    return lane != 1;
-  }
+  bool isVector() const { return lane > 1; }
+
+  bool isScalar() const { return lane == 1; }
+
 
   bool operator==(const type &rhs) const;
   bool same_width(const type &rhs) const;

@@ -207,9 +207,9 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap) {
                                        cast<Instruction>(b.GetInsertPoint()));
     return CI;
   } else if (auto RC = dynamic_cast<ReservedConst *>(I)) {
-    llvm::Constant *C = RC->getC();
-    if (C) {
-      return C;
+    llvm::Constant *LC = RC->getAsLLVMConstant(C);
+    if (LC) {
+      return LC;
     } else {
       return RC->getA();
     }
