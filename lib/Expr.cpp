@@ -38,7 +38,6 @@ ReservedConst::ReservedConst(type t, llvm::Constant *C)
 llvm::Constant *ReservedConst::getAsLLVMConstant(llvm::LLVMContext &C) const {
   auto llvm_ty = ty.toLLVM(C);
   if (ty.isScalar()) {
-    ConstantInt::get(llvm_ty, Values.back())->dump();
     return ConstantInt::get(llvm_ty, Values.back());
   } else if (ty.isVector()) {
     llvm::FixedVectorType *vty = llvm::cast<llvm::FixedVectorType>(llvm_ty);
