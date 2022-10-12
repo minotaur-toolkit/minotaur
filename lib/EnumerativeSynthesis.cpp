@@ -669,7 +669,8 @@ push:
         llvm::errs()<<"=== optimized ir (uops="<<newcost<<") ===\n";
         F.dump();
       }
-      if (!machinecost || !newcost || newcost <= machinecost) {
+      if (ignore_machine_cost ||
+          !machinecost || !newcost || newcost <= machinecost) {
         if (debug_enumerator) {
           llvm::errs()<<"=== successfully synthesized rhs ===\n";
         }

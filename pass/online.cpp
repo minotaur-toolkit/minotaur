@@ -1,5 +1,6 @@
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
+#include "Config.h"
 #include "EnumerativeSynthesis.h"
 #include "LLVMGen.h"
 #include "Slice.h"
@@ -85,6 +86,11 @@ llvm::cl::opt<bool> enable_caching(
     llvm::cl::desc("Superoptimizer: enable result caching"),
     llvm::cl::init(true));
 
+llvm::cl::opt<bool> ignore_mca(
+    "minotaur-ignore-machine-cost",
+    llvm::cl::desc("Superoptimizer: ignore llvm-mca cost model"),
+    llvm::cl::init(false));
+
 llvm::cl::opt<bool> opt_debug("so-dbg",
                               llvm::cl::desc("Superoptimizer: Show debug data"),
                               llvm::cl::init(false), llvm::cl::Hidden);
@@ -108,8 +114,7 @@ static bool dom_check(llvm::Value *V, DominatorTree &DT, llvm::Use &U) {
 static bool
 optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
                   TargetLibraryInfo &TLI, MemoryDependenceResults &MD) {
-  // if (F.getName() != "gen_codes")
-  //     return true;
+  minotaur::ignore_machine_cost = ignore_mca;
   smt::solver_print_queries(opt_smt_verbose);
   if (DEBUG_LEVEL > 0)
     llvm::errs()<<"=== start of minotaur run ===\n";
