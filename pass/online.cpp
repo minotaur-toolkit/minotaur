@@ -52,35 +52,35 @@ static constexpr unsigned DEBUG_LEVEL = 0;
 
 namespace {
 
-llvm::cl::opt<unsigned>
-    opt_smt_to("so-smt-to",
-               llvm::cl::desc("Superoptimizer: timeout for SMT queries"),
-               llvm::cl::init(10000), llvm::cl::value_desc("ms"));
+llvm::cl::opt<unsigned> opt_smt_to(
+    "so-smt-to",
+    llvm::cl::desc("Superoptimizer: timeout for SMT queries"),
+    llvm::cl::init(10000), llvm::cl::value_desc("ms"));
 
-llvm::cl::opt<unsigned>
-    opt_problem_to("so-problem-to",
-                  llvm::cl::desc("Superoptimizer: timeout for SMT queries"),
-                  llvm::cl::init(1200), llvm::cl::value_desc("s"));
+llvm::cl::opt<unsigned> opt_problem_to(
+    "so-problem-to",
+    llvm::cl::desc("Superoptimizer: timeout for SMT queries"),
+    llvm::cl::init(1200), llvm::cl::value_desc("s"));
 
 llvm::cl::opt<bool> opt_se_verbose(
     "so-se-verbose",
     llvm::cl::desc("Superoptimizer: symbolic execution verbose mode"),
     llvm::cl::init(false));
 
-llvm::cl::opt<bool>
-    opt_smt_stats("so-smt-stats",
-                  llvm::cl::desc("Superoptimizer: show SMT statistics"),
-                  llvm::cl::init(false));
+llvm::cl::opt<bool> opt_smt_stats(
+    "so-smt-stats",
+    llvm::cl::desc("Superoptimizer: show SMT statistics"),
+    llvm::cl::init(false));
 
-llvm::cl::opt<bool>
-    opt_smt_skip("so-smt-skip",
-                 llvm::cl::desc("Superoptimizer: skip SMT queries"),
-                 llvm::cl::init(false));
+llvm::cl::opt<bool> opt_smt_skip(
+    "so-smt-skip",
+    llvm::cl::desc("Superoptimizer: skip SMT queries"),
+    llvm::cl::init(false));
 
-llvm::cl::opt<bool>
-    opt_smt_verbose("so-smt-verbose",
-                    llvm::cl::desc("Superoptimizer: SMT verbose mode"),
-                    llvm::cl::init(false));
+llvm::cl::opt<bool> opt_smt_verbose(
+    "so-smt-verbose",
+    llvm::cl::desc("Superoptimizer: SMT verbose mode"),
+    llvm::cl::init(false));
 
 llvm::cl::opt<bool> enable_caching(
     "minotaur-enable-caching",
@@ -92,15 +92,11 @@ llvm::cl::opt<bool> ignore_mca(
     llvm::cl::desc("Superoptimizer: ignore llvm-mca cost model"),
     llvm::cl::init(false));
 
-llvm::cl::opt<bool> opt_debug("so-dbg",
-                              llvm::cl::desc("Superoptimizer: Show debug data"),
-                              llvm::cl::init(false), llvm::cl::Hidden);
+llvm::cl::opt<bool> opt_debug(
+    "minotaur-debug",
+    llvm::cl::desc("Superoptimizer: Show debug data"),
+    llvm::cl::init(false), llvm::cl::Hidden);
 
-llvm::cl::opt<unsigned> opt_omit_array_size(
-    "so-omit-array-size",
-    llvm::cl::desc("Omit an array initializer if it has elements more than "
-                   "this number"),
-    llvm::cl::init(-1));
 
 static bool dom_check(llvm::Value *V, DominatorTree &DT, llvm::Use &U) {
   if (auto I = dyn_cast<Instruction> (V)) {
@@ -116,6 +112,7 @@ static bool
 optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
                   TargetLibraryInfo &TLI, MemoryDependenceResults &MD) {
   config::ignore_machine_cost = ignore_mca;
+  config::debug_enumerator = opt_debug;
   smt::solver_print_queries(opt_smt_verbose);
   if (DEBUG_LEVEL > 0)
     llvm::errs()<<"=== start of minotaur run ===\n";
@@ -148,7 +145,8 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         if (minotaur::hGet(bytecode.c_str(), bytecode.size(), rewrite, ctx)) {
           if (rewrite == "<no-sol>") {
             if (DEBUG_LEVEL > 0) {
-              llvm::errs()<<"*** cache matched, but no solution found in previous run, skipping function: \n";
+              llvm::errs()<<"*** cache matched, but no solution found in"
+                            "previous run, skipping function: \n";
               (*NewF).get().dump();
             }
             continue;
@@ -256,7 +254,7 @@ char SuperoptimizerLegacyPass::ID = 0;
 } // namespace
 
 namespace llvm {
-llvm::RegisterPass<SuperoptimizerLegacyPass> X("so", "Superoptimizer", false, false);
+RegisterPass<SuperoptimizerLegacyPass> X("so", "Superoptimizer", false, false);
 }
 
 namespace {
