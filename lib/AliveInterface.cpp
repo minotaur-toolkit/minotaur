@@ -189,7 +189,7 @@ static Errors find_model(Transform &t,
 
   // TODO: dom check seems redundant
   // TODO: add memory back here
-  auto r = check_expr(mk_fml(value_cnstr && poison_cnstr));
+  auto r = check_expr(mk_fml(poison_cnstr && value_cnstr));
 
   if (r.isInvalid()) {
     errs.add("Invalid expr", false);
@@ -260,14 +260,6 @@ AliveEngine::constantSynthesis(IR::Function &Func1, IR::Function &Func2,
     }
     return ret;
   }
-
-  /*if (result.empty()) {
-    ++badCount;
-    if (debug_tv) {
-      dbg()<<"unable to find constants\n";
-    }
-    return ret;
-  }*/
 
   for (auto p : inputMap) {
     auto &ty = p.first->getType();
