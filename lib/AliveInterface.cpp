@@ -187,7 +187,9 @@ static Errors find_model(Transform &t,
     = src_mem.refined(tgt_mem, false);
   qvars.insert(mem_undef.begin(), mem_undef.end());*/
 
-  auto r = check_expr(mk_fml(dom && value_cnstr && poison_cnstr /*&& memory_cnstr0*/));
+  // TODO: dom check seems redundant
+  // TODO: add memory back here
+  auto r = check_expr(mk_fml(value_cnstr && poison_cnstr));
 
   if (r.isInvalid()) {
     errs.add("Invalid expr", false);
@@ -253,18 +255,19 @@ AliveEngine::constantSynthesis(IR::Function &Func1, IR::Function &Func2,
   if (ret) {
     ++errorCount;
     if (debug_tv) {
-      dbg()<<"errors found in synthesize constants\n";
+      dbg()<<"unable to find constants: \n";
+      dbg()<<errs;
     }
     return ret;
   }
 
-  if (result.empty()) {
+  /*if (result.empty()) {
     ++badCount;
     if (debug_tv) {
       dbg()<<"unable to find constants\n";
     }
     return ret;
-  }
+  }*/
 
   for (auto p : inputMap) {
     auto &ty = p.first->getType();
