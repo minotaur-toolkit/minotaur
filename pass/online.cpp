@@ -46,6 +46,7 @@
 
 using namespace std;
 using namespace llvm;
+using namespace minotaur;
 
 static constexpr unsigned DEBUG_LEVEL = 0;
 
@@ -114,7 +115,7 @@ static bool dom_check(llvm::Value *V, DominatorTree &DT, llvm::Use &U) {
 static bool
 optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
                   TargetLibraryInfo &TLI, MemoryDependenceResults &MD) {
-  minotaur::ignore_machine_cost = ignore_mca;
+  config::ignore_machine_cost = ignore_mca;
   smt::solver_print_queries(opt_smt_verbose);
   if (DEBUG_LEVEL > 0)
     llvm::errs()<<"=== start of minotaur run ===\n";
@@ -155,7 +156,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         }
       }
 
-      minotaur::EnumerativeSynthesis ES;
+      EnumerativeSynthesis ES;
       if (DEBUG_LEVEL > 0) {
         llvm::errs()<<"*** working on Function:\n";
         (*NewF).get().dump();
@@ -169,24 +170,25 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
 
       if (enable_caching) {
         if (R) {
-          std::stringstream rs;
+          stringstream rs;
           R->print(rs);
           rs.flush();
-          minotaur::hSet(bytecode.c_str(), bytecode.size(), rs.str(), ctx,
-                         oldcost, newcost, F.getName());
+          hSet(bytecode.c_str(), bytecode.size(), rs.str(),
+               ctx, oldcost, newcost, F.getName());
         } else {
-          minotaur::hSet(bytecode.c_str(), bytecode.size(), "<no-sol>", ctx, 0, 0, F.getName());
+          hSet(bytecode.c_str(), bytecode.size(), "<no-sol>",
+               ctx, 0, 0, F.getName());
         }
       }
 
       if (!R) continue;
-      std::unordered_set<llvm::Function *> IntrinsicDecls;
-      llvm::Instruction *insertpt = &I;
+      unordered_set<llvm::Function *> IntrinsicDecls;
+      Instruction *insertpt = &I;
       while(isa<PHINode>(insertpt)) {
         insertpt = insertpt->getNextNode();
       }
 
-      llvm::Value *V = minotaur::LLVMGen(insertpt, IntrinsicDecls).codeGen(R, S.getValueMap());
+      llvm::Value *V = LLVMGen(insertpt, IntrinsicDecls).codeGen(R, S.getValueMap());
 
       /* TODO : is this necessary?
       if (Instruction *I = dyn_cast<Instruction>(V)) {
@@ -207,7 +209,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
   }
   if (changed) {
     F.removeFnAttr("min-legal-vector-width");
-    minotaur::eliminate_dead_code(F);
+    eliminate_dead_code(F);
   }
   redisFree(ctx);
   if (DEBUG_LEVEL > 0)

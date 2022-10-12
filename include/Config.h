@@ -7,6 +7,7 @@
 #include <ostream>
 
 namespace minotaur {
+namespace config {
 
 extern bool disable_poison_input;
 extern bool disable_undef_input;
@@ -19,4 +20,5 @@ extern bool smt_verbose;
 std::ostream &dbg();
 void set_debug(std::ostream &os);
 
+}
 }

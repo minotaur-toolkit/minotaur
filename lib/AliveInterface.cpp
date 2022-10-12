@@ -60,17 +60,17 @@ AliveEngine::compareFunctions(IR::Function &Func1, IR::Function &Func2,
   t.tgt.syncDataWithSrc(t.src);
   calculateAndInitConstants(t);
   TransformVerify verifier(t, false);
-  if (debug_tv) {
+  if (config::debug_tv) {
     TransformPrintOpts print_opts;
-    t.print(dbg(), print_opts);
+    t.print(config::dbg(), print_opts);
   }
 
   {
     auto types = verifier.getTypings();
     if (!types) {
-      if (debug_tv)
-        dbg() << "Transformation doesn't verify!\n"
-                 "ERROR: program doesn't type check!\n\n";
+      if (config::debug_tv)
+        config::dbg() << "Transformation doesn't verify!\n"
+                         "ERROR: program doesn't type check!\n\n";
       ++errorCount;
       return true;
     }
@@ -81,17 +81,17 @@ AliveEngine::compareFunctions(IR::Function &Func1, IR::Function &Func2,
   bool result(errs);
   if (result) {
     if (errs.isUnsound()) {
-      if (debug_tv)
-        dbg() << "Transformation doesn't verify!\n" << endl;
+      if (config::debug_tv)
+        config::dbg() << "Transformation doesn't verify!\n" << endl;
       ++badCount;
     } else {
-      if (debug_tv)
-        dbg() << errs << endl;
+      if (config::debug_tv)
+        config::dbg() << errs << endl;
       ++errorCount;
     }
   } else {
-    if (debug_tv)
-      dbg() << "Transformation seems to be correct!\n\n";
+    if (config::debug_tv)
+      config::dbg() << "Transformation seems to be correct!\n\n";
     ++goodCount;
   }
 
@@ -104,9 +104,9 @@ static Errors find_model(Transform &t,
   t.tgt.syncDataWithSrc(t.src);
   ::calculateAndInitConstants(t);
 
-  if (debug_tv) {
+  if (config::debug_tv) {
     TransformPrintOpts print_opts;
-    t.print(dbg(), print_opts);
+    t.print(config::dbg(), print_opts);
   }
 
   State::resetGlobals();
@@ -230,8 +230,8 @@ static Errors find_model(Transform &t,
       s << '\n';
     }
   }
-  if (debug_tv) {
-    dbg()<<s.str()<<endl;
+  if (config::debug_tv) {
+    config::dbg()<<s.str()<<endl;
   }
   return errs;
 }
@@ -252,9 +252,9 @@ AliveEngine::constantSynthesis(IR::Function &Func1, IR::Function &Func2,
   bool ret(errs);
   if (ret) {
     ++errorCount;
-    if (debug_tv) {
-      dbg()<<"unable to find constants: \n";
-      dbg()<<errs;
+    if (config::debug_tv) {
+      config::dbg()<<"unable to find constants: \n";
+      config::dbg()<<errs;
     }
     return ret;
   }

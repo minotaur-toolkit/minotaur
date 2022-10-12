@@ -139,7 +139,7 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  minotaur::debug_tv = true;
+  minotaur::config::debug_tv = true;
   std::unordered_map<const IR::Value *, minotaur::ReservedConst*> rmap;
   minotaur::AliveEngine AE;
   try {

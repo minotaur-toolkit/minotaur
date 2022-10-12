@@ -68,7 +68,7 @@ namespace minotaur {
 //  * if a external value is outside the loop, and it does not dominates v,
 //    do not extract it
 optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
-  if(debug_slicer) {
+  if(config::debug_slicer) {
     llvm::errs() << ">>> slicing value " << v << ">>>\n";
   }
 
@@ -81,13 +81,13 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
   Loop *loopv = LI.getLoopFor(vbb);
   if (loopv) {
-    if(debug_slicer) {
+    if(config::debug_slicer) {
       llvm::errs() << "[INFO] value is in " << *loopv;
     }
     if (!loopv->isLoopSimplifyForm()) {
       // TODO: continue harvesting within loop boundary, even loop is not in
       // normal form.
-      if(debug_slicer) {
+      if(config::debug_slicer) {
         llvm::errs() << "[INFO] loop is not in normal form\n";
       }
       return nullopt;
@@ -139,14 +139,14 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
         auto op = i->getOperand(op_i);
         if (isa<ConstantExpr>(op)) {
-          if(debug_slicer)
+          if(config::debug_slicer)
             llvm::errs() << "[INFO] found instruction that uses ConstantExpr\n";
           haveUnknownOperand = true;
           break;
         }
         auto op_ty = op->getType();
         if (op_ty->isStructTy() || op_ty->isFloatingPointTy() || op_ty->isPointerTy()) {
-          if(debug_slicer)
+          if(config::debug_slicer)
             llvm::errs() << "[INFO] found instruction with operands with type "
                          << *op_ty <<"\n";
           haveUnknownOperand = true;
@@ -170,12 +170,12 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       if (CallInst *ci = dyn_cast<CallInst>(i)) {
         Function *callee = ci->getCalledFunction();
         if (!callee) {
-          if(debug_slicer)
+          if(config::debug_slicer)
             llvm::errs() << "[INFO] indirect call found\n";
           continue;
         }
         if (!callee->isIntrinsic()) {
-          if(debug_slicer)
+          if(config::debug_slicer)
             llvm::errs() << "[INFO] unknown callee found "
                          << callee->getName() << "\n";
           continue;
@@ -206,7 +206,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
         // if a phi node has unknown income, do not harvest
         if (phiHasUnknownIncome) {
-          if(debug_slicer) {
+          if(config::debug_slicer) {
             llvm::errs()<<"[INFO]"<<*phi<<" has external income\n";
           }
           continue;
@@ -286,7 +286,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
   // if no instructions satisfied the criteria of cloning, return null.
   if (insts.empty()) {
-    if(debug_slicer) {
+    if(config::debug_slicer) {
       llvm::errs()<<"[INFO] no instruction can be harvested\n";
     }
     return nullopt;
@@ -556,7 +556,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     return nullopt;
     //llvm::report_fatal_error("illformed function generated");
   }
-  if (debug_slicer) {
+  if (config::debug_slicer) {
     F->dump();
     llvm::errs() << "<<< end of %" << v.getName() << " <<<\n";
   }

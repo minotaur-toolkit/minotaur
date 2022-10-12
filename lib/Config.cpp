@@ -8,7 +8,8 @@ using namespace std;
 
 static ostream *debug_os = &cerr;
 
-namespace minotaur {
+namespace minotaur{
+namespace config {
 
 bool disable_poison_input = true;
 bool disable_undef_input = true;
@@ -26,4 +27,5 @@ void set_debug(ostream &os) {
   debug_os = &os;
 }
 
+}
 }
