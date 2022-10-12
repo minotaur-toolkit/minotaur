@@ -131,29 +131,25 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       continue;
 
     if (Instruction *i = dyn_cast<Instruction>(w)) {
-      // do not handle function operands.
       bool haveUnknownOperand = false;
       for (auto &op : i->operands()) {
         if (isa<ConstantExpr>(op)) {
+          if(debug_slicer)
+            llvm::errs() << "[INFO] found instruction that uses ConstantExpr\n";
           haveUnknownOperand = true;
           break;
         }
         auto op_ty = op->getType();
-        if (op_ty->isStructTy() || op_ty->isFloatingPointTy() || op_ty->isOpaquePointerTy()) {
+        if (op_ty->isStructTy() || op_ty->isFloatingPointTy()) {
+          if(debug_slicer)
+            llvm::errs() << "[INFO] found instruction with operands with type "
+                         << *op_ty <<"\n";
           haveUnknownOperand = true;
           break;
-        }
-        if (CallInst *CI = dyn_cast<CallInst>(w)) {
-          if (CI->getCalledOperand() != op && op_ty->isPointerTy()) {
-            haveUnknownOperand = true;
-            break;
-          }
         }
       }
 
       if (haveUnknownOperand) {
-        if(debug_slicer)
-          llvm::errs() << "[INFO] instruction with unsupported operand found\n";
         continue;
       }
 

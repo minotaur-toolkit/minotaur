@@ -291,7 +291,7 @@ AliveEngine::constantSynthesis(IR::Function &Func1, IR::Function &Func2,
         if (!elem.isConst())
           return ret;
         v.push_back(
-          llvm::APInt(bits, result[p.first].numeral_string(), 10));
+          llvm::APInt(bits, elem.numeral_string(), 10));
       }
       p.second->setC(v);
     }
