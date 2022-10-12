@@ -154,9 +154,7 @@ static Errors find_model(Transform &t,
       continue;
     }
 
-    dbg()<<"[ERROR] constant synthesizer only supports functions of "
-         <<"pointers and vector of integers. "
-         <<"Type "<<ty<<" is found in argument list."<<std::endl;
+    errs.add("Unknown type is found in argument list.", false);
     return errs;
   }
   auto dom_a = sv.domain;
