@@ -90,6 +90,7 @@ unsigned get_machine_cost(llvm::Function *F) {
   return cycle;
 }
 
+// simply count lines of code without bitcast for now
 unsigned get_approx_cost(llvm::Function *F) {
   unsigned cost = 0;
   for (auto &BB : *F) {
@@ -99,14 +100,14 @@ unsigned get_approx_cost(llvm::Function *F) {
       } else if (CallInst *CI = dyn_cast<CallInst>(&I)) {
         auto CalledF = CI->getCalledFunction();
         if (CalledF && CalledF->getName().startswith("__fksv")) {
-          cost += 3;
+          cost += 1;
         } else if (CalledF && CalledF->isIntrinsic()) {
           cost += 1;
         } else {
-          cost += 3;
+          cost += 1;
         }
       } else if (isa<ShuffleVectorInst>(&I)) {
-        cost += 3;
+        cost += 1;
       } else {
         cost += 1;
       }

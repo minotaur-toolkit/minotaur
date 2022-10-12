@@ -13,8 +13,8 @@ namespace minotaur {
 bool disable_poison_input = true;
 bool disable_undef_input = true;
 bool debug_slicer = true;
-bool debug_enumerator = false;
-bool debug_tv = false;
+bool debug_enumerator = true;
+bool debug_tv = true;
 bool ignore_machine_cost = false;
 bool smt_verbose = false;
 
