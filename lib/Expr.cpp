@@ -2,6 +2,7 @@
 // Distributed under the MIT license that can be found in the LICENSE file.
 #include "Expr.h"
 #include "ir/instr.h"
+#include "util/compiler.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/LLVMContext.h"
 
@@ -35,7 +36,21 @@ ReservedConst::ReservedConst(type t, llvm::Constant *C)
 }
 
 llvm::Constant *ReservedConst::getAsLLVMConstant(llvm::LLVMContext &C) const {
-  return nullptr;
+  auto llvm_ty = ty.toLLVM(C);
+  if (ty.isScalar()) {
+    ConstantInt::get(llvm_ty, Values.back())->dump();
+    return ConstantInt::get(llvm_ty, Values.back());
+  } else if (ty.isVector()) {
+    llvm::FixedVectorType *vty = llvm::cast<llvm::FixedVectorType>(llvm_ty);
+    llvm::IntegerType *elemty =
+      llvm::cast<llvm::IntegerType>(vty->getElementType());
+    vector<Constant*> consts;
+    for (auto V : Values) {
+      consts.push_back(ConstantInt::get(elemty, V));
+    }
+    return ConstantVector::get(consts);
+  }
+  UNREACHABLE();
 }
 
 void ReservedConst::print(ostream &os) const {

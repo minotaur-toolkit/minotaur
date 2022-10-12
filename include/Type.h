@@ -29,7 +29,7 @@ public:
 
   friend std::ostream& operator<<(std::ostream &os, const type &val);
 
-  llvm::Type *toLLVM(llvm::LLVMContext &C);
+  llvm::Type *toLLVM(llvm::LLVMContext &C) const;
   unsigned getWidth() const { return lane * bits; }
   unsigned getLane() const { return lane; }
   unsigned getBits() const  { return bits; }

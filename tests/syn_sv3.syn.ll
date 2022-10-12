@@ -7,3 +7,4 @@ entry:
   %ins.2 = insertelement <2 x i16> %ins.1, i16 %ext.2, i32 0
   ret <2 x i16> %ins.2
 }
+

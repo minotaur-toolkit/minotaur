@@ -50,7 +50,7 @@ bool type::same_width(const type &rhs) const {
   return lane * bits == rhs.lane * rhs.bits;
 }
 
-Type* type::toLLVM(llvm::LLVMContext &C) {
+Type* type::toLLVM(llvm::LLVMContext &C) const {
   if (lane == 0 || bits == 0)
     report_fatal_error("error minotaur type");
   if (lane == 1) {
