@@ -112,13 +112,14 @@ space+ {
 }
 ">"  { return CSGT; }
 
+"b" "-"?[0-9]+ {
+  yylval.num = strtoull((char*)YYTEXT + 1, nullptr, 10);
+  return BITS;
+}
+
 "-"?[0-9]+ {
-  yylval.num = strtoull((char*)YYTEXT, nullptr, 10);
-  if (yylval.num == ULLONG_MAX && errno == ERANGE) {
-    COPY_STR();
-    return NUM_STR;
-  }
-  return NUM;
+  COPY_STR();
+  return NUM_STR;
 }
 
 * { error("couldn't parse: '" + string((char*)YYTEXT, 16) + '\''); }

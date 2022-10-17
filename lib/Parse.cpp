@@ -124,7 +124,7 @@ static type parse_type() {
 }
 
 static Var* parse_var(vector<unique_ptr<minotaur::Inst>>&exprs) {
-  tokenizer.ensure(NUM);
+  tokenizer.ensure(BITS);
   unsigned width = yylval.num;
   tokenizer.ensure(REGISTER);
   string id(yylval.str);
@@ -137,27 +137,22 @@ static Var* parse_var(vector<unique_ptr<minotaur::Inst>>&exprs) {
 
 ReservedConst* parse_const(vector<unique_ptr<minotaur::Inst>>&exprs) {
   type t = parse_type();
+  vector<llvm::APInt> values;
+
   ReservedConst *RC = nullptr;
   if (t.isVector()) {
 
   } else {
-    tokenizer.ensure(NUM);
-    unsigned value = yylval.num;
-
+    tokenizer.ensure(NUM_STR);
+    string_view st = yylval.str;
+    cout<<st<<endl;
+    values.push_back(llvm::APInt(t.getBits(),st, 10));
   }
   tokenizer.ensure(RPAREN);
-  return nullptr;
-  /*
-  tokenizer.ensure(NUM);
-  unsigned width = yylval.num;
-  tokenizer.ensure(REGISTER);
-  string id(yylval.str);
-  tokenizer.ensure(RPAREN);
-  auto V = make_unique<Var>(id, width);
-  Var *T = V.get();
-  exprs.emplace_back(move(V));
-  return T;
-  */
+  auto T = make_unique<ReservedConst>(t, values);
+  RC = T.get();
+  exprs.emplace_back(move(T));
+  return RC;
 }
 
 

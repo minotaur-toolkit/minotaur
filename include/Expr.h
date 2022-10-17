@@ -59,6 +59,8 @@ class ReservedConst final : public Value {
   type ty;
 public:
   ReservedConst(type t) : Value(t.getWidth()), A(nullptr), ty(t) {}
+  ReservedConst(type t, std::vector<llvm::APInt> Values)
+    : Value(t.getWidth()), Values(Values), ty(t) {};
   ReservedConst(type t, llvm::Constant *C);
   bool isSymbolic() { return Values.empty(); }
   type getType() { return ty; }
