@@ -169,7 +169,7 @@ Value* parse_binop(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
   BinaryInst::Op op;
   switch (op_token) {
   case BAND:
-  op = BinaryInst::band; break;
+    op = BinaryInst::band; break;
   case BOR:
     op = BinaryInst::bor; break;
   case BXOR:
@@ -180,6 +180,16 @@ Value* parse_binop(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
     op = BinaryInst::sub; break;
   case MUL:
     op = BinaryInst::mul; break;
+  case SDIV:
+    op = BinaryInst::sdiv; break;
+  case UDIV:
+    op = BinaryInst::udiv; break;
+  case LSHR:
+    op = BinaryInst::lshr; break;
+  case ASHR:
+    op = BinaryInst::ashr; break;
+  case SHL:
+    op = BinaryInst::shl; break;
   // TODO: add
   default:
     UNREACHABLE();

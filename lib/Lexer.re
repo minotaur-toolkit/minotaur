@@ -96,10 +96,20 @@ space+ {
 "{"  { return LCURLY; }
 "}"  { return RCURLY; }
 
-"add" { return ADD; }
-"mul" { return MUL; }
-"sub" { return SUB; }
-"var" { return VAR; }
+"and"  { return BAND; }
+"or"   { return BOR;  }
+"xor"  { return BXOR; }
+"add"  { return ADD;  }
+"sub"  { return SUB;  }
+"mul"  { return MUL;  }
+"sdiv" { return SDIV; }
+"udiv" { return UDIV; }
+"lshr" { return LSHR; }
+"ashr" { return ASHR; }
+"shl"  { return SHL;  }
+
+
+"var" { return VAR;  }
 "const" { return CONST; }
 
 "%" [a-zA-Z0-9_.]+ {
