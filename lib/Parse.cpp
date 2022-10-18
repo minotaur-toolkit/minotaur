@@ -139,7 +139,6 @@ ReservedConst* parse_const(vector<unique_ptr<minotaur::Inst>>&exprs) {
   type t = parse_type();
   vector<llvm::APInt> values;
 
-  ReservedConst *RC = nullptr;
   if (t.isVector()) {
     tokenizer.ensure(LCURLY);
     for (unsigned i = 0 ; i < t.getLane() ; i ++) {
@@ -156,14 +155,14 @@ ReservedConst* parse_const(vector<unique_ptr<minotaur::Inst>>&exprs) {
     UNREACHABLE();
   }
   tokenizer.ensure(RPAREN);
-  auto T = make_unique<ReservedConst>(t, values);
-  RC = T.get();
-  exprs.emplace_back(std::move(T));
-  return RC;
+  auto RC = make_unique<ReservedConst>(t, values);
+  ReservedConst *T = RC.get();
+  exprs.emplace_back(move(RC));
+  return T;
 }
 
 
-Value* parse_binop(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
+Value* parse_binary(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
   BinaryInst::Op op;
   switch (op_token) {
   case BAND:
@@ -203,6 +202,18 @@ Value* parse_binop(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
   return T;
 }
 
+Value* parse_copy(vector<unique_ptr<minotaur::Inst>>&exprs) {
+  tokenizer.ensure(LPAREN);
+  tokenizer.ensure(CONST);
+  auto a = parse_const(exprs);
+  tokenizer.ensure(RPAREN);
+
+  auto CI = make_unique<CopyInst>(*a);
+  Value *T = CI.get();
+  exprs.emplace_back(move(CI));
+  return T;
+}
+
 Value* parse_expr(vector<unique_ptr<minotaur::Inst>>&exprs) {
   tokenizer.ensure(LPAREN);
 
@@ -213,11 +224,13 @@ Value* parse_expr(vector<unique_ptr<minotaur::Inst>>&exprs) {
   case ADD:
   case SUB:
   case MUL:
-    return parse_binop(t, exprs);
+    return parse_binary(t, exprs);
   case VAR:
     return parse_var(exprs);
   case CONST:
     return parse_const(exprs);
+  case COPY:
+    return parse_copy(exprs);
   default:
     UNREACHABLE();
   }

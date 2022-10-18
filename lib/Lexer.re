@@ -96,6 +96,8 @@ space+ {
 "{"  { return LCURLY; }
 "}"  { return RCURLY; }
 
+"copy" { return COPY; }
+
 "and"  { return BAND; }
 "or"   { return BOR;  }
 "xor"  { return BXOR; }
