@@ -132,10 +132,11 @@ void ICmpInst::print(ostream &os) const {
   case slt:      str = "slt"; break;
   case sle:      str = "sle"; break;
   }
-  os << "(icmp " << str << " ";
+  os << "(icmp_" << str << " ";
   lhs->print(os);
   os << " ";
   rhs->print(os);
+  os << " b" << width;
   //rhs->print(os);
   os << ")";
 }

@@ -135,6 +135,11 @@ static Var* parse_var(vector<unique_ptr<minotaur::Inst>>&exprs) {
   return T;
 }
 
+unsigned parse_number() {
+  tokenizer.ensure(BITS);
+  return yylval.num;;
+}
+
 ReservedConst* parse_const(vector<unique_ptr<minotaur::Inst>>&exprs) {
   type t = parse_type();
   vector<llvm::APInt> values;
@@ -228,6 +233,37 @@ Value* parse_binary(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
   return T;
 }
 
+Value* parse_icmp(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
+  ICmpInst::Cond op;
+  switch (op_token) {
+  case EQ:
+    op = ICmpInst::eq; break;
+  case NE:
+    op = ICmpInst::ne; break;
+  case ULT:
+    op = ICmpInst::ult; break;
+  case ULE:
+    op = ICmpInst::ule; break;
+  case SLT:
+    op = ICmpInst::slt; break;
+  case SLE:
+    op = ICmpInst::sle; break;
+  // TODO: add
+  default:
+    UNREACHABLE();
+  }
+  auto a = parse_expr(exprs);
+  auto b = parse_expr(exprs);
+
+  unsigned width = parse_number();
+
+  tokenizer.ensure(RPAREN);
+  auto II = make_unique<ICmpInst>(op, *a, *b, width);
+  Value *T = II.get();
+  exprs.emplace_back(move(II));
+  return T;
+}
+
 Value* parse_copy(vector<unique_ptr<minotaur::Inst>>&exprs) {
   tokenizer.ensure(LPAREN);
   tokenizer.ensure(CONST);
@@ -264,6 +300,13 @@ Value* parse_expr(vector<unique_ptr<minotaur::Inst>>&exprs) {
   case ASHR:
   case SHL:
     return parse_binary(t, exprs);
+  case EQ:
+  case NE:
+  case ULT:
+  case ULE:
+  case SLT:
+  case SLE:
+    return parse_icmp(t, exprs);
   case VAR:
     return parse_var(exprs);
   case CONST:

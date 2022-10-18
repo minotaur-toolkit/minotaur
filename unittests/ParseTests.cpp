@@ -18,7 +18,8 @@ TEST(ParseTest, RoundTrip) {
     "(sub <2 x i8> (var b16 %0) (var b16 %1))",
     "(sub <2 x i8> (var b16 %0) (const <2 x i4> {6,8}))",
     "(and <1 x i64> (var b64 %8) (const i64 18446744073709551612))",
-    "(copy (const <4 x i32> {1,0,2,3}))"
+    "(copy (const <4 x i32> {1,0,2,3}))",
+    "(icmp_ult (var b32 %0) (const i32 3) b1)"
   };
 
   for (const auto &T : Tests) {

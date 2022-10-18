@@ -116,6 +116,12 @@ space+ {
 "ashr" { return ASHR; }
 "shl"  { return SHL;  }
 
+"icmp_eq"  { return EQ;  }
+"icmp_ne"  { return NE;  }
+"icmp_ult" { return ULT; }
+"icmp_ule" { return ULE; }
+"icmp_slt" { return SLT; }
+"icmp_sle" { return SLE; }
 
 "var" { return VAR;  }
 "const" { return CONST; }
