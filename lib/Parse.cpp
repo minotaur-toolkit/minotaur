@@ -161,6 +161,32 @@ ReservedConst* parse_const(vector<unique_ptr<minotaur::Inst>>&exprs) {
   return T;
 }
 
+Value* parse_unary(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
+  UnaryInst::Op op;
+  switch (op_token) {
+  case BITREVERSE:
+    op = UnaryInst::bitreverse; break;
+  case BSWAP:
+    op = UnaryInst::bswap; break;
+  case CTPOP:
+    op = UnaryInst::ctpop; break;
+  case CTLZ:
+    op = UnaryInst::ctlz; break;
+  case CTTZ:
+    op = UnaryInst::cttz; break;
+  // TODO: add
+  default:
+    UNREACHABLE();
+  }
+  auto workty = parse_vector_type();
+  auto a = parse_expr(exprs);
+
+  tokenizer.ensure(RPAREN);
+  auto UI = make_unique<UnaryInst>(op, *a, workty);
+  Value *T = UI.get();
+  exprs.emplace_back(move(UI));
+  return T;
+}
 
 Value* parse_binary(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
   BinaryInst::Op op;
@@ -218,6 +244,14 @@ Value* parse_expr(vector<unique_ptr<minotaur::Inst>>&exprs) {
   tokenizer.ensure(LPAREN);
 
   switch (auto t = *tokenizer) {
+  case COPY:
+    return parse_copy(exprs);
+  case BITREVERSE:
+  case BSWAP:
+  case CTPOP:
+  case CTLZ:
+  case CTTZ:
+    return parse_unary(t, exprs);
   case BAND:
   case BOR:
   case BXOR:
@@ -234,8 +268,7 @@ Value* parse_expr(vector<unique_ptr<minotaur::Inst>>&exprs) {
     return parse_var(exprs);
   case CONST:
     return parse_const(exprs);
-  case COPY:
-    return parse_copy(exprs);
+
   default:
     UNREACHABLE();
   }

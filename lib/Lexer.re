@@ -98,6 +98,12 @@ space+ {
 
 "copy" { return COPY; }
 
+"bitreverse" { return BITREVERSE; }
+"bswap"      { return BSWAP;      }
+"ctpop"      { return CTPOP;      }
+"ctlz"       { return CTLZ;       }
+"cttz"       { return CTTZ;       }
+
 "and"  { return BAND; }
 "or"   { return BOR;  }
 "xor"  { return BXOR; }
