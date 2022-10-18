@@ -87,8 +87,14 @@ space+ {
   YYRESTART();
 }
 
+","  { return COMMA;  }
+
+
 "("  { return LPAREN; }
 ")"  { return RPAREN; }
+
+"{"  { return LCURLY; }
+"}"  { return RCURLY; }
 
 "add" { return ADD; }
 "mul" { return MUL; }

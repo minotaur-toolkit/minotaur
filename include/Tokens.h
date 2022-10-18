@@ -2,8 +2,11 @@
 // Distributed under the MIT license that can be found in the LICENSE file.
 
 TOKEN(END)
+TOKEN(COMMA)
 TOKEN(LPAREN)
 TOKEN(RPAREN)
+TOKEN(LCURLY)
+TOKEN(RCURLY)
 
 TOKEN(BAND)
 TOKEN(BOR)

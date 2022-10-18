@@ -16,6 +16,7 @@ TEST(ParseTest, RoundTrip) {
     "(sub <1 x i8> (var b4 %0) (const i4 6))",
     "(sub <2 x i8> (var b16 %0) (var b16 %0))",
     "(sub <2 x i8> (var b16 %0) (var b16 %1))",
+    "(sub <2 x i8> (var b16 %0) (const <2 x i4> {6,8})))",
   };
 
   for (const auto &T : Tests) {
