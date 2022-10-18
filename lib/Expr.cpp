@@ -55,12 +55,25 @@ llvm::Constant *ReservedConst::getAsLLVMConstant(llvm::LLVMContext &C) const {
 void ReservedConst::print(ostream &os) const {
   if (!Values.empty()) {
     string str;
-    llvm::raw_string_ostream ss(str);
-    for (auto V: Values) {
+    if (ty.isScalar()) {
+      llvm::raw_string_ostream ss(str);
+      auto V = Values[0];
       ss<<"i"<<V.getBitWidth()<<" ";
       V.print(ss, false);
+      ss.flush();
+    } else if (ty.isVector()) {
+      llvm::raw_string_ostream ss(str);
+      ss<<"<"<<ty.getLane()<<" x i"<<ty.getBits()<<"> ";
+
+      ss<<"{";
+      for (unsigned i = 0 ; i < ty.getLane(); i ++) {
+        Values[i].print(ss, false);
+        if (i != ty.getLane() - 1)
+          ss<<",";
+      }
+      ss<<"}";
+      ss.flush();
     }
-    ss.flush();
     os << "(const " << str << ")";
   } else {
     os << "reservedconst";
