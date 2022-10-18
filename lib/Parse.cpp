@@ -146,6 +146,8 @@ ReservedConst* parse_const(vector<unique_ptr<minotaur::Inst>>&exprs) {
     tokenizer.ensure(NUM_STR);
     string_view st = yylval.str;
     cout<<st<<endl;
+    cout<<t.getBits()<<endl;
+    llvm::APInt(t.getBits(), st, 10).dump();
     values.push_back(llvm::APInt(t.getBits(),st, 10));
   }
   tokenizer.ensure(RPAREN);

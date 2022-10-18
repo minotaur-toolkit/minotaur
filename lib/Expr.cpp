@@ -20,7 +20,7 @@ ostream& operator<<(ostream &os, const Inst &val) {
 }
 
 void Var::print(ostream &os) const {
-  os << "(var " << width << " " << name <<")";
+  os << "(var b" << width << " " << name <<")";
 }
 
 ReservedConst::ReservedConst(type t, llvm::Constant *C)
@@ -57,6 +57,7 @@ void ReservedConst::print(ostream &os) const {
     string str;
     llvm::raw_string_ostream ss(str);
     for (auto V: Values) {
+      ss<<"i"<<V.getBitWidth()<<" ";
       V.print(ss, false);
     }
     ss.flush();
