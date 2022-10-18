@@ -224,6 +224,11 @@ Value* parse_expr(vector<unique_ptr<minotaur::Inst>>&exprs) {
   case ADD:
   case SUB:
   case MUL:
+  case SDIV:
+  case UDIV:
+  case LSHR:
+  case ASHR:
+  case SHL:
     return parse_binary(t, exprs);
   case VAR:
     return parse_var(exprs);
