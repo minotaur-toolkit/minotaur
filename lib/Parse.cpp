@@ -144,23 +144,21 @@ ReservedConst* parse_const(vector<unique_ptr<minotaur::Inst>>&exprs) {
     tokenizer.ensure(LCURLY);
     for (unsigned i = 0 ; i < t.getLane() ; i ++) {
       tokenizer.ensure(NUM_STR);
-      string_view st = yylval.str;
-      llvm::APInt(t.getBits(), st, 10).dump();
-      values.push_back(llvm::APInt(t.getBits(),st, 10));
+      values.push_back(llvm::APInt(t.getBits(), yylval.str, 10));
       if (i != t.getLane() - 1)
         tokenizer.ensure(COMMA);
     }
     tokenizer.ensure(RCURLY);
-  } else {
+  } else if (t.isScalar()) {
     tokenizer.ensure(NUM_STR);
-    string_view st = yylval.str;
-    llvm::APInt(t.getBits(), st, 10).dump();
-    values.push_back(llvm::APInt(t.getBits(),st, 10));
+    values.push_back(llvm::APInt(t.getBits(), yylval.str, 10));
+  } else {
+    UNREACHABLE();
   }
   tokenizer.ensure(RPAREN);
   auto T = make_unique<ReservedConst>(t, values);
   RC = T.get();
-  exprs.emplace_back(move(T));
+  exprs.emplace_back(std::move(T));
   return RC;
 }
 
