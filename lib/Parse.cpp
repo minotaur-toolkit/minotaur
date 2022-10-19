@@ -5,6 +5,7 @@
 #include "Lexer.h"
 
 #include "iostream"
+#include "ir/instr.h"
 #include "util/compiler.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/IR/Function.h"
@@ -166,6 +167,19 @@ ReservedConst* parse_const(vector<unique_ptr<minotaur::Inst>>&exprs) {
   return T;
 }
 
+
+Value* parse_copy(vector<unique_ptr<minotaur::Inst>>&exprs) {
+  tokenizer.ensure(LPAREN);
+  tokenizer.ensure(CONST);
+  auto a = parse_const(exprs);
+  tokenizer.ensure(RPAREN);
+
+  auto CI = make_unique<CopyInst>(*a);
+  Value *T = CI.get();
+  exprs.emplace_back(move(CI));
+  return T;
+}
+
 Value* parse_unary(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
   UnaryInst::Op op;
   switch (op_token) {
@@ -264,15 +278,17 @@ Value* parse_icmp(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
   return T;
 }
 
-Value* parse_copy(vector<unique_ptr<minotaur::Inst>>&exprs) {
+Value* parse_shuffle(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
+
+  auto workty = parse_vector_type();
+  auto lhs = parse_expr(exprs);
+  auto rhs = op_token == BLEND ? parse_expr(exprs) : nullptr;
   tokenizer.ensure(LPAREN);
   tokenizer.ensure(CONST);
-  auto a = parse_const(exprs);
-  tokenizer.ensure(RPAREN);
-
-  auto CI = make_unique<CopyInst>(*a);
-  Value *T = CI.get();
-  exprs.emplace_back(move(CI));
+  auto mask = parse_const(exprs);
+  auto SI = make_unique<FakeShuffleInst>(*lhs, rhs, *mask, workty);
+  Value *T = SI.get();
+  exprs.emplace_back(move(SI));
   return T;
 }
 
@@ -307,6 +323,9 @@ Value* parse_expr(vector<unique_ptr<minotaur::Inst>>&exprs) {
   case SLT:
   case SLE:
     return parse_icmp(t, exprs);
+  case SHUFFLE:
+  case BLEND:
+    return parse_shuffle(t, exprs);
   case VAR:
     return parse_var(exprs);
   case CONST:

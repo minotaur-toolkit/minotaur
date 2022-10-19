@@ -123,6 +123,9 @@ space+ {
 "icmp_slt" { return SLT; }
 "icmp_sle" { return SLE; }
 
+"blend"   { return BLEND;   }
+"shuffle" { return SHUFFLE; }
+
 "var" { return VAR;  }
 "const" { return CONST; }
 

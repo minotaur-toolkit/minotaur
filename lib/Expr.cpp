@@ -150,14 +150,18 @@ void SIMDBinOpInst::print(ostream &os) const {
 }
 
 void FakeShuffleInst::print(ostream &os) const {
-  os << "(fakeshuffle " << expectty << " ";
+  if (rhs)
+    os << "(blend ";
+  else
+    os << "(shuffle ";
+
+  os << expectty << " ";
   lhs->print(os);
   os << " ";
-  if (rhs)
+  if (rhs) {
     rhs->print(os);
-  else
-    os << "poison";
-  os << " ";
+    os << " ";
+  }
   mask->print(os);
   os << ")";
 }
