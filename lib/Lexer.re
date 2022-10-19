@@ -126,6 +126,10 @@ space+ {
 "blend"   { return BLEND;   }
 "shuffle" { return SHUFFLE; }
 
+"conv_zext"  { return CONV_ZEXT;  }
+"conv_sext"  { return CONV_SEXT;  }
+"conv_trunc" { return CONV_TRUNC; }
+
 "var" { return VAR;  }
 "const" { return CONST; }
 

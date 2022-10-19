@@ -292,6 +292,29 @@ Value* parse_shuffle(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
   return T;
 }
 
+Value* parse_conv(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
+  ConversionInst::Op op;
+  switch (op_token) {
+  case CONV_ZEXT:
+    op = ConversionInst::zext; break;
+  case CONV_SEXT:
+    op = ConversionInst::sext; break;
+  case CONV_TRUNC:
+    op = ConversionInst::trunc; break;
+  default:
+    UNREACHABLE();
+  }
+  auto a = parse_expr(exprs);
+  auto from = parse_vector_type();
+  auto to   = parse_vector_type();
+
+  tokenizer.ensure(RPAREN);
+  auto CI = make_unique<ConversionInst>(op, *a, from.getLane(), from.getBits(), to.getBits());
+  Value *T = CI.get();
+  exprs.emplace_back(move(CI));
+  return T;
+}
+
 Value* parse_expr(vector<unique_ptr<minotaur::Inst>>&exprs) {
   tokenizer.ensure(LPAREN);
 
@@ -326,6 +349,10 @@ Value* parse_expr(vector<unique_ptr<minotaur::Inst>>&exprs) {
   case SHUFFLE:
   case BLEND:
     return parse_shuffle(t, exprs);
+  case CONV_ZEXT:
+  case CONV_SEXT:
+  case CONV_TRUNC:
+    return parse_conv(t, exprs);
   case VAR:
     return parse_var(exprs);
   case CONST:

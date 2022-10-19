@@ -175,10 +175,10 @@ void ConversionInst::print(ostream &os) const {
   case trunc: str = "trunc"; break;
   }
 
-  os << "(conversion "<< str << " ";
+  os << "(conv_"<< str << " ";
   v->print(os);
-  os << " from " << getPrevTy();
-  os << " to " << getNewTy();
+  os << " " << getPrevTy();
+  os << " " << getNewTy();
   os << ")";
 }
 
