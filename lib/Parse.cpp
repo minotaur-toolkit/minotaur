@@ -12,6 +12,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
+#include <string_view>
 
 #define YYDEBUG 0
 
@@ -315,6 +316,23 @@ Value* parse_conv(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
   return T;
 }
 
+
+Value* parse_x86(string_view ops, vector<unique_ptr<minotaur::Inst>>&exprs) {
+  IR::X86IntrinBinOp::Op op;
+  #define PROCESS(NAME,A,B,C,D,E,F) if (ops == #NAME) op = IR::X86IntrinBinOp::NAME;
+  #include "ir/intrinsics.h"
+  #undef PROCESS
+
+  auto a = parse_expr(exprs);
+  auto b = parse_expr(exprs);
+
+  tokenizer.ensure(RPAREN);
+  auto CI = make_unique<SIMDBinOpInst>(op, *a, *b);
+  Value *T = CI.get();
+  exprs.emplace_back(move(CI));
+  return T;
+}
+
 Value* parse_expr(vector<unique_ptr<minotaur::Inst>>&exprs) {
   tokenizer.ensure(LPAREN);
 
@@ -353,6 +371,8 @@ Value* parse_expr(vector<unique_ptr<minotaur::Inst>>&exprs) {
   case CONV_SEXT:
   case CONV_TRUNC:
     return parse_conv(t, exprs);
+  case X86BINARY:
+    return parse_x86(yylval.str, exprs);
   case VAR:
     return parse_var(exprs);
   case CONST:

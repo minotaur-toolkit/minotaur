@@ -133,6 +133,8 @@ space+ {
 "var" { return VAR;  }
 "const" { return CONST; }
 
+"x86_" [a-zA-Z0-9_]+ { COPY_STR(); return X86BINARY; }
+
 "%" [a-zA-Z0-9_.]+ {
   COPY_STR();
   return REGISTER;

@@ -329,7 +329,7 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
           RCs.insert(T.get());
           exprs.emplace_back(move(T));
         }
-        auto B = make_unique<SIMDBinOpInst>(op, *I, *J, expected);
+        auto B = make_unique<SIMDBinOpInst>(op, *I, *J);
         sketches.push_back(make_pair(B.get(), move(RCs)));
         exprs.emplace_back(move(B));
       }

@@ -148,8 +148,8 @@ class SIMDBinOpInst final : public Value {
   Value *lhs;
   Value *rhs;
 public:
-  SIMDBinOpInst(IR::X86IntrinBinOp::Op op, Value &lhs, Value &rhs, unsigned width)
-    : Value(width), op(op), lhs(&lhs), rhs(&rhs) {}
+  SIMDBinOpInst(IR::X86IntrinBinOp::Op op, Value &lhs, Value &rhs)
+  : Value(IR::X86IntrinBinOp::getRetWidth(op)), op(op), lhs(&lhs), rhs(&rhs) {}
   void print(std::ostream &os) const override;
   Value *L() { return lhs; }
   Value *R() { return rhs; }

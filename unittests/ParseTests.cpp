@@ -24,7 +24,8 @@ TEST(ParseTest, RoundTrip) {
     "(blend <32 x i32> (var b64 %0) (var b64 %0) (const <32 x i8> {0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1}))",
     "(conv_zext (var b8 %0) <1 x i8> <1 x i64>)",
     "(conv_sext (var b8 %0) <1 x i8> <1 x i64>)",
-    "(conv_trunc (var b8 %0) <1 x i64> <1 x i8>)"
+    "(conv_trunc (var b8 %0) <1 x i64> <1 x i8>)",
+    "(x86_sse2_pmadd_wd (var b128 %0) (var b128 %0))"
   };
 
   for (const auto &T : Tests) {
