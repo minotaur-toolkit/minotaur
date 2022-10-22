@@ -206,7 +206,10 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
     }
   }
   if (changed) {
-    F.removeFnAttr("min-legal-vector-width");
+    if (config::disable_avx512)
+      F.addFnAttr("min-legal-vector-width", "256");
+    else
+      F.addFnAttr("min-legal-vector-width", "512");
     eliminate_dead_code(F);
   }
   redisFree(ctx);

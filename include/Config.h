@@ -16,6 +16,7 @@ extern bool debug_enumerator;
 extern bool debug_tv;
 extern bool ignore_machine_cost;
 extern bool smt_verbose;
+extern bool disable_avx512;
 
 std::ostream &dbg();
 void set_debug(std::ostream &os);

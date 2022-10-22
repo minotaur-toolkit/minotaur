@@ -46,8 +46,6 @@ using namespace util;
 using namespace std;
 using namespace IR;
 
-bool DISABLE_AVX512 = false;
-
 namespace minotaur {
 
 void
@@ -289,7 +287,7 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
   for (unsigned K = 0; K < X86IntrinBinOp::numOfX86Intrinsics; ++K) {
     // typecheck for return val
     X86IntrinBinOp::Op op = static_cast<X86IntrinBinOp::Op>(K);
-    if (DISABLE_AVX512 && SIMDBinOpInst::is512(op))
+    if (config::disable_avx512 && SIMDBinOpInst::is512(op))
       continue;
     type ret_ty = type::getIntrinsicRetTy(op);
     type op0_ty = type::getIntrinsicOp0Ty(op);
