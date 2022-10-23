@@ -124,6 +124,10 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
   redisContext *ctx = redisConnect("127.0.0.1", 6379);
   bool changed = false;
   for (auto &BB : F) {
+    auto bb_name = BB.getName();
+    if (bb_name.find("memcheck")  != StringRef::npos ||
+        bb_name.find("scevcheck") != StringRef::npos)
+      continue;
     for (auto &I : make_early_inc_range(BB)) {
       if (I.getType()->isVoidTy())
         continue;
