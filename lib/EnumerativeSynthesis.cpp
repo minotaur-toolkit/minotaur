@@ -640,7 +640,7 @@ push:
       }
       iter = Fns.erase(iter);
       unsigned duration = ( std::clock() - start ) / CLOCKS_PER_SEC;
-      if (goodCount || duration > 1200) {
+      if (goodCount || duration > 120) {
         break;
       }
     }

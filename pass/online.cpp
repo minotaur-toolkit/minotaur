@@ -55,7 +55,7 @@ namespace {
 llvm::cl::opt<unsigned> opt_smt_to(
     "so-smt-to",
     llvm::cl::desc("Superoptimizer: timeout for SMT queries"),
-    llvm::cl::init(10000), llvm::cl::value_desc("ms"));
+    llvm::cl::init(10), llvm::cl::value_desc("s"));
 
 llvm::cl::opt<unsigned> opt_problem_to(
     "so-problem-to",
@@ -119,7 +119,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
 
   clock_t start = std::clock();
 
-  smt::set_query_timeout(to_string(opt_smt_to));
+  smt::set_query_timeout(to_string(opt_smt_to * 1000));
 
   redisContext *ctx = redisConnect("127.0.0.1", 6379);
   bool changed = false;
@@ -160,10 +160,6 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         (*NewF).get().dump();
       }
 
-      unsigned duration = ( std::clock() - start ) / CLOCKS_PER_SEC;
-      if (duration > opt_problem_to) {
-        return false;
-      }
       auto [R, oldcost, newcost] = ES.synthesize(*NewF, TLI);
 
       if (enable_caching) {
@@ -203,13 +199,18 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         }
         return false;
       });
+      /*unsigned duration = ( std::clock() - start ) / CLOCKS_PER_SEC;
+      if (duration > opt_problem_to) {
+        if (DEBUG_LEVEL > 0)
+          llvm::errs()<<"*** timed out ***\n";
+	goto finale;
+      }*/
     }
   }
+finale:
   if (changed) {
-    if (config::disable_avx512)
-      F.addFnAttr("min-legal-vector-width", "256");
-    else
-      F.addFnAttr("min-legal-vector-width", "512");
+    F.removeFnAttr("min-legal-vector-width");
+    F.dump();
     eliminate_dead_code(F);
   }
   redisFree(ctx);
