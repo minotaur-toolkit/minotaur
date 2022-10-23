@@ -210,7 +210,6 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
 finale:
   if (changed) {
     F.removeFnAttr("min-legal-vector-width");
-    F.dump();
     eliminate_dead_code(F);
   }
   redisFree(ctx);
