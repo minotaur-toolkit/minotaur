@@ -668,7 +668,7 @@ push:
         F.dump();
       }
       if (config::ignore_machine_cost ||
-          !machinecost || !newcost || newcost < machinecost) {
+          !machinecost || !newcost || newcost <= machinecost) {
         if (config::debug_enumerator) {
           llvm::errs()<<"=== successfully synthesized rhs ===\n";
         }
