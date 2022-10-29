@@ -188,12 +188,11 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
 
       llvm::Value *V = LLVMGen(insertpt, IntrinsicDecls).codeGen(R, S.getValueMap());
 
-      /* TODO : is this necessary?
+      ///* TODO : is this necessary?
       if (Instruction *I = dyn_cast<Instruction>(V)) {
         if (!DT.dominates(I, &BB))
           continue;
       }
-      */
 
       V = llvm::IRBuilder<>(insertpt).CreateBitCast(V, I.getType());
       I.replaceUsesWithIf(V, [&changed, &V, &DT](Use &U) {
