@@ -226,6 +226,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
             bb_deps[income].insert(bb_i);
         }
       } else if (auto LI = dyn_cast<LoadInst>(i)) {
+        continue;
         auto dep = MD.getDependency(LI);
         if (dep.isDef() || dep.isClobber()) {
           auto st = dep.getInst();

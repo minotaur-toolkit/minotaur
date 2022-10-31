@@ -124,10 +124,6 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
   redisContext *ctx = redisConnect("127.0.0.1", 6379);
   bool changed = false;
   for (auto &BB : F) {
-    auto bb_name = BB.getName();
-    if (bb_name.find("memcheck")  != StringRef::npos ||
-        bb_name.find("scevcheck") != StringRef::npos)
-      continue;
     for (auto &I : make_early_inc_range(BB)) {
       if (I.getType()->isVoidTy())
         continue;
@@ -188,13 +184,10 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
 
       llvm::Value *V = LLVMGen(insertpt, IntrinsicDecls).codeGen(R, S.getValueMap());
 
-      ///* TODO : is this necessary?
-      if (Instruction *I = dyn_cast<Instruction>(V)) {
-        if (!DT.dominates(I, &BB))
-          continue;
-      }
-
+      if (isa<Instruction>(V))
+        insertpt = insertpt->getNextNode();
       V = llvm::IRBuilder<>(insertpt).CreateBitCast(V, I.getType());
+
       I.replaceUsesWithIf(V, [&changed, &V, &DT](Use &U) {
         if(dom_check(V, DT, U)) {
           changed = true;
@@ -210,7 +203,6 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
       }*/
     }
   }
-finale:
   if (changed) {
     F.removeFnAttr("min-legal-vector-width");
     eliminate_dead_code(F);
