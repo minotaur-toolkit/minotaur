@@ -177,15 +177,12 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
 
       if (!R) continue;
       unordered_set<llvm::Function *> IntrinsicDecls;
-      Instruction *insertpt = &I;
+      Instruction *insertpt = I.getNextNode();
       while(isa<PHINode>(insertpt)) {
         insertpt = insertpt->getNextNode();
       }
 
       llvm::Value *V = LLVMGen(insertpt, IntrinsicDecls).codeGen(R, S.getValueMap());
-
-      if (isa<Instruction>(V))
-        insertpt = insertpt->getNextNode();
       V = llvm::IRBuilder<>(insertpt).CreateBitCast(V, I.getType());
 
       I.replaceUsesWithIf(V, [&changed, &V, &DT](Use &U) {
