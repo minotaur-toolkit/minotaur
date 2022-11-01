@@ -193,8 +193,12 @@ foreach my $opt (sort $byx keys %toprint) {
     my $obc = $optbc{$opt};
 
     if ($TOFILES) {
-        open(my $fh, ">", "dump_$count.srctgt.ll");
+        open(my $fh, ">", "dump_$count.src.ll");
         print $fh $ir, "\n";
+        $fh->flush();
+        close $fh;
+        open($fh, ">", "dump_$count.tgt.ll");
+        print $fh $obc, "\n";
         $fh->flush();
         close $fh;
     } else {
