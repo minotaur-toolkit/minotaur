@@ -162,16 +162,21 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
 
       auto [R, oldcost, newcost] = ES.synthesize(*NewF, TLI);
 
+
       if (enable_caching) {
+        string optimized;
+        llvm::raw_string_ostream bs(optimized);
+        WriteBitcodeToFile(*m, bs);
+
         if (R) {
           stringstream rs;
           R->print(rs);
           rs.flush();
-          hSet(bytecode.c_str(), bytecode.size(), rs.str(),
-               ctx, oldcost, newcost, F.getName());
+          hSetRewrite(bytecode.c_str(), bytecode.size(),
+                      optimized.c_str(), optimized.size(),
+                      rs.str(), ctx, oldcost, newcost, F.getName());
         } else {
-          hSet(bytecode.c_str(), bytecode.size(), "<no-sol>",
-               ctx, 0, 0, F.getName());
+          hSetNoSolution(bytecode.c_str(), bytecode.size(), ctx, F.getName());
         }
       }
 

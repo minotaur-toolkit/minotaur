@@ -9,6 +9,7 @@ namespace minotaur {
 void eliminate_dead_code(llvm::Function &F);
 
 bool hGet(const char* s, unsigned sz, std::string &Value, redisContext *c);
-void hSet(const char* s, unsigned sz, llvm::StringRef Value,
-          redisContext *c, unsigned, unsigned, llvm::StringRef);
+void hSetRewrite(const char*, unsigned, const char *, unsigned, llvm::StringRef,
+                 redisContext *c, unsigned, unsigned, llvm::StringRef);
+void hSetNoSolution(const char*, unsigned, redisContext *c, llvm::StringRef);
 }

@@ -45,13 +45,33 @@ hGet(const char* s, unsigned sz, string &Value, redisContext *c) {
 }
 
 void
-hSet(const char* s, unsigned sz, llvm::StringRef Value, redisContext *c,
-     unsigned oldcost, unsigned newcost, llvm::StringRef FnName) {
+hSetRewrite(const char *k, unsigned sz_k,
+            const char *v, unsigned sz_v,
+            llvm::StringRef rewrite,
+            redisContext *c,
+            unsigned oldcost, unsigned newcost, llvm::StringRef FnName) {
   redisReply *reply = (redisReply *)redisCommand(c,
-    "HSET %b rewrite %s oldcost %s newcost %s timestamp %s fn %s",
-    s, sz, Value.data(),
+    "HSET %b optimizedbc %b rewrite %s  oldcost %s newcost %s timestamp %s fn %s",
+    k, sz_k, v, sz_v, rewrite.data(),
     to_string(oldcost).c_str(), to_string(newcost).c_str(),
     to_string((unsigned long)time(NULL)).c_str(), FnName.data());
+  if (!reply || c->err)
+    llvm::report_fatal_error((llvm::StringRef)"Redis error: " + c->errstr);
+  if (reply->type != REDIS_REPLY_INTEGER) {
+    llvm::report_fatal_error((llvm::StringRef)
+      "Redis protocol error for cache fill, didn't expect reply type " +
+      to_string(reply->type));
+  }
+  freeReplyObject(reply);
+}
+
+void
+hSetNoSolution(const char *k, unsigned sz_k,
+               redisContext *c,
+               llvm::StringRef FnName) {
+  redisReply *reply = (redisReply *)redisCommand(c,
+    "HSET %b rewrite <no-sol> timestamp %s fn %s",
+    k, sz_k, to_string((unsigned long)time(NULL)).c_str(), FnName.data());
   if (!reply || c->err)
     llvm::report_fatal_error((llvm::StringRef)"Redis error: " + c->errstr);
   if (reply->type != REDIS_REPLY_INTEGER) {

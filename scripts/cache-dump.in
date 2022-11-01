@@ -106,6 +106,7 @@ my %reduce;
 my %timestamp;
 my %fn_name;
 my %noopt;
+my %optbc;
 
 
 if ($DUMPALL) {
@@ -139,6 +140,7 @@ foreach my $opt (@all_keys) {
     my $nc     = $h{"newcost"};
     my $time   = $h{"timestamp"};
     my $fn     = $h{"fn"};
+    my $obc    = $h{"optimizedbc"};
 
     if ($oc == 0) {
         $oc = 1;
@@ -148,6 +150,7 @@ foreach my $opt (@all_keys) {
     }
 
     $ir{$opt} = parse($opt);
+    $optbc{$opt} = parse($obc);
     $fn_name{$opt} = $fn;
     $timestamp{$opt} = $time;
 
@@ -186,8 +189,10 @@ foreach my $opt (sort $byx keys %toprint) {
     my $rewrite = $rewrite{$opt};
     my $oc = $oldcost{$opt};
     my $nc = $newcost{$opt};
+    my $obc = $optbc{$opt};
     print $ir, "\n";
     print $rewrite, "\n";
+    print $obc, "\n";
     print "cost before rewrite: $oc\n";
     print "cost after rewrite: $nc\n";
     print "timestamp: $time\n";
