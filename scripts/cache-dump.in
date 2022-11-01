@@ -182,6 +182,7 @@ $byx = \&bytimestamp if ($SORT eq "timestamp");
 $byx = \&bycostdiff if ($SORT eq "costdiff");
 $byx = \&byreduce if ($SORT eq "reduce");
 
+my $count = 0;
 foreach my $opt (sort $byx keys %toprint) {
     my $ir   = $ir{$opt};
     my $time = $timestamp{$opt};
@@ -190,16 +191,25 @@ foreach my $opt (sort $byx keys %toprint) {
     my $oc = $oldcost{$opt};
     my $nc = $newcost{$opt};
     my $obc = $optbc{$opt};
-    print "; src ---------------------------------------------------\n";
-    print $ir, "\n";
-    print "; tgt ---------------------------------------------------\n";
-    print $obc, "\n";
-    print "; stats -------------------------------------------------\n";
-    print "; minotaur_rewrite: $rewrite \n";
-    print "; minotaur_cost-before: $oc\n";
-    print "; minotaur_cost-after: $nc\n";
-    print "; minotaur_timestamp: $time\n";
-    print "; minotaur_fn: $fn\n";
+
+    if ($TOFILES) {
+        open(my $fh, ">", "dump_$count.srctgt.ll");
+        print $fh, $ir, "\n";
+        $fh->flush();
+        close $fh;
+    } else {
+        print "; src ---------------------------------------------------\n";
+        print $ir, "\n";
+        print "; tgt ---------------------------------------------------\n";
+        print $obc, "\n";
+        print "; stats -------------------------------------------------\n";
+        print "; minotaur_rewrite: $rewrite \n";
+        print "; minotaur_cost-before: $oc\n";
+        print "; minotaur_cost-after: $nc\n";
+        print "; minotaur_timestamp: $time\n";
+        print "; minotaur_fn: $fn\n";
+    }
+    $count = $count + 1;
 
     # print "\n";
     # print "; total static profile = $sprofiles{$opt}\n";
