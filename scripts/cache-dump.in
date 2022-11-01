@@ -135,22 +135,12 @@ if ($DUMPALL) {
 
 foreach my $opt (@all_keys) {
     my %h = $r->hgetall($opt);
+
     my $result = $h{"rewrite"};
-    my $oc     = $h{"oldcost"};
-    my $nc     = $h{"newcost"};
     my $time   = $h{"timestamp"};
     my $fn     = $h{"fn"};
-    my $obc    = $h{"optimizedbc"};
-
-    if ($oc == 0) {
-        $oc = 1;
-    }
-    if ($nc == 0) {
-        $nc = 1;
-    }
 
     $ir{$opt} = parse($opt);
-    $optbc{$opt} = parse($obc);
     $fn_name{$opt} = $fn;
     $timestamp{$opt} = $time;
 
@@ -158,6 +148,16 @@ foreach my $opt (@all_keys) {
     if ($noopt{$opt}) {
         $noopt_count++;
     } else {
+        my $oc     = $h{"oldcost"};
+        my $nc     = $h{"newcost"};
+        my $obc    = $h{"optimizedbc"};
+        if ($oc == 0) {
+            $oc = 1;
+        }
+        if ($nc == 0) {
+            $nc = 1;
+        }
+        $optbc{$opt} = parse($obc);
         $toprint{$opt} = 1;
         $oldcost{$opt} = $oc;
         $newcost{$opt} = $nc;
@@ -191,12 +191,12 @@ foreach my $opt (sort $byx keys %toprint) {
     my $nc = $newcost{$opt};
     my $obc = $optbc{$opt};
     print $ir, "\n";
-    print $rewrite, "\n";
     print $obc, "\n";
-    print "cost before rewrite: $oc\n";
-    print "cost after rewrite: $nc\n";
-    print "timestamp: $time\n";
-    print "in fn: $fn\n";
+    print ";minotaur_rewrite: $rewrite \n";
+    print ";minotaur_cost-before: $oc\n";
+    print ";minotaur_cost-after: $nc\n";
+    print ";minotaur_timestamp: $time\n";
+    print ";minotaur_fn: $fn\n";
     print "\n------------------------------------------------------\n";
     # print "\n";
     # print "; total static profile = $sprofiles{$opt}\n";

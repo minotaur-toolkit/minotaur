@@ -498,7 +498,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
   // create function
   Function *F = Function::Create(FunctionType::get(v.getType(), argTys, false),
-                                 GlobalValue::ExternalLinkage, "dummy", *m);
+                                 GlobalValue::ExternalLinkage, "src", *m);
 
   // pass 5:
   // + replace the use of unknown value with the function parameter
