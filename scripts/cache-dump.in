@@ -194,7 +194,7 @@ foreach my $opt (sort $byx keys %toprint) {
 
     if ($TOFILES) {
         open(my $fh, ">", "dump_$count.srctgt.ll");
-        print $fh, $ir, "\n";
+        print $fh $ir, "\n";
         $fh->flush();
         close $fh;
     } else {
