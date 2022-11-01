@@ -194,6 +194,7 @@ foreach my $opt (sort $byx keys %toprint) {
     print $ir, "\n";
     print "; tgt ---------------------------------------------------\n";
     print $obc, "\n";
+    print "; stats -------------------------------------------------\n";
     print "; minotaur_rewrite: $rewrite \n";
     print "; minotaur_cost-before: $oc\n";
     print "; minotaur_cost-after: $nc\n";
