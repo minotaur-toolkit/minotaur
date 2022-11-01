@@ -190,14 +190,16 @@ foreach my $opt (sort $byx keys %toprint) {
     my $oc = $oldcost{$opt};
     my $nc = $newcost{$opt};
     my $obc = $optbc{$opt};
+    print "; src ---------------------------------------------------\n";
     print $ir, "\n";
+    print "; tgt ---------------------------------------------------\n";
     print $obc, "\n";
     print "; minotaur_rewrite: $rewrite \n";
     print "; minotaur_cost-before: $oc\n";
     print "; minotaur_cost-after: $nc\n";
     print "; minotaur_timestamp: $time\n";
     print "; minotaur_fn: $fn\n";
-    print "; ------------------------------------------------------\n";
+
     # print "\n";
     # print "; total static profile = $sprofiles{$opt}\n";
     # my %h = %{$sprofile_locs{$opt}};
