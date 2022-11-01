@@ -313,7 +313,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     unordered_set<Value *> visited;
     queue<pair<unordered_set<BasicBlock *>, BasicBlock *>> worklist;
     worklist.push({{bb}, bb});
-    unordered_set<BasicBlock*> unreachable;
+    // unordered_set<BasicBlock*> unreachable;
 
     while (!worklist.empty()) {
       auto [path, ibb] = worklist.front();
@@ -336,9 +336,9 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
         if (path.count(pred)) {
           return nullopt;
         }
-        if (unreachable.contains(pred)) {
-          continue;
-        }
+        // if (unreachable.contains(pred)) {
+        //   continue;
+        // }
         // SmallVector<BasicBlock*, 8> sv_deps(deps.begin(), deps.end());
         // if (!isPotentiallyReachableFromMany(sv_deps, pred, nullptr, &DT, &LI)) {
         //   unreachable.insert(pred);

@@ -183,7 +183,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
       }
 
       llvm::Value *V = LLVMGen(insertpt, IntrinsicDecls).codeGen(R, S.getValueMap());
-      V = llvm::IRBuilder<>(insertpt).CreateBitCast(V, I.getType());
+      V = llvm::IRBuilder<>(insertpt).CreateBitCast(V, I.getType(), "clean");
 
       I.replaceUsesWithIf(V, [&changed, &V, &DT](Use &U) {
         if(dom_check(V, DT, U)) {
