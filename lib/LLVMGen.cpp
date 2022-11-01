@@ -78,9 +78,11 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap) {
 
     if (K == UnaryInst::ctlz || K == UnaryInst::cttz) {
       llvm::Function *F = Intrinsic::getDeclaration(M, iid, {workty.toLLVM(C), Type::getInt1Ty(C)});
+      IntrinsicDecls.insert(F);
       return b.CreateCall(F, { op0, ConstantInt::getFalse(C) });
     } else {
       llvm::Function *F = Intrinsic::getDeclaration(M, iid, {workty.toLLVM(C)});
+      IntrinsicDecls.insert(F);
       return b.CreateCall(F, op0);
     }
   } else if (auto U = dynamic_cast<CopyInst*>(I)) {
@@ -234,6 +236,7 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap) {
       FunctionType *FT = FunctionType::get(FSV->getRetTy().toLLVM(C), Args, false);
       llvm::Function *F =
         llvm::Function::Create(FT, llvm::Function::ExternalLinkage, "__fksv", M);
+      IntrinsicDecls.insert(F);
       SV = b.CreateCall(F, { op0, op1, mask }, "sv");
     }
 
