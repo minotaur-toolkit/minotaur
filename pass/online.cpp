@@ -160,25 +160,10 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
 
       auto [R, oldcost, newcost] = ES.synthesize(*NewF, TLI);
 
-
-      if (enable_caching) {
-        string optimized;
-        llvm::raw_string_ostream bs(optimized);
-        WriteBitcodeToFile(*m, bs);
-
-        if (R) {
-          stringstream rs;
-          R->print(rs);
-          rs.flush();
-          hSetRewrite(bytecode.c_str(), bytecode.size(),
-                      optimized.c_str(), optimized.size(),
-                      rs.str(), ctx, oldcost, newcost, F.getName());
-        } else {
-          hSetNoSolution(bytecode.c_str(), bytecode.size(), ctx, F.getName());
-        }
+      if (!R) {
+        hSetNoSolution(bytecode.c_str(), bytecode.size(), ctx, F.getName());
+        continue;
       }
-
-      if (!R) continue;
       unordered_set<llvm::Function *> IntrinsicDecls;
       Instruction *insertpt = I.getNextNode();
       while(isa<PHINode>(insertpt)) {
@@ -187,6 +172,22 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
 
       llvm::Value *V = LLVMGen(insertpt, IntrinsicDecls).codeGen(R, S.getValueMap());
       V = llvm::IRBuilder<>(insertpt).CreateBitCast(V, I.getType());
+
+      if (enable_caching) {
+        string optimized;
+        llvm::raw_string_ostream bs(optimized);
+        for (auto &F : *m) {
+          eliminate_dead_code(F);
+        }
+        WriteBitcodeToFile(*m, bs);
+
+        stringstream rs;
+        R->print(rs);
+        rs.flush();
+        hSetRewrite(bytecode.c_str(), bytecode.size(),
+                    optimized.c_str(), optimized.size(),
+                    rs.str(), ctx, oldcost, newcost, F.getName());
+      }
 
       I.replaceUsesWithIf(V, [&changed, &V, &DT](Use &U) {
         if(dom_check(V, DT, U)) {

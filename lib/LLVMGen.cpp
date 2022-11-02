@@ -48,8 +48,7 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap) {
         return VMap[V->V()];
       else {
         //for (auto [k, v] : VMap){k->dump();}
-        //cout<<*V<<endl;
-        //V->V()->dump();
+        cerr<<*V<<endl;
         llvm::report_fatal_error("Value is not found in VMap");
       }
     }
