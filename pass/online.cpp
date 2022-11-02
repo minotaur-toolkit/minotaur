@@ -117,8 +117,6 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
   if (DEBUG_LEVEL > 0)
     llvm::errs()<<"=== start of minotaur run ===\n";
 
-  clock_t start = std::clock();
-
   smt::set_query_timeout(to_string(opt_smt_to * 1000));
 
   redisContext *ctx = redisConnect("127.0.0.1", 6379);
@@ -197,12 +195,6 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         }
         return false;
       });
-      /*unsigned duration = ( std::clock() - start ) / CLOCKS_PER_SEC;
-      if (duration > opt_problem_to) {
-        if (DEBUG_LEVEL > 0)
-          llvm::errs()<<"*** timed out ***\n";
-	goto finale;
-      }*/
     }
   }
   if (changed) {

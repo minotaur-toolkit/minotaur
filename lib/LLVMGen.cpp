@@ -49,7 +49,7 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap) {
       else {
         //for (auto [k, v] : VMap){k->dump();}
         //cout<<*V<<endl;
-        V->V()->dump();
+        //V->V()->dump();
         llvm::report_fatal_error("Value is not found in VMap");
       }
     }
