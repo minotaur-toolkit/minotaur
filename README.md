@@ -11,14 +11,14 @@ The Alive2 requires a LLVM compiled with RTTI and exceptions enabled, use the fo
 
 To fetch and build the Alive2 with X86 intrinsics, use the following command.
 
-    git clone git@github.com:zhengyang92/alive2-x86 $HOME/alive2-x86
+    git clone git@github.com:minotaur-toolkit/alive2-x86 $HOME/alive2-x86
     mkdir $HOME/alive2-x86/build && cd $HOME/alive2-x86/build
     cmake -GNinja -DLLVM_DIR=$HOME/llvm/build/lib/cmake/llvm -DBUILD_TV=1 -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
     ninja
 
 To build Minotaur, use the following command.
 
-    git clone git@github.com:zhengyang92/minotaur $HOME/minotaur
+    git clone git@github.com:minotaur-toolkit/minotaur $HOME/minotaur
     mkdir $HOME/minotaur/build && cd $HOME/minotaur/build
     cmake .. -DALIVE2_SOURCE_DIR=$HOME/alive2-x86 -DALIVE2_BUILD_DIR=$HOME/alive2-x86/build -DCMAKE_PREFIX_PATH=$HOME/llvm/build -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DCMAKE_BUILD_TYPE=RelWithDebInfo -G Ninja
     ninja
