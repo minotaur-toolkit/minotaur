@@ -381,35 +381,22 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
       }
     }
   }
-
-/*
-  for (auto &P : Pointers) {
-    auto tys = type::getVectorTypes(expected);
-    for (auto ty : tys) {
-      auto L = make_unique<Load>(*P, ty);
-      set<ReservedConst*> RCs;
-      sketches.push_back(make_pair(L.get(), move(RCs)));
-      exprs.emplace_back(move(L));
-    }
-  }
-  */
   return true;
 }
 
 tuple<Inst*, unsigned, unsigned>
 EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
   if (config::debug_enumerator) {
-    config::dbg()<<"working on sliced function\n";
+    config::dbg()<<"working on slice\n";
     F.dump();
   }
+
   clock_t start = std::clock();
+
   llvm::DominatorTree DT(F);
   DT.recalculate(F);
 
   unsigned machinecost = get_machine_cost(&F);
-
-
-  bool changed = false;
 
   std::unordered_set<llvm::Function *> IntrinsicDecls;
 
@@ -639,6 +626,7 @@ push:
         success = true;
       }
       iter = Fns.erase(iter);
+
       unsigned duration = ( std::clock() - start ) / CLOCKS_PER_SEC;
       if (goodCount || duration > 120) {
         break;
