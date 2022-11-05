@@ -19,6 +19,7 @@ bool debug_tv = false;
 bool ignore_machine_cost = false;
 bool smt_verbose = false;
 bool disable_avx512 = false;
+bool show_stats = false;
 
 ostream &dbg() {
   return *debug_os;

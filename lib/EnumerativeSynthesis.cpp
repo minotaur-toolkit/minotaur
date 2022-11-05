@@ -42,10 +42,6 @@
 #include <set>
 #include <map>
 
-#define DEBUG_TYPE "minotaur"
-STATISTIC(REWRITES, "Number of Rewrites Minotaur Synthesized");
-STATISTIC(PRUNED, "Number of Rewrites Pruned by Dataflow Analysis");
-
 using namespace tools;
 using namespace util;
 using namespace std;
@@ -382,6 +378,9 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
 
 tuple<Inst*, unsigned, unsigned>
 EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
+  unsigned REWRITES = 0;
+  unsigned PRUNED = 0;
+
   if (config::debug_enumerator) {
     config::dbg()<<"working on slice\n";
     F.dump();
@@ -412,8 +411,7 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
     llvm::Instruction *I = cast<llvm::Instruction>(S);
 
     unsigned Width = I->getType()->getScalarSizeInBits();
-    llvm::KnownBits KnownI(Width);
-    computeKnownBits(I, KnownI, DL);
+    llvm::KnownBits KnownI = computeKnownBits(I, DL);
 
     findInputs(F, I, DT);
 
@@ -520,7 +518,6 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
 
       eliminate_dead_code(*Tgt);
       unsigned tgt_cost = get_approx_cost(Tgt);
-      llvm::KnownBits KnownV(Width);
 
       ++REWRITES;
 
@@ -528,6 +525,7 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
       string err;
       llvm::raw_string_ostream err_stream(err);
       bool illformed = llvm::verifyFunction(*Tgt, &err_stream);
+      llvm::KnownBits KnownV(Width);
 
       if (illformed) {
         llvm::errs()<<"Error tgt found: "<<err<<"\n";
@@ -536,17 +534,17 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
         goto push;
       }
 
-      // check cost
-      if (tgt_cost >= src_cost) {
-        skip = true;
-        goto push;
-      }
-
-      // pruning by knownbits
       computeKnownBits(V, KnownV, DL);
+
       if ((KnownV.Zero & KnownI.One) != 0 || (KnownV.One & KnownI.Zero) != 0) {
         skip = true;
         ++PRUNED;
+        goto push;
+      }
+
+      // check cost
+      if (tgt_cost >= src_cost) {
+        skip = true;
         goto push;
       }
 push:
@@ -639,6 +637,9 @@ push:
       Tgt->eraseFromParent();
     }
 
+    if (config::show_stats) {
+      llvm::outs() <<"rewrites,"<< REWRITES << ",pruned," << PRUNED << "\n";
+    }
     // replace
     if (success) {
       if (config::debug_enumerator) {
