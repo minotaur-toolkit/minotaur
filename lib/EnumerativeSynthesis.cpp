@@ -577,7 +577,7 @@ push:
         if (config::debug_tv) {
           llvm::errs()<<"error found when converting llvm to alive2\n";
         }
-        return {nullptr, 0, 0};
+        continue;
       }
 
       if (!HaveC) {
@@ -589,7 +589,7 @@ push:
             llvm::errs()<<e.msg<<"\n";
           }
           if (e.msg == "slow vcgen") {
-             return {nullptr, 0, 0};
+            continue;
           }
         }
       } else {
@@ -610,7 +610,7 @@ push:
             llvm::errs()<<e.msg<<"\n";
           }
           if (e.msg == "slow vcgen") {
-            return {nullptr, 0, 0};
+            continue;
           }
         }
       }
