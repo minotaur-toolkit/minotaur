@@ -68,21 +68,12 @@ EnumerativeSynthesis::findInputs(llvm::Function &F,
         continue;
 
       auto ty = I.getType();
-      if (ty->isIntOrIntVectorTy()) {
-        auto T = make_unique<Var>(&I);
-        Values.insert(T.get());
-        exprs.emplace_back(move(T));
-      }
-      else if (ty->isPointerTy()) {
-        auto T = make_unique<Pointer>(&I);
-        Pointers.insert(T.get());
-        exprs.emplace_back(move(T));
-      }
-      else if (ty->isVectorTy() && ty->getScalarType()->isPointerTy()) {
-        auto T = make_unique<PointerVector>(&I);
-        PointerVectors.insert(T.get());
-        exprs.emplace_back(move(T));
-      }
+      if (!ty->isIntOrIntVectorTy())
+        continue;
+
+      auto T = make_unique<Var>(&I);
+      Values.insert(T.get());
+      exprs.emplace_back(move(T));
     }
   }
 }

@@ -24,8 +24,6 @@ class EnumerativeSynthesis {
   std::vector<std::unique_ptr<Inst>> exprs;
 
   std::set<Var*> Values;
-  std::set<Pointer*> Pointers;
-  std::set<PointerVector*> PointerVectors;
 
   void findInputs(llvm::Function&,
                   llvm::Instruction*,

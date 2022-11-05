@@ -247,49 +247,4 @@ public:
   type getNewTy () const { return type(lane, new_bits, false); }
 };
 
-
-class Pointer final : public Inst {
-  llvm::Value *v;
-  ReservedConst *offset;
-  std::optional<type> ty;
-  std::string name;
-public:
-  Pointer(llvm::Value *p) : v(p), ty(std::nullopt) {
-    llvm::raw_string_ostream ss(name);
-    v->printAsOperand(ss, false);
-    ss.flush();
-  }
-  void print(std::ostream &os) const override;
-};
-
-
-class PointerVector final: public Inst {
-  llvm::Value *addrs;
-  std::string name;
-public:
-  PointerVector(llvm::Value *v) : addrs(v) {
-    llvm::raw_string_ostream ss(name);
-    v->printAsOperand(ss, false);
-    ss.flush();
-  }
-  void print(std::ostream &os) const override;
-};
-
-
-class Load final : public Value {
-  Pointer *p;
-public:
-  Load(Pointer &p, type &loadty) : Value(loadty.getWidth()), p(&p) {}
-  void print(std::ostream &os) const override;
-};
-
-
-class Gather final : public Value {
-  PointerVector *ps;
-  type ty;
-public:
-  Gather(PointerVector &p, type &ty): Value(ty.getWidth()), ps(&p), ty(ty) {}
-  void print(std::ostream &os) const override;
-};
-
 }

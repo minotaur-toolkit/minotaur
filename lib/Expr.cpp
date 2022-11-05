@@ -182,23 +182,4 @@ void ConversionInst::print(ostream &os) const {
   os << ")";
 }
 
-/*
-BitCastOp(Inst &i, unsigned lf, unsigned wf, unsigned lt, unsigned wt);
-  : i(&i), lanes_from(lf), lanes_to(lt), width_from(width_from), width_to(wt) {
-    assert(lf * wf == lt * wt);
-}*/
-
-
-void Pointer::print(ostream &os) const {
-  os << "(ptr " << name <<")";
-}
-
-void PointerVector::print(ostream &os) const {
-  os << "(ptrs " << name <<")";
-}
-
-void Load::print(ostream &os) const {
-  os << "(load " << *p << ")";
-}
-
 };
