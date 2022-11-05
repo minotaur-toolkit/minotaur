@@ -21,6 +21,7 @@
 #include "llvm_util/llvm2alive.h"
 #include "llvm_util/utils.h"
 
+#include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -40,6 +41,10 @@
 #include <vector>
 #include <set>
 #include <map>
+
+#define DEBUG_TYPE "minotaur"
+STATISTIC(REWRITES, "Number of Rewrites Minotaur Synthesized");
+STATISTIC(PRUNED, "Number of Rewrites Pruned by Dataflow Analysis");
 
 using namespace tools;
 using namespace util;
@@ -517,6 +522,8 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
       unsigned tgt_cost = get_approx_cost(Tgt);
       llvm::KnownBits KnownV(Width);
 
+      ++REWRITES;
+
       bool skip = false;
       string err;
       llvm::raw_string_ostream err_stream(err);
@@ -539,6 +546,7 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
       computeKnownBits(V, KnownV, DL);
       if ((KnownV.Zero & KnownI.One) != 0 || (KnownV.One & KnownI.Zero) != 0) {
         skip = true;
+        ++PRUNED;
         goto push;
       }
 push:
