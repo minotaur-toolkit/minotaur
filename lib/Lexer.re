@@ -57,11 +57,6 @@ static void COPY_STR(unsigned off = 0) {
   yylval.str = { (const char*)YYTEXT + off, YYLENGTH - off };
 }
 
-static void COPY_STR_RTRIM(unsigned trim) {
-  assert(trim <= YYLENGTH);
-  yylval.str = { (const char*)YYTEXT, YYLENGTH - trim };
-}
-
 void yylex_init(string_view str) {
   YYCURSOR = (const YYCTYPE*)str.data();
   YYLIMIT  = (const YYCTYPE*)str.data() + str.size();

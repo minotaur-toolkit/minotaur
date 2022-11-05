@@ -71,7 +71,7 @@ struct CacheExprsPass : PassInfoMixin<CacheExprsPass> {
         Slice S(F, LI, DT, MD);
         S.extractExpr(I);
         auto m = S.getNewModule();
-        //optimizeModule(m.get());
+        optimizeModule(m.get());
         string bytecode;
         llvm::raw_string_ostream ss(bytecode);
         //m->print(ss, nullptr, false, false);
