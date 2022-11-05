@@ -161,7 +161,7 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
   }
 
   // binop
-  for (unsigned K = BinaryInst::Op::band; K <= BinaryInst::Op::mul; ++K) {
+  for (unsigned K = BinaryInst::Op::band; K <= BinaryInst::Op::shl; ++K) {
     BinaryInst::Op Op = static_cast<BinaryInst::Op>(K);
     for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
       auto Op1 = BinaryInst::isCommutative(Op) ? Op0 : Comps.begin();
