@@ -1,4 +1,5 @@
 ; CHECK: call <8 x i32> @llvm.x86.avx2.pmadd.wd
+; https://godbolt.org/z/7nTjYEKh9
 define <8 x i32> @src(<16 x i16> %wide.vec) {
 entry:
   %strided.vec = shufflevector <16 x i16> %wide.vec, <16 x i16> poison, <8 x i32> <i32 0, i32 2, i32 4, i32 6, i32 8, i32 10, i32 12, i32 14>
