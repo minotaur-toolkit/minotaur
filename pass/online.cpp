@@ -117,8 +117,6 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
       if (!NewF.has_value())
         continue;
 
-      // if (NewF->get().getReturnType()->isIntegerTy(16))
-      //   continue;
       string bytecode;
       if (enable_caching) {
         llvm::raw_string_ostream bs(bytecode);
@@ -259,14 +257,11 @@ struct SuperoptimizerPass : PassInfoMixin<SuperoptimizerPass> {
 
 bool pipelineParsingCallback(StringRef Name, FunctionPassManager &FPM,
                              ArrayRef<PassBuilder::PipelineElement>) {
-  bool Result = false;
-
   if (Name == "minotaur-online") {
-    Result = true;
     FPM.addPass(SuperoptimizerPass());
+    return true;
   }
-
-  return Result;
+  return false;
 }
 
 void passBuilderCallback(PassBuilder &PB) {
