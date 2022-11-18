@@ -62,21 +62,6 @@ llvm::cl::opt<unsigned> opt_problem_to(
     llvm::cl::desc("Superoptimizer: timeout for SMT queries"),
     llvm::cl::init(1200), llvm::cl::value_desc("s"));
 
-llvm::cl::opt<bool> opt_se_verbose(
-    "so-se-verbose",
-    llvm::cl::desc("Superoptimizer: symbolic execution verbose mode"),
-    llvm::cl::init(false));
-
-llvm::cl::opt<bool> opt_smt_stats(
-    "so-smt-stats",
-    llvm::cl::desc("Superoptimizer: show SMT statistics"),
-    llvm::cl::init(false));
-
-llvm::cl::opt<bool> opt_smt_skip(
-    "so-smt-skip",
-    llvm::cl::desc("Superoptimizer: skip SMT queries"),
-    llvm::cl::init(false));
-
 llvm::cl::opt<bool> opt_smt_verbose(
     "so-smt-verbose",
     llvm::cl::desc("Superoptimizer: SMT verbose mode"),
