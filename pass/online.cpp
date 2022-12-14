@@ -1,10 +1,10 @@
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
-#include "Config.h"
-#include "EnumerativeSynthesis.h"
-#include "LLVMGen.h"
-#include "Slice.h"
-#include "Utils.h"
+#include "config.h"
+#include "synthesis.h"
+#include "codegen.h"
+#include "slice.h"
+#include "utils.h"
 
 #include "ir/instr.h"
 #include "llvm_util/llvm2alive.h"

@@ -1,8 +1,8 @@
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
+#include "alive-interface.h"
+#include "expr.h"
 
-#include "AliveInterface.h"
-#include "Expr.h"
 #include "ir/type.h"
 #include "ir/instr.h"
 #include "ir/function.h"

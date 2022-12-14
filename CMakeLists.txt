@@ -24,12 +24,12 @@ if (RE2C)
 else()
   message(SEND_ERROR "re2c executable not found")
 endif()
-add_custom_command(OUTPUT "${PROJECT_BINARY_DIR}/lexer/Lexer.cpp"
+add_custom_command(OUTPUT "${PROJECT_BINARY_DIR}/lexer/lexer.cpp"
                    COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_BINARY_DIR}/lexer"
                    COMMAND ${RE2C} ARGS "-d" "-b" "-T" "--no-generation-date"
-                   "-o" "${PROJECT_BINARY_DIR}/lexer/Lexer.cpp"
-                   "${PROJECT_SOURCE_DIR}/lib/Lexer.re"
-                   DEPENDS "lib/Lexer.re")
+                   "-o" "${PROJECT_BINARY_DIR}/lexer/lexer.cpp"
+                   "${PROJECT_SOURCE_DIR}/lib/lexer.re"
+                   DEPENDS "lib/lexer.re")
 
 
 find_package(LLVM REQUIRED CONFIG)
@@ -50,14 +50,14 @@ include_directories(${ALIVE2_SOURCE_DIR})
 
 include_directories(include)
 set(SYNTHESIZER_SRC
-  "lib/AliveInterface.cpp"
-  "lib/Config.cpp"
-  "lib/EnumerativeSynthesis.cpp"
-  "lib/Expr.cpp"
-  "lib/LLVMGen.cpp"
-  "lib/Parse.cpp"
-  "lib/Type.cpp"
-  "${PROJECT_BINARY_DIR}/lexer/Lexer.cpp"
+  "lib/alive-interface.cpp"
+  "lib/config.cpp"
+  "lib/synthesis.cpp"
+  "lib/expr.cpp"
+  "lib/codegen.cpp"
+  "lib/parse.cpp"
+  "lib/type.cpp"
+  "${PROJECT_BINARY_DIR}/lexer/lexer.cpp"
 )
 
 
@@ -75,14 +75,14 @@ include_directories(${HIREDIS_INCLUDE_DIR}/hiredis)
 
 llvm_map_components_to_libnames(LLVM_LIBS analysis bitwriter core irreader passes scalaropts support transformutils mc AllTargetsMCAs x86codegen x86desc x86info object x86asmparser)
 
-add_library(machine_cost STATIC "lib/MachineCost.cpp")
+add_library(machine_cost STATIC "lib/machine-cost.cpp")
 target_link_libraries(machine_cost PRIVATE ${LLVM_LIBS})
 
-add_library(utils STATIC "lib/Utils.cpp")
+add_library(utils STATIC "lib/utils.cpp")
 target_link_libraries(utils PRIVATE ${LLVM_LIBS} ${HIREDIS_LIBRARY})
 
-add_library(slice STATIC "lib/Config.cpp"
-                         "lib/Slice.cpp")
+add_library(slice STATIC "lib/config.cpp"
+                         "lib/slice.cpp")
 target_link_libraries(slice PRIVATE utils)
 
 add_library(synthesizer STATIC ${SYNTHESIZER_SRC})
@@ -123,8 +123,8 @@ set(CACHE_EXPRS_PASS ${CMAKE_BINARY_DIR}/cache-exprs${CMAKE_SHARED_LIBRARY_SUFFI
 set(ONLINE_PASS ${CMAKE_BINARY_DIR}/online${CMAKE_SHARED_LIBRARY_SUFFIX})
 
 configure_file(
-  ${PROJECT_SOURCE_DIR}/include/GetCost.h.in
-  ${PROJECT_SOURCE_DIR}/include/GetCost.h
+  ${PROJECT_SOURCE_DIR}/include/cost-command.h.in
+  ${PROJECT_SOURCE_DIR}/include/cost-command.h
   @ONLY
 )
 configure_file(
@@ -187,9 +187,9 @@ add_custom_target("check"
 
 set(GTEST_LIBS "-lgtest_main -lgtest -lpthread")
 
-add_llvm_executable(parser_tests
-  unittests/ParseTests.cpp
+add_llvm_executable(parse-tests
+  unit-tests/parse-tests.cpp
 )
-target_link_libraries(parser_tests PRIVATE synthesizer ${GTEST_LIBS} ${ALIVE_LIBS} ${Z3_LIBRARIES}
+
+target_link_libraries(parse-tests PRIVATE synthesizer ${GTEST_LIBS} ${ALIVE_LIBS} ${Z3_LIBRARIES}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
-#set_target_properties(parser_tests PROPERTIES COMPILE_FLAGS "${GTEST_CXXFLAGS}")
