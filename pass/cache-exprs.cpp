@@ -90,21 +90,16 @@ struct CacheExprsPass : PassInfoMixin<CacheExprsPass> {
 
 bool pipelineParsingCallback(StringRef Name, FunctionPassManager &FPM,
                              ArrayRef<PassBuilder::PipelineElement>) {
-  bool Res = false;
-
   if (Name == "minotaur-cache-exprs") {
-    Res = true;
-
     FPM.addPass(CacheExprsPass());
+    return true;
   }
-
-  return Res;
+  return false;
 }
 
 void passBuilderCallback(PassBuilder &PB) {
   PB.registerPipelineParsingCallback(pipelineParsingCallback);
   PB.registerVectorCombineCallback(
-  //PB.registerPipelineEarlySimplificationEPCallback
       [](llvm::FunctionPassManager &FPM, llvm::OptimizationLevel) {
         FPM.addPass(CacheExprsPass());
       });
