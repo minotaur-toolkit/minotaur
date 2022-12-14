@@ -53,33 +53,33 @@ static constexpr unsigned DEBUG_LEVEL = 0;
 namespace {
 
 llvm::cl::opt<unsigned> opt_smt_to(
-    "so-smt-to",
-    llvm::cl::desc("Superoptimizer: timeout for SMT queries"),
+    "minotaur-query-to",
+    llvm::cl::desc("minotaur: timeout for SMT queries"),
     llvm::cl::init(10), llvm::cl::value_desc("s"));
 
 llvm::cl::opt<unsigned> opt_problem_to(
-    "so-problem-to",
-    llvm::cl::desc("Superoptimizer: timeout for SMT queries"),
+    "minotaur-problem-to",
+    llvm::cl::desc("minotaur: timeout for each synthesis problem"),
     llvm::cl::init(1200), llvm::cl::value_desc("s"));
 
 llvm::cl::opt<bool> opt_smt_verbose(
-    "so-smt-verbose",
-    llvm::cl::desc("Superoptimizer: SMT verbose mode"),
+    "minotaur-smt-verbose",
+    llvm::cl::desc("minotaur: SMT verbose mode"),
     llvm::cl::init(false));
 
 llvm::cl::opt<bool> enable_caching(
     "minotaur-enable-caching",
-    llvm::cl::desc("Superoptimizer: enable result caching"),
+    llvm::cl::desc("minotaur: enable result caching"),
     llvm::cl::init(true));
 
 llvm::cl::opt<bool> ignore_mca(
     "minotaur-ignore-machine-cost",
-    llvm::cl::desc("Superoptimizer: ignore llvm-mca cost model"),
+    llvm::cl::desc("minotaur: ignore llvm-mca cost model"),
     llvm::cl::init(false));
 
 llvm::cl::opt<bool> opt_debug(
     "minotaur-debug",
-    llvm::cl::desc("Superoptimizer: Show debug data"),
+    llvm::cl::desc("minotaur: Show debug data"),
     llvm::cl::init(false), llvm::cl::Hidden);
 
 
