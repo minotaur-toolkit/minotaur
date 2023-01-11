@@ -352,6 +352,15 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     }
   }
 
+  // irregular CFG causing bugs
+  // TODO: add comment
+  for (auto bb : blocks) {
+    for(BasicBlock *pred : predecessors(bb)) {
+      if (!blocks.count(pred))
+        return nullopt;
+    }
+  }
+
   // FIXME: Do not handle switch for now
   for (BasicBlock *orig_bb : blocks) {
     Instruction *term = orig_bb->getTerminator();
