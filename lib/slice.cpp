@@ -352,15 +352,6 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     }
   }
 
-  // irregular CFG causing bugs
-  // TODO: add comment
-  for (auto bb : blocks) {
-    for(BasicBlock *pred : predecessors(bb)) {
-      if (!blocks.count(pred))
-        return nullopt;
-    }
-  }
-
   // FIXME: Do not handle switch for now
   for (BasicBlock *orig_bb : blocks) {
     Instruction *term = orig_bb->getTerminator();
@@ -521,10 +512,11 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     }
   }
 
+  BasicBlock *entry = nullptr;
   if (block_without_preds.size() == 0) {
     llvm::report_fatal_error("[ERROR] no entry block found");
   } if (block_without_preds.size() == 1) {
-    BasicBlock *entry = *block_without_preds.begin();
+    entry = *block_without_preds.begin();
     entry->insertInto(F);
     for (auto block : cloned_blocks) {
       if (block == entry)
@@ -532,7 +524,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       block->insertInto(F);
     }
   } else {
-    BasicBlock *entry =  BasicBlock::Create(ctx, "entry");
+    entry = BasicBlock::Create(ctx, "entry");
     SwitchInst *sw = SwitchInst::Create(F->getArg(idx), sinkbb, 1, entry);
     unsigned idx  = 0;
     for (BasicBlock *no_pred : block_without_preds) {
@@ -541,6 +533,15 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     entry->insertInto(F);
     for (auto block : cloned_blocks) {
       block->insertInto(F);
+    }
+  }
+
+  for (auto bb : blocks) {
+    if (bmap[bb] == entry)
+      continue;
+    for(BasicBlock *pred : predecessors(bb)) {
+      if (!blocks.count(pred))
+        return nullopt;
     }
   }
   sinkbb->insertInto(F);
