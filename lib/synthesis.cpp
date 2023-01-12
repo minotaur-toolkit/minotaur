@@ -145,7 +145,7 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
       continue;
     if (dynamic_cast<ReservedConst *>(*Op0))
       continue;
-    for (unsigned K = UnaryInst::Op::bitreverse; K <= UnaryInst::Op::ctpop; ++K) {
+    for (unsigned K = UnaryInst::bitreverse; K <= UnaryInst::ctpop; ++K) {
       UnaryInst::Op Op = static_cast<UnaryInst::Op>(K);
       vector<type> tys = type::getBinaryInstWorkTypes(expected);
 
@@ -162,7 +162,7 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
   }
 
   // binop
-  for (unsigned K = BinaryInst::Op::band; K <= BinaryInst::Op::shl; ++K) {
+  for (unsigned K = BinaryInst::band; K <= BinaryInst::shl; ++K) {
     BinaryInst::Op Op = static_cast<BinaryInst::Op>(K);
     for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
       auto Op1 = BinaryInst::isCommutative(Op) ? Op0 : Comps.begin();
@@ -247,7 +247,8 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
               continue;
 
             unsigned elem_bits = L->getWidth() / expected;
-            if (elem_bits != 8 && elem_bits != 16 && elem_bits != 32 && elem_bits != 64)
+            if (elem_bits != 8 && elem_bits != 16 &&
+                elem_bits != 32 && elem_bits != 64)
               continue;
             // (icmp var, rc)
             if (dynamic_cast<ReservedConst*>(*Op1)) {
@@ -290,7 +291,8 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
 
     for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
       for (auto Op1 = Comps.begin(); Op1 != Comps.end(); ++Op1) {
-        if (dynamic_cast<ReservedConst *>(*Op0) && dynamic_cast<ReservedConst *>(*Op1))
+        if (dynamic_cast<ReservedConst *>(*Op0) &&
+            dynamic_cast<ReservedConst *>(*Op1))
           continue;
 
         Value *I = nullptr;
