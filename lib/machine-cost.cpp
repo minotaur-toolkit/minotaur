@@ -1,10 +1,11 @@
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
-
 #include "machine-cost.h"
 #include "utils.h"
 #include "cost-command.h"
 
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/None.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Casting.h"
@@ -72,10 +73,12 @@ unsigned get_machine_cost(llvm::Function *F) {
   }
   ::close(OutputFD);
 
-  std::vector<StringRef> ArgPtrs = {"get-cost", InputPath};
-  Optional<StringRef> Redirects[3] = {None, StringRef(OutputPath), StringRef("/dev/null")};
+  vector<StringRef> ArgPtrs = {"get-cost", InputPath};
+  optional<StringRef> Redirects[3] = { nullopt,
+                                       StringRef(OutputPath),
+                                       StringRef("/dev/null") };
 
-  int retval = sys::ExecuteAndWait(GET_COST_COMMAND, ArgPtrs, None, Redirects, 5);
+  int retval = sys::ExecuteAndWait(GET_COST_COMMAND, ArgPtrs, nullopt, Redirects, 5);
 
   if (retval) {
     llvm::errs()<<"error when analysizing cost\n";

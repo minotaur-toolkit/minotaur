@@ -53,9 +53,8 @@ schedule_insts(vector<pair<Instruction*, unsigned>> &iis) {
 }
 
 unsigned getInstructionIdx(const Instruction *I) {
-  auto &instlist = I->getParent()->getInstList();
   unsigned idx = 0;
-  for (auto &ii : instlist) {
+  for (auto &ii : *(I->getParent())) {
     if (&ii == I)
       break;
     ++idx;
@@ -409,7 +408,8 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       for (Instruction *inst : is) {
         if (isa<BranchInst>(inst))
           continue;
-        bmap.at(bis.first)->getInstList().push_back(cast<Instruction>(vmap[inst]));
+        BasicBlock *bb = bmap.at(bis.first);
+        cast<Instruction>(vmap[inst])->insertInto(bb, bb->end());
       }
     }
     // pass 3.1.2:
@@ -453,7 +453,8 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
     // create ret
     ReturnInst *ret = ReturnInst::Create(ctx, vmap[&v]);
-    bmap.at(vbb)->getInstList().push_back(ret);
+    BasicBlock *bb = bmap.at(vbb);
+    ret->insertInto(bb, bb->end());
   }
 
   // pass 4;

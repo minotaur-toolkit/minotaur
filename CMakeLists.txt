@@ -73,7 +73,8 @@ find_library(HIREDIS_LIBRARY
 
 include_directories(${HIREDIS_INCLUDE_DIR}/hiredis)
 
-llvm_map_components_to_libnames(LLVM_LIBS analysis bitwriter core irreader passes scalaropts support transformutils mc AllTargetsMCAs x86codegen x86desc x86info object x86asmparser)
+llvm_map_components_to_libnames(LLVM_LIBS
+  analysis core irreader passes scalaropts support transformutils targetparser)
 
 add_library(machine_cost STATIC "lib/machine-cost.cpp")
 target_link_libraries(machine_cost PRIVATE ${LLVM_LIBS})
@@ -89,19 +90,36 @@ add_library(synthesizer STATIC ${SYNTHESIZER_SRC})
 target_link_libraries(synthesizer PRIVATE utils machine_cost)
 
 add_llvm_library(online MODULE pass/online.cpp)
-target_link_libraries(online PRIVATE synthesizer slice ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS}
+
+target_link_libraries(online
+  PRIVATE synthesizer slice ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 
 add_llvm_library(cache-exprs MODULE pass/cache-exprs.cpp)
-target_link_libraries(cache-exprs PRIVATE slice ${HIREDIS_LIBRARY}
+
+target_link_libraries(cache-exprs
+  PRIVATE slice ${HIREDIS_LIBRARY}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 
 add_llvm_executable(minotaur-cs "tools/minotaur-cs.cpp")
-target_link_libraries(minotaur-cs PRIVATE synthesizer ${ALIVE_LIBS} ${LLVM_LIBS} ${Z3_LIBRARIES}
+
+target_link_libraries(minotaur-cs
+  PRIVATE synthesizer ${ALIVE_LIBS} ${LLVM_LIBS} ${Z3_LIBRARIES}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 
 add_llvm_executable(slice-ir "tools/slice-ir.cpp")
-target_link_libraries(slice-ir PRIVATE slice ${ALIVE_LIBS}
+
+target_link_libraries(slice-ir
+  PRIVATE slice ${ALIVE_LIBS}
+  $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
+
+add_llvm_executable(parse-tests
+  unit-tests/parse-tests.cpp
+)
+set(GTEST_LIBS "-lgtest_main -lgtest -lpthread")
+
+target_link_libraries(parse-tests
+  PRIVATE synthesizer ${GTEST_LIBS} ${ALIVE_LIBS} ${Z3_LIBRARIES}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 
 if(APPLE)
@@ -184,12 +202,3 @@ add_custom_target("check"
                   DEPENDS "online"
                   USES_TERMINAL
 )
-
-set(GTEST_LIBS "-lgtest_main -lgtest -lpthread")
-
-add_llvm_executable(parse-tests
-  unit-tests/parse-tests.cpp
-)
-
-target_link_libraries(parse-tests PRIVATE synthesizer ${GTEST_LIBS} ${ALIVE_LIBS} ${Z3_LIBRARIES}
-  $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
