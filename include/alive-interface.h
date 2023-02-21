@@ -8,6 +8,9 @@
 #include "smt/smt.h"
 #include "tools/transform.h"
 #include "util/config.h"
+
+#include "llvm/Analysis/TargetLibraryInfo.h"
+
 #include <iostream>
 
 namespace minotaur {
@@ -15,6 +18,7 @@ namespace minotaur {
 class AliveEngine {
 private:
   std::optional<smt::smt_initializer> smt_init;
+
 public:
   AliveEngine() {
     smt_init.emplace();
@@ -24,11 +28,9 @@ public:
   }
 
 
-  bool constantSynthesis(IR::Function &Func1, IR::Function &Func2,
-                         unsigned &goodCount, unsigned &badCount, unsigned &errorCount,
-                         std::unordered_map<const IR::Value*, ReservedConst*> &);
-  bool compareFunctions(IR::Function &Func1, IR::Function &Func2,
-                        unsigned &goodCount, unsigned &badCount, unsigned &errorCount);
+  bool constantSynthesis(llvm::Function&, llvm::Function&, llvm::Triple&,
+                         std::map<const IR::Value*, ReservedConst*> &);
+  bool compareFunctions(llvm::Function&, llvm::Function&, llvm::Triple &);
 };
 
 }

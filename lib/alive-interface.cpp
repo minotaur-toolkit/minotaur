@@ -5,11 +5,13 @@
 #include "expr.h"
 
 #include "ir/globals.h"
+#include "llvm_util/llvm2alive.h"
 #include "smt/smt.h"
 #include "util/config.h"
 #include "util/errors.h"
 #include "util/symexec.h"
 #include "tools/transform.h"
+#include "llvm_util/compare.h"
 
 #include <map>
 #include <sstream>
@@ -49,53 +51,13 @@ void calculateAndInitConstants(Transform &t);
 namespace minotaur {
 
 bool
-AliveEngine::compareFunctions(IR::Function &Func1, IR::Function &Func2,
-                              unsigned &goodCount, unsigned &badCount,
-                              unsigned &errorCount) {
-  Transform t;
-  t.src = move(Func1);
-  t.tgt = move(Func2);
-
-  t.preprocess();
-  t.tgt.syncDataWithSrc(t.src);
-  calculateAndInitConstants(t);
-  TransformVerify verifier(t, false);
-  if (config::debug_tv) {
-    TransformPrintOpts print_opts;
-    t.print(config::dbg(), print_opts);
-  }
-
-  {
-    auto types = verifier.getTypings();
-    if (!types) {
-      if (config::debug_tv)
-        config::dbg() << "Transformation doesn't verify!\n"
-                         "ERROR: program doesn't type check!\n\n";
-      ++errorCount;
-      return true;
-    }
-    assert(types.hasSingleTyping());
-  }
-
-  Errors errs = verifier.verify();
-  bool result(errs);
-  if (result) {
-    if (errs.isUnsound()) {
-      if (config::debug_tv)
-        config::dbg() << "Transformation doesn't verify!\n" << endl;
-      ++badCount;
-    } else {
-      if (config::debug_tv)
-        config::dbg() << errs << endl;
-      ++errorCount;
-    }
-  } else {
-    if (config::debug_tv)
-      config::dbg() << "Transformation seems to be correct!\n\n";
-    ++goodCount;
-  }
-
-  return result;
+AliveEngine::compareFunctions(llvm::Function &Func1, llvm::Function &Func2,
+                              llvm::Triple &targetTriple) {
+  llvm::TargetLibraryInfoWrapperPass TLI(targetTriple);
+  smt::smt_initializer smt_init;
+  llvm_util::Verifier verifier(TLI, smt_init, cout);
+  verifier.compareFunctions(Func1, Func2);
+  return verifier.num_correct;
 }
 
 static Errors find_model(Transform &t,
@@ -238,12 +200,27 @@ static Errors find_model(Transform &t,
 
 // call constant synthesizer and fill in constMap if synthesis suceeeds
 bool
-AliveEngine::constantSynthesis(IR::Function &Func1, IR::Function &Func2,
-                               unsigned &goodCount, unsigned &badCount, unsigned &errorCount,
-                               unordered_map<const IR::Value*, ReservedConst*> &inputMap) {
+AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
+                               llvm::Triple &targetTriple,
+                               map<const IR::Value*, ReservedConst*> &consts) {
+
+  llvm::TargetLibraryInfoWrapperPass TLI(targetTriple);
+  smt::smt_initializer smt_init;
+
+  auto Func1 = llvm_util::llvm2alive(src, TLI.getTLI(src), true);
+  auto Func2 = llvm_util::llvm2alive(tgt, TLI.getTLI(tgt), true);
+
+  unsigned goodCount = 0, badCount = 0, errorCount = 0;
+  if (!Func1.has_value() || !Func2.has_value()) {
+    if (config::debug_tv) {
+      llvm::errs()<<"error found when converting llvm to alive2\n";
+    }
+    return false;
+  }
+
   Transform t;
-  t.src = move(Func1);
-  t.tgt = move(Func2);
+  t.src = move(*Func1);
+  t.tgt = move(*Func2);
   // assume type verifies
   std::unordered_map<const IR::Value *, smt::expr> result;
 
@@ -256,22 +233,19 @@ AliveEngine::constantSynthesis(IR::Function &Func1, IR::Function &Func2,
       config::dbg()<<"unable to find constants: \n";
       config::dbg()<<errs;
     }
-    return ret;
+    return false;
   }
 
-  for (auto p : inputMap) {
+  for (auto p : consts) {
     auto &ty = p.first->getType();
     auto lty = p.second->getA()->getType();
 
     if (ty.isIntType()) {
       if (!result[p.first].isConst())
-          return ret;
+          return false;
       unsigned bits = llvm::cast<llvm::IntegerType>(lty)->getBitWidth();
       p.second->setC({
         llvm::APInt(bits, result[p.first].numeral_string(), 10)});
-    } else if (ty.isFloatType()) {
-      //TODO: Add support for FP
-      UNREACHABLE();
     } else if (ty.isVectorType()) {
       auto trunk = result[p.first];
       llvm::FixedVectorType *vty = llvm::cast<llvm::FixedVectorType>(lty);
@@ -282,7 +256,7 @@ AliveEngine::constantSynthesis(IR::Function &Func1, IR::Function &Func2,
         unsigned bits = ety->getBitWidth();
         auto elem = trunk.extract((i + 1) * bits - 1, i * bits);
         if (!elem.isConst())
-          return ret;
+          return false;
         v.push_back(
           llvm::APInt(bits, elem.numeral_string(), 10));
       }
@@ -290,9 +264,7 @@ AliveEngine::constantSynthesis(IR::Function &Func1, IR::Function &Func2,
     }
   }
 
-  ++goodCount;
-
-  return ret;
+  return true;
 }
 
 }

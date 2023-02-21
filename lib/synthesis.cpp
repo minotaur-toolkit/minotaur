@@ -579,10 +579,11 @@ push:
         continue;
       }
 
+      bool good = false;
+
       if (!HaveC) {
         try {
-          AE.compareFunctions(*Func1, *Func2,
-                              goodCount, badCount, errorCount);
+          good = AE.compareFunctions(Src, Tgt);
         } catch (AliveException e) {
           if (config::debug_tv) {
             llvm::errs()<<e.msg<<"\n";
