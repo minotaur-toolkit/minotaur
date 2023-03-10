@@ -203,7 +203,7 @@ static Errors find_model(Transform &t,
 // call constant synthesizer and fill in constMap if synthesis suceeeds
 bool
 AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
-                               map<const Argument*, Constant> &consts) {
+                               cmap &consts) {
   smt::smt_initializer smt_init;
 
   auto Func1 = llvm_util::llvm2alive(src, TLI.getTLI(src), true);

@@ -142,7 +142,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         (*NewF).get().dump();
       }
 
-      auto [R, oldcost, newcost] = ES.synthesize(*NewF, TLI);
+      auto [R, oldcost, newcost] = ES.synthesize(*NewF);
 
       if (!R) {
         hSetNoSolution(bytecode.c_str(), bytecode.size(), ctx, F.getName());

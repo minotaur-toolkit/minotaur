@@ -114,36 +114,16 @@ int main(int argc, char **argv) {
 
   //auto &DL = M1.get()->getDataLayout();
   auto targetTriple = llvm::Triple(M.get()->getTargetTriple());
+  llvm::TargetLibraryInfoWrapperPass TLI(targetTriple);
 
   auto SRC = findFunction(*M, "src");
   auto TGT = findFunction(*M, "tgt");
-  unsigned goodCount = 0, badCount = 0, errorCount = 0;
-  auto Func1 =
-    llvm_util::llvm2alive(*SRC, llvm::TargetLibraryInfoWrapperPass(targetTriple)
-                                .getTLI(*SRC), true);
-
-  if (!Func1) {
-    cerr << "ERROR: Could not translate '" << SRC->getName().str()
-         << "' to Alive IR\n";
-    ++errorCount;
-    return 1;
-  }
-
-  auto Func2 =
-    llvm_util::llvm2alive(*TGT, llvm::TargetLibraryInfoWrapperPass(targetTriple)
-                                .getTLI(*TGT), true);
-  if (!Func2) {
-    cerr << "ERROR: Could not translate '" << TGT->getName().str()
-         << "' to Alive IR\n";
-    ++errorCount;
-    return 1;
-  }
 
   minotaur::config::debug_tv = true;
-  std::unordered_map<const IR::Value *, minotaur::ReservedConst*> rmap;
-  minotaur::AliveEngine AE;
+  minotaur::cmap constMap;
+  minotaur::AliveEngine AE(TLI);
   try {
-    AE.constantSynthesis(*Func1, *Func2, goodCount, badCount, errorCount, rmap);
+    AE.constantSynthesis(*SRC, *TGT, constMap);
   } catch (AliveException e) {
     std::cerr<<e.msg<<endl;
   }
