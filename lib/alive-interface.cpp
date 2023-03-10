@@ -209,7 +209,6 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
   auto Func1 = llvm_util::llvm2alive(src, TLI.getTLI(src), true);
   auto Func2 = llvm_util::llvm2alive(tgt, TLI.getTLI(tgt), true);
 
-  unsigned goodCount = 0, badCount = 0, errorCount = 0;
   if (!Func1.has_value() || !Func2.has_value()) {
     if (config::debug_tv) {
       llvm::errs()<<"error found when converting llvm to alive2\n";
@@ -236,10 +235,8 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
 
   bool ret(errs);
   if (ret) {
-    ++errorCount;
     if (config::debug_tv) {
-      config::dbg()<<"unable to find constants: \n";
-      config::dbg()<<errs;
+      config::dbg() << "unable to find constants: \n" << errs;
     }
     return false;
   }
