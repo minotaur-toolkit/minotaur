@@ -10,17 +10,21 @@
 #include "util/config.h"
 
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/IR/Argument.h"
 
 #include <iostream>
 
 namespace minotaur {
 
+using cmap = std::map<const llvm::Argument*, llvm::Constant&>;
+
 class AliveEngine {
 private:
   std::optional<smt::smt_initializer> smt_init;
+  llvm::TargetLibraryInfoWrapperPass &TLI;
 
 public:
-  AliveEngine() {
+  AliveEngine(llvm::TargetLibraryInfoWrapperPass &TLI) : TLI(TLI) {
     smt_init.emplace();
     util::config::disable_undef_input = config::disable_undef_input;
     util::config::disable_poison_input = config::disable_poison_input;
@@ -28,9 +32,8 @@ public:
   }
 
 
-  bool constantSynthesis(llvm::Function&, llvm::Function&, llvm::Triple&,
-                         std::map<const IR::Value*, ReservedConst*> &);
-  bool compareFunctions(llvm::Function&, llvm::Function&, llvm::Triple &);
+  bool constantSynthesis(llvm::Function&, llvm::Function&, cmap&);
+  bool compareFunctions(llvm::Function&, llvm::Function&);
 };
 
 }

@@ -95,7 +95,8 @@ static bool dom_check(llvm::Value *V, DominatorTree &DT, llvm::Use &U) {
 }
 static bool
 optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
-                  TargetLibraryInfo &TLI, MemoryDependenceResults &MD) {
+                  TargetLibraryInfoWrapperPass &TLI,
+                  MemoryDependenceResults &MD) {
   config::ignore_machine_cost = ignore_mca;
   config::debug_enumerator = opt_debug;
   smt::solver_print_queries(opt_smt_verbose);
@@ -197,14 +198,14 @@ struct SuperoptimizerLegacyPass final : public llvm::FunctionPass {
   SuperoptimizerLegacyPass() : FunctionPass(ID) {}
 
   bool runOnFunction(llvm::Function &F) override {
-    TargetLibraryInfo &TLI =
-      getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
     LoopInfo &LI =
       getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     DominatorTree &DT =
       getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     MemoryDependenceResults &MD =
       getAnalysis<MemoryDependenceWrapperPass>().getMemDep();
+
+    TargetLibraryInfoWrapperPass TLI(Triple(F.getParent()->getTargetTriple()));
 
     return optimize_function(F, LI, DT, TLI, MD);
   }
@@ -246,8 +247,9 @@ struct SuperoptimizerPass : PassInfoMixin<SuperoptimizerPass> {
 
     LoopInfo &LI = FAM.getResult<llvm::LoopAnalysis>(F);
     DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
-    TargetLibraryInfo &TLI = FAM.getResult<TargetLibraryAnalysis>(F);
     MemoryDependenceResults &MD = FAM.getResult<MemoryDependenceAnalysis>(F);
+
+    TargetLibraryInfoWrapperPass TLI(Triple(F.getParent()->getTargetTriple()));
     optimize_function(F, LI, DT, TLI, MD);
     return PA;
   }

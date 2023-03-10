@@ -26,12 +26,14 @@
 #include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Support/KnownBits.h"
 
@@ -379,7 +381,7 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
 }
 
 tuple<Inst*, unsigned, unsigned>
-EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI) {
+EnumerativeSynthesis::synthesize(llvm::Function &F) {
   unsigned REWRITES = 0;
   unsigned PRUNED = 0;
 
@@ -399,9 +401,12 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
 
   unsigned src_cost = get_approx_cost(&F);
 
-  auto DL = F.getParent()->getDataLayout();
+  llvm::DataLayout DL = F.getParent()->getDataLayout();
 
-  AliveEngine AE;
+  llvm::Triple Triple = llvm::Triple(F.getParent()->getTargetTriple());
+  llvm::TargetLibraryInfoWrapperPass TLI(Triple);
+
+  AliveEngine AE(TLI);
 
   for (auto &BB : F) {
     auto T = BB.getTerminator();
@@ -492,7 +497,6 @@ EnumerativeSynthesis::synthesize(llvm::Function &F, llvm::TargetLibraryInfo &TLI
       for (auto &C : Sketch.second) {
         string arg_name = "_reservedc_" + std::to_string(CI);
         TgtArgI->setName(arg_name);
-        constants[arg_name] = C;
         C->setA(TgtArgI);
         ++CI;
         ++TgtArgI;
@@ -568,22 +572,12 @@ push:
                       << ", approx_cost(src) = " << src_cost <<" --\n";
         Tgt->dump();
       }
-      auto Func1 = llvm_util::llvm2alive(*Src, TLI, true);
-      auto Func2 = llvm_util::llvm2alive(*Tgt, TLI, true);
-
-      unsigned goodCount = 0, badCount = 0, errorCount = 0;
-      if (!Func1.has_value() || !Func2.has_value()) {
-        if (config::debug_tv) {
-          llvm::errs()<<"error found when converting llvm to alive2\n";
-        }
-        continue;
-      }
 
       bool good = false;
 
       if (!HaveC) {
         try {
-          good = AE.compareFunctions(Src, Tgt);
+          good = AE.compareFunctions(*Src, *Tgt);
         } catch (AliveException e) {
           if (config::debug_tv) {
             llvm::errs()<<e.msg<<"\n";
@@ -593,18 +587,9 @@ push:
           }
         }
       } else {
-        unordered_map<const IR::Value *, ReservedConst *> inputMap;
-        for (auto &I : Func2->getInputs()) {
-          string input_name = I.getName();
-          // remove "%"
-          input_name.erase(0, 1);
-          if (constants.count(input_name)) {
-            inputMap[&I] = constants[input_name];
-          }
-        }
+        cmap inputMap;
         try {
-          AE.constantSynthesis(*Func1, *Func2,
-                               goodCount, badCount, errorCount, inputMap);
+          good = AE.constantSynthesis(*Src, *Tgt, inputMap);
         } catch (AliveException e) {
           if (config::debug_tv) {
             llvm::errs()<<e.msg<<"\n";
@@ -618,14 +603,14 @@ push:
       if (HaveC)
         Src->eraseFromParent();
       Tgt->eraseFromParent();
-      if (goodCount) {
+      if (good) {
         R = G;
         success = true;
       }
       iter = Fns.erase(iter);
 
       unsigned duration = ( std::clock() - start ) / CLOCKS_PER_SEC;
-      if (goodCount || duration > 120) {
+      if (good || duration > 120) {
         break;
       }
     }

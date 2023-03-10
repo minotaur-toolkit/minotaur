@@ -12,6 +12,7 @@
 #include "util/symexec.h"
 #include "tools/transform.h"
 #include "llvm_util/compare.h"
+#include "llvm/IR/Argument.h"
 
 #include <map>
 #include <sstream>
@@ -21,6 +22,8 @@ using namespace smt;
 using namespace tools;
 using namespace util;
 using namespace std;
+
+using namespace llvm;
 
 // borrowed from alive2
 static expr preprocess(Transform &t, const set<expr> &qvars0,
@@ -51,9 +54,8 @@ void calculateAndInitConstants(Transform &t);
 namespace minotaur {
 
 bool
-AliveEngine::compareFunctions(llvm::Function &Func1, llvm::Function &Func2,
-                              llvm::Triple &targetTriple) {
-  llvm::TargetLibraryInfoWrapperPass TLI(targetTriple);
+AliveEngine::compareFunctions(llvm::Function &Func1, llvm::Function &Func2) {
+  //llvm::TargetLibraryInfoWrapperPass TLI();
   smt::smt_initializer smt_init;
   llvm_util::Verifier verifier(TLI, smt_init, cout);
   verifier.compareFunctions(Func1, Func2);
@@ -201,10 +203,7 @@ static Errors find_model(Transform &t,
 // call constant synthesizer and fill in constMap if synthesis suceeeds
 bool
 AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
-                               llvm::Triple &targetTriple,
-                               map<const IR::Value*, ReservedConst*> &consts) {
-
-  llvm::TargetLibraryInfoWrapperPass TLI(targetTriple);
+                               map<const Argument*, Constant> &consts) {
   smt::smt_initializer smt_init;
 
   auto Func1 = llvm_util::llvm2alive(src, TLI.getTLI(src), true);
@@ -216,6 +215,15 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
       llvm::errs()<<"error found when converting llvm to alive2\n";
     }
     return false;
+  }
+
+  for (auto &I : Func2->getInputs()) {
+    string input_name = I.getName();
+    // remove "%"
+    input_name.erase(0, 1);
+    if (constants.count(input_name)) {
+      consts[&I] = constants[input_name];
+    }
   }
 
   Transform t;

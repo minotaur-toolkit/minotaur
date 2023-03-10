@@ -5,6 +5,7 @@
 #include "ir/function.h"
 
 #include "expr.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Dominators.h"
 
 #include <functional>
@@ -31,8 +32,7 @@ class EnumerativeSynthesis {
   bool getSketches(llvm::Value *V,
                    std::vector<Sketch>&);
 public:
-  std::tuple<Inst*, unsigned, unsigned>
-    synthesize (llvm::Function &F1, llvm::TargetLibraryInfo &TLI);
+  std::tuple<Inst*, unsigned, unsigned> synthesize(llvm::Function &F1);
 };
 
 }
