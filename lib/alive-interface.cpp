@@ -211,7 +211,7 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
 
   if (!Func1.has_value() || !Func2.has_value()) {
     if (config::debug_tv) {
-      llvm::errs()<<"error found when converting llvm to alive2\n";
+      config::dbg() << "error found when converting llvm to alive2\n";
     }
     return false;
   }
