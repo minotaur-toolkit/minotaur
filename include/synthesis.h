@@ -2,6 +2,7 @@
 // Distributed under the MIT license that can be found in the LICENSE file.
 #pragma once
 
+#include "alive-interface.h"
 #include "ir/function.h"
 
 #include "expr.h"
@@ -32,7 +33,7 @@ class EnumerativeSynthesis {
   bool getSketches(llvm::Value *V,
                    std::vector<Sketch>&);
 public:
-  std::tuple<Inst*, unsigned, unsigned> synthesize(llvm::Function &F1);
+  std::tuple<Inst*, unsigned, unsigned, constmap&> synthesize(llvm::Function &F1);
 };
 
 }

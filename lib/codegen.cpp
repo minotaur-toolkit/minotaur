@@ -201,10 +201,10 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap) {
                                        cast<Instruction>(b.GetInsertPoint()));
     return CI;
   } else if (auto RC = dynamic_cast<ReservedConst *>(I)) {
-    if (RC->isSymbolic()) {
-      return RC->getA();
+    if (consts.count(RC->getA())) {
+      return consts[RC->getA()];
     } else {
-      return RC->getAsLLVMConstant(C);
+      return RC->getA();
     }
   } else if (auto FSV = dynamic_cast<FakeShuffleInst *>(I)) {
     auto op0 = codeGen(FSV->L(), VMap);

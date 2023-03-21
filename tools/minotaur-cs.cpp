@@ -120,7 +120,7 @@ int main(int argc, char **argv) {
   auto TGT = findFunction(*M, "tgt");
 
   minotaur::config::debug_tv = true;
-  minotaur::cmap constMap;
+  minotaur::constmap constMap;
   minotaur::AliveEngine AE(TLI);
   try {
     AE.constantSynthesis(*SRC, *TGT, constMap);

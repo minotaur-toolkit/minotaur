@@ -143,6 +143,9 @@ unsigned parse_number() {
 }
 
 ReservedConst* parse_const(vector<unique_ptr<minotaur::Inst>>&exprs) {
+  //fixme: parse const
+  return nullptr;
+  /*
   type t = parse_type();
   vector<llvm::APInt> values;
 
@@ -166,6 +169,7 @@ ReservedConst* parse_const(vector<unique_ptr<minotaur::Inst>>&exprs) {
   ReservedConst *T = RC.get();
   exprs.emplace_back(move(RC));
   return T;
+  */
 }
 
 

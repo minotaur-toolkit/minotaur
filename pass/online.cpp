@@ -141,8 +141,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         llvm::errs()<<"*** working on Function:\n";
         (*NewF).get().dump();
       }
-
-      auto [R, oldcost, newcost] = ES.synthesize(*NewF);
+      auto [R, oldcost, newcost, consts] = ES.synthesize(*NewF);
 
       if (!R) {
         hSetNoSolution(bytecode.c_str(), bytecode.size(), ctx, F.getName());
@@ -154,7 +153,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         insertpt = insertpt->getNextNode();
       }
 
-      llvm::Value *V = LLVMGen(insertpt, IntrinsicDecls).codeGen(R, S.getValueMap());
+      llvm::Value *V = LLVMGen(insertpt, IntrinsicDecls, consts).codeGen(R, S.getValueMap());
       V = llvm::IRBuilder<>(insertpt).CreateBitCast(V, I.getType());
 
       if (enable_caching) {

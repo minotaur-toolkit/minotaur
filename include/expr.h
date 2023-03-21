@@ -56,19 +56,12 @@ public:
 
 class ReservedConst final : public Value {
   llvm::Argument *A;
-  std::vector<llvm::APInt> Values;
   type ty;
 public:
   ReservedConst(type t) : Value(t.getWidth()), A(nullptr), ty(t) {}
-  ReservedConst(type t, std::vector<llvm::APInt> Values)
-    : Value(t.getWidth()), Values(Values), ty(t) {};
   ReservedConst(type t, llvm::Constant *C);
-  bool isSymbolic() { return Values.empty(); }
   type getType() { return ty; }
   llvm::Argument *getA () const { return A; }
-  std::vector<llvm::APInt> getValues () const { return Values; }
-  llvm::Constant *getAsLLVMConstant(llvm::LLVMContext &) const;
-  void setC(std::vector<llvm::APInt> values) { this->Values = values; }
   void setA (llvm::Argument *Arg) { A = Arg; }
   void print(std::ostream &os) const override;
 };

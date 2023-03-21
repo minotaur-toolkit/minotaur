@@ -380,7 +380,7 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
   return true;
 }
 
-tuple<Inst*, unsigned, unsigned>
+tuple<Inst*, unsigned, unsigned, constmap&>
 EnumerativeSynthesis::synthesize(llvm::Function &F) {
   unsigned REWRITES = 0;
   unsigned PRUNED = 0;
@@ -514,8 +514,9 @@ EnumerativeSynthesis::synthesize(llvm::Function &F) {
       }
 
       llvm::Instruction *PrevI = llvm::cast<llvm::Instruction>(VMap[&*I]);
+      constmap consts;
       llvm::Value *V =
-         LLVMGen(PrevI, IntrinsicDecls).codeGen(G, VMap);
+         LLVMGen(PrevI, IntrinsicDecls, consts).codeGen(G, VMap);
       V = llvm::IRBuilder<>(PrevI).CreateBitCast(V, PrevI->getType());
       PrevI->replaceAllUsesWith(V);
 
@@ -563,6 +564,7 @@ push:
     // llvm functions -> alive2 functions
     auto iter = Fns.begin();
     Inst *R;
+    constmap consts;
     bool success = false;
     for (;iter != Fns.end();) {
       auto &[Tgt, Src, G, HaveC] = *iter;
@@ -587,9 +589,8 @@ push:
           }
         }
       } else {
-        constmap inputMap;
         try {
-          good = AE.constantSynthesis(*Src, *Tgt, inputMap);
+          good = AE.constantSynthesis(*Src, *Tgt, consts);
         } catch (AliveException e) {
           if (config::debug_tv) {
             llvm::errs()<<e.msg<<"\n";
@@ -632,7 +633,7 @@ push:
         F.dump();
       }
       llvm::ValueToValueMapTy VMap;
-      llvm::Value *V = LLVMGen(&*I, IntrinsicDecls).codeGen(R, VMap);
+      llvm::Value *V = LLVMGen(&*I, IntrinsicDecls, consts).codeGen(R, VMap);
       V = llvm::IRBuilder<>(I).CreateBitCast(V, I->getType());
       I->replaceAllUsesWith(V);
       unsigned newcost = get_machine_cost(&F);
@@ -646,7 +647,7 @@ push:
         if (config::debug_enumerator) {
           llvm::errs()<<"=== successfully synthesized rhs ===\n";
         }
-        return {R, machinecost, newcost};
+        return {R, machinecost, newcost, consts};
       } else {
         if (config::debug_enumerator) {
           llvm::errs()<<"!!! fails machine cost check, keep searching !!!\n";
@@ -654,7 +655,8 @@ push:
       }
     }
   }
-  return {nullptr, 0, 0};
+  constmap consts;
+  return {nullptr, 0, 0, consts};
 }
 
 };

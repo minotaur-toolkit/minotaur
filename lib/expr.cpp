@@ -24,61 +24,33 @@ void Var::print(ostream &os) const {
   os << "(var b" << width << " " << name <<")";
 }
 
-ReservedConst::ReservedConst(type t, llvm::Constant *C)
-    : Value(t.getWidth()), A(nullptr), ty(t) {
-  if (ConstantInt *CI = dyn_cast<ConstantInt>(C)){
-    Values.push_back(CI->getValue());
-  } else if (ConstantVector *CV = dyn_cast<ConstantVector>(C)) {
-    for (auto V : CV->operand_values()) {
-      ConstantInt *CI = cast<llvm::ConstantInt>(V);
-      Values.push_back(CI->getValue());
-    }
-  }
-}
-
-llvm::Constant *ReservedConst::getAsLLVMConstant(llvm::LLVMContext &C) const {
-  auto llvm_ty = ty.toLLVM(C);
-  if (ty.isScalar()) {
-    return ConstantInt::get(llvm_ty, Values.back());
-  } else if (ty.isVector()) {
-    llvm::FixedVectorType *vty = llvm::cast<llvm::FixedVectorType>(llvm_ty);
-    llvm::IntegerType *elemty =
-      llvm::cast<llvm::IntegerType>(vty->getElementType());
-    vector<Constant*> consts;
-    for (auto V : Values) {
-      consts.push_back(ConstantInt::get(elemty, V));
-    }
-    return ConstantVector::get(consts);
-  }
-  UNREACHABLE();
-}
-
 void ReservedConst::print(ostream &os) const {
-  if (!Values.empty()) {
-    string str;
-    if (ty.isScalar()) {
-      llvm::raw_string_ostream ss(str);
-      auto V = Values[0];
-      ss<<"i"<<V.getBitWidth()<<" ";
-      V.print(ss, false);
-      ss.flush();
-    } else if (ty.isVector()) {
-      llvm::raw_string_ostream ss(str);
-      ss<<"<"<<ty.getLane()<<" x i"<<ty.getBits()<<"> ";
+// TODO : print literals
+  // if (!Values.empty()) {
+  //   string str;
+  //   if (ty.isScalar()) {
+  //     llvm::raw_string_ostream ss(str);
+  //     auto V = Values[0];
+  //     ss<<"i"<<V.getBitWidth()<<" ";
+  //     V.print(ss, false);
+  //     ss.flush();
+  //   } else if (ty.isVector()) {
+  //     llvm::raw_string_ostream ss(str);
+  //     ss<<"<"<<ty.getLane()<<" x i"<<ty.getBits()<<"> ";
 
-      ss<<"{";
-      for (unsigned i = 0 ; i < ty.getLane(); i ++) {
-        Values[i].print(ss, false);
-        if (i != ty.getLane() - 1)
-          ss<<",";
-      }
-      ss<<"}";
-      ss.flush();
-    }
-    os << "(const " << str << ")";
-  } else {
+  //     ss<<"{";
+  //     for (unsigned i = 0 ; i < ty.getLane(); i ++) {
+  //       Values[i].print(ss, false);
+  //       if (i != ty.getLane() - 1)
+  //         ss<<",";
+  //     }
+  //     ss<<"}";
+  //     ss.flush();
+  //   }
+  //   os << "(const " << str << ")";
+  // } else {
     os << "reservedconst";
-  }
+  // }
 }
 
 void CopyInst::print(ostream &os) const {
