@@ -13,6 +13,7 @@
 #include "tools/transform.h"
 #include "llvm_util/compare.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Argument.h"
 
 #include <map>
@@ -217,7 +218,7 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
     return false;
   }
 
-  DenseMap<StringRef, const Argument *> arguments;
+  DenseMap<StringRef, const Argument*> arguments;
   for (auto &arg : tgt.args()) {
     StringRef ArgName = arg.getName();
     if (ArgName.starts_with("%_reservedc")) {
@@ -225,8 +226,8 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
     }
   }
 
-  DenseMap<const IR::Value *, const Argument *> inputs;
-  for (auto &I : Func2->getInputs()) {
+  DenseMap<const IR::Value*, const Argument*> inputs;
+  for (auto &&I : Func2->getInputs()) {
     string input_name = I.getName();
 
     if (arguments.count(input_name) == 0)
@@ -250,28 +251,28 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
     return false;
   }
 
-  for (auto p : consts) {
-    auto ty = p.first->getType();
-
+  for (auto p : inputs) {
+    auto ty = p.second->getType();
     if (ty->isIntegerTy()) {
       if (!result[p.first].isConst())
           return false;
-      unsigned bits = cast<IntegerType>(lty)->getBitWidth();
-      p.second = new ConstantInt(APInt(bits, result[p.first].numeral_string(), 10));
+      IntegerType *ty = cast<IntegerType>(ty);;
+      consts[p.second] =
+        ConstantInt::get(ty, result[p.first].numeral_string(), 10);
     } else if (ty->isVectorTy()) {
-      auto trunk = result[p.first];
-      FixedVectorType *vty = cast<FixedVectorType>(lty);
+      auto flat = result[p.first];
+      FixedVectorType *vty = cast<FixedVectorType>(ty);
       IntegerType *ety = cast<IntegerType>(vty->getElementType());
 
-      vector<APInt> v;
+      SmallVector<llvm::Constant*> v;
       for (int i = vty->getElementCount().getKnownMinValue()-1; i >= 0; i --) {
         unsigned bits = ety->getBitWidth();
-        auto elem = trunk.extract((i + 1) * bits - 1, i * bits);
+        auto elem = flat.extract((i + 1) * bits - 1, i * bits);
         if (!elem.isConst())
           return false;
-        v.push_back(APInt(bits, elem.numeral_string(), 10));
+        v.push_back(ConstantInt::get(ety, elem.numeral_string(), 10));
       }
-      p.second->setC(v);
+      consts[p.second] = ConstantVector::get(v);
     }
   }
 

@@ -16,7 +16,7 @@
 
 namespace minotaur {
 
-using constmap = std::map<const llvm::Argument*, llvm::Constant&>;
+using constmap = std::map<const llvm::Argument*, llvm::Constant*>;
 
 class AliveEngine {
 private:
