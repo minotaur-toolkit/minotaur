@@ -587,7 +587,7 @@ push:
           }
         }
       } else {
-        cmap inputMap;
+        constmap inputMap;
         try {
           good = AE.constantSynthesis(*Src, *Tgt, inputMap);
         } catch (AliveException e) {

@@ -16,7 +16,7 @@
 
 namespace minotaur {
 
-using cmap = std::map<const llvm::Argument*, llvm::Constant&>;
+using constmap = std::map<const llvm::Argument*, llvm::Constant&>;
 
 class AliveEngine {
 private:
@@ -32,7 +32,7 @@ public:
   }
 
 
-  bool constantSynthesis(llvm::Function&, llvm::Function&, cmap&);
+  bool constantSynthesis(llvm::Function&, llvm::Function&, constmap&);
   bool compareFunctions(llvm::Function&, llvm::Function&);
 };
 

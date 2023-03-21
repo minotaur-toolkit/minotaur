@@ -52,14 +52,7 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap) {
         llvm::report_fatal_error("Value is not found in VMap");
       }
     }
-  } /*else if (auto P = dynamic_cast<Ptr *>(I)) {
-    if (VMap.empty()) {
-      return P->V();
-    } else {
-      return VMap[P->V()];
-    }
-  } */
-  else if (auto U = dynamic_cast<UnaryInst*>(I)) {
+  } else if (auto U = dynamic_cast<UnaryInst*>(I)) {
     type workty = U->getWorkTy();
     auto op0 = codeGen(U->Op0(), VMap);
     if(U->Op0()->getWidth() != workty.getWidth())
@@ -241,12 +234,6 @@ llvm::Value *LLVMGen::codeGen(Inst *I, ValueToValueMapTy &VMap) {
 
     return SV;
   }
-  /*
-  else if (auto L = dynamic_cast<minotaur::Load *>(I)) {
-    auto op0 = codeGen(L->addr(), VMap, constMap);
-    return b.CreateLoad(L->elemTy(), op0);
-  }*/
   llvm::report_fatal_error("[ERROR] unknown instruction found in LLVMGen");
-  UNREACHABLE();
 }
 }

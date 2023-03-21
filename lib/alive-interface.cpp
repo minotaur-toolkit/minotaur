@@ -12,6 +12,7 @@
 #include "util/symexec.h"
 #include "tools/transform.h"
 #include "llvm_util/compare.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/Argument.h"
 
 #include <map>
@@ -139,7 +140,7 @@ static Errors find_model(Transform &t,
   };
 
 
-  const Type &ty = t.src.getType();
+  const IR::Type &ty = t.src.getType();
   auto [poison_cnstr, value_cnstr] = ty.refines(src_state, tgt_state, sv.val, tv.val);
   expr dom = dom_a && dom_b;
 
@@ -195,7 +196,7 @@ static Errors find_model(Transform &t,
     }
   }
   if (config::debug_tv) {
-    config::dbg()<<s.str()<<endl;
+    config::dbg() << s.str() << endl;
   }
   return errs;
 }
@@ -203,7 +204,7 @@ static Errors find_model(Transform &t,
 // call constant synthesizer and fill in constMap if synthesis suceeeds
 bool
 AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
-                               cmap &consts) {
+                               constmap &consts) {
   smt::smt_initializer smt_init;
 
   auto Func1 = llvm_util::llvm2alive(src, TLI.getTLI(src), true);
@@ -216,20 +217,28 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
     return false;
   }
 
+  DenseMap<StringRef, const Argument *> arguments;
+  for (auto &arg : tgt.args()) {
+    StringRef ArgName = arg.getName();
+    if (ArgName.starts_with("%_reservedc")) {
+      arguments[ArgName] = &arg;
+    }
+  }
+
+  DenseMap<const IR::Value *, const Argument *> inputs;
   for (auto &I : Func2->getInputs()) {
     string input_name = I.getName();
-    // remove "%"
-    input_name.erase(0, 1);
-    if (constants.count(input_name)) {
-      consts[&I] = constants[input_name];
-    }
+
+    if (arguments.count(input_name) == 0)
+      continue;
+    inputs[&I] = arguments[input_name];
   }
 
   Transform t;
   t.src = move(*Func1);
   t.tgt = move(*Func2);
   // assume type verifies
-  std::unordered_map<const IR::Value *, smt::expr> result;
+  std::unordered_map<const IR::Value*, smt::expr> result;
 
   Errors errs = find_model(t, result);
 
@@ -242,28 +251,25 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
   }
 
   for (auto p : consts) {
-    auto &ty = p.first->getType();
-    auto lty = p.second->getA()->getType();
+    auto ty = p.first->getType();
 
-    if (ty.isIntType()) {
+    if (ty->isIntegerTy()) {
       if (!result[p.first].isConst())
           return false;
-      unsigned bits = llvm::cast<llvm::IntegerType>(lty)->getBitWidth();
-      p.second->setC({
-        llvm::APInt(bits, result[p.first].numeral_string(), 10)});
-    } else if (ty.isVectorType()) {
+      unsigned bits = cast<IntegerType>(lty)->getBitWidth();
+      p.second = new ConstantInt(APInt(bits, result[p.first].numeral_string(), 10));
+    } else if (ty->isVectorTy()) {
       auto trunk = result[p.first];
-      llvm::FixedVectorType *vty = llvm::cast<llvm::FixedVectorType>(lty);
-      llvm::IntegerType *ety =
-        llvm::cast<llvm::IntegerType>(vty->getElementType());
-      vector<llvm::APInt> v;
+      FixedVectorType *vty = cast<FixedVectorType>(lty);
+      IntegerType *ety = cast<IntegerType>(vty->getElementType());
+
+      vector<APInt> v;
       for (int i = vty->getElementCount().getKnownMinValue()-1; i >= 0; i --) {
         unsigned bits = ety->getBitWidth();
         auto elem = trunk.extract((i + 1) * bits - 1, i * bits);
         if (!elem.isConst())
           return false;
-        v.push_back(
-          llvm::APInt(bits, elem.numeral_string(), 10));
+        v.push_back(APInt(bits, elem.numeral_string(), 10));
       }
       p.second->setC(v);
     }
