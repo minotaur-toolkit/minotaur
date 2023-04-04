@@ -575,15 +575,15 @@ push:
 
       try {
         if (!HaveC) {
-          good = AE.compareFunctions(*Src, *Tgt);
+          Good = AE.compareFunctions(*Src, *Tgt);
         } else {
-          good = AE.compareFunctions(*Src, *Tgt, consts);
+          Good = AE.compareFunctions(*Src, *Tgt, consts);
         }
-      } catch (AliveException e) {
+      } catch (AliveException E) {
         if (config::debug_tv) {
-          llvm::errs()<<e.msg<<"\n";
+          llvm::errs()<<E.msg<<"\n";
         }
-        if (e.msg == "slow vcgen") {
+        if (E.msg == "slow vcgen") {
           continue;
         }
       }
