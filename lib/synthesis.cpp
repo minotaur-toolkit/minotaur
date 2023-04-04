@@ -467,7 +467,7 @@ EnumerativeSynthesis::synthesize(llvm::Function &F) {
       auto &G = Sketch.first;
       llvm::ValueToValueMapTy VMap;
 
-      llvm::SmallVector<llvm::Type *, 8> Args;
+      llvm::SmallVector<llvm::Type*, 8> Args;
       for (auto I: FT->params()) {
         Args.push_back(I);
       }
@@ -573,27 +573,19 @@ push:
 
       bool good = false;
 
-      if (!HaveC) {
-        try {
+
+      try {
+        if (!HaveC) {
           good = AE.compareFunctions(*Src, *Tgt);
-        } catch (AliveException e) {
-          if (config::debug_tv) {
-            llvm::errs()<<e.msg<<"\n";
-          }
-          if (e.msg == "slow vcgen") {
-            continue;
-          }
+        } else {
+          good = AE.compareFunctions(*Src, *Tgt, consts);
         }
-      } else {
-        try {
-          good = AE.constantSynthesis(*Src, *Tgt, consts);
-        } catch (AliveException e) {
-          if (config::debug_tv) {
-            llvm::errs()<<e.msg<<"\n";
-          }
-          if (e.msg == "slow vcgen") {
-            continue;
-          }
+      } catch (AliveException e) {
+        if (config::debug_tv) {
+          llvm::errs()<<e.msg<<"\n";
+        }
+        if (e.msg == "slow vcgen") {
+          continue;
         }
       }
 

@@ -24,7 +24,7 @@ public:
           std::unordered_set<llvm::Function *> &IDs)
     : IntrinsicDecls(IDs), b(llvm::IRBuilder<>(I)),
       M(I->getModule()), C(I->getContext()) {};
-  llvm::Value *codeGen(rewrite &R,
+  llvm::Value *codeGen(Rewrite &R,
                        llvm::ValueToValueMapTy &VMap);
   llvm::Value *bitcastTo(llvm::Value*, llvm::Type*);
 

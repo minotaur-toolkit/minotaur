@@ -22,7 +22,8 @@ using namespace llvm;
 
 namespace minotaur {
 
-static constexpr std::array<llvm::Intrinsic::ID, IR::X86IntrinBinOp::numOfX86Intrinsics> IntrinsicIDs = {
+static constexpr
+std::array<llvm::Intrinsic::ID, IR::X86IntrinBinOp::numOfX86Intrinsics> IntrinsicIDs = {
 #define PROCESS(NAME,A,B,C,D,E,F) llvm::Intrinsic::NAME,
 #include "ir/intrinsics.h"
 #undef PROCESS
