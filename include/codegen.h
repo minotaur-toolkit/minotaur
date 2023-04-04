@@ -19,16 +19,18 @@ class LLVMGen {
   llvm::IRBuilder<> b;
   llvm::Module *M;
   llvm::LLVMContext &C;
-  constmap &consts;
 public:
   LLVMGen(llvm::Instruction *I,
-          std::unordered_set<llvm::Function *> &IDs,
-          constmap &consts)
+          std::unordered_set<llvm::Function *> &IDs)
     : IntrinsicDecls(IDs), b(llvm::IRBuilder<>(I)),
-      M(I->getModule()), C(I->getContext()), consts{consts} {};
-  llvm::Value *codeGen(minotaur::Inst *I,
+      M(I->getModule()), C(I->getContext()) {};
+  llvm::Value *codeGen(rewrite &R,
                        llvm::ValueToValueMapTy &VMap);
-  llvm::Value* bitcastTo(llvm::Value*, llvm::Type*);
+  llvm::Value *bitcastTo(llvm::Value*, llvm::Type*);
+
+private:
+  llvm::Value *codeGenImpl(Inst *I,
+                           llvm::ValueToValueMapTy &VMap);
 };
 
 }

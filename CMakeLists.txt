@@ -76,8 +76,8 @@ include_directories(${HIREDIS_INCLUDE_DIR}/hiredis)
 llvm_map_components_to_libnames(LLVM_LIBS
   analysis core irreader passes scalaropts support transformutils targetparser)
 
-add_library(machine_cost STATIC "lib/machine-cost.cpp")
-target_link_libraries(machine_cost PRIVATE ${LLVM_LIBS})
+add_library(cost STATIC "lib/cost.cpp")
+target_link_libraries(cost PRIVATE ${LLVM_LIBS})
 
 add_library(utils STATIC "lib/utils.cpp")
 target_link_libraries(utils PRIVATE ${LLVM_LIBS} ${HIREDIS_LIBRARY})
@@ -87,7 +87,7 @@ add_library(slice STATIC "lib/config.cpp"
 target_link_libraries(slice PRIVATE utils)
 
 add_library(synthesizer STATIC ${SYNTHESIZER_SRC})
-target_link_libraries(synthesizer PRIVATE utils machine_cost)
+target_link_libraries(synthesizer PRIVATE utils cost)
 
 add_llvm_library(online MODULE pass/online.cpp)
 

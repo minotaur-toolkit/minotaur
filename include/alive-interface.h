@@ -16,8 +16,6 @@
 
 namespace minotaur {
 
-using constmap = std::map<const llvm::Argument*, llvm::Constant*>;
-
 class AliveEngine {
 private:
   std::optional<smt::smt_initializer> smt_init;

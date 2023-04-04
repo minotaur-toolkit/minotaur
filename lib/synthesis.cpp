@@ -5,7 +5,7 @@
 #include "synthesis.h"
 #include "expr.h"
 #include "codegen.h"
-#include "machine-cost.h"
+#include "cost.h"
 #include "utils.h"
 #include "type.h"
 
@@ -91,10 +91,6 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
 
   auto RC1 = make_unique<ReservedConst>(type(-1, -1, false));
   Comps.emplace_back(RC1.get());
-
-  // handle Memory in other function.
-  if (V->getType()->isPointerTy())
-    return true;
 
   unsigned expected = V->getType()->getPrimitiveSizeInBits();
 
@@ -380,10 +376,12 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
   return true;
 }
 
-tuple<Inst*, unsigned, unsigned, constmap&>
+optional<rewrite>
 EnumerativeSynthesis::synthesize(llvm::Function &F) {
   unsigned REWRITES = 0;
   unsigned PRUNED = 0;
+
+  assert (!V->getType()->isPointerTy() && "pointer arith is not supported");
 
   if (config::debug_enumerator) {
     config::dbg()<<"working on slice\n";
@@ -469,12 +467,10 @@ EnumerativeSynthesis::synthesize(llvm::Function &F) {
       auto &G = Sketch.first;
       llvm::ValueToValueMapTy VMap;
 
-
       llvm::SmallVector<llvm::Type *, 8> Args;
       for (auto I: FT->params()) {
         Args.push_back(I);
       }
-
       for (auto &C : Sketch.second) {
         Args.push_back(C->getType().toLLVM(F.getContext()));
       }
@@ -560,7 +556,7 @@ push:
         Fns.push_back(make_tuple(Tgt, Src, G, !Sketch.second.empty()));
       }
     }
-    std::stable_sort(Fns.begin(), Fns.end(), approx_cmp);
+    std::stable_sort(Fns.begin(), Fns.end(), approx);
     // llvm functions -> alive2 functions
     auto iter = Fns.begin();
     Inst *R;
@@ -628,6 +624,11 @@ push:
     }
     // replace
     if (success) {
+      return {{F, R, consts}};
+    }
+
+/*
+
       if (config::debug_enumerator) {
         llvm::errs()<<"=== original ir (uops="<<machinecost<<") ===\n";
         F.dump();
@@ -647,7 +648,7 @@ push:
         if (config::debug_enumerator) {
           llvm::errs()<<"=== successfully synthesized rhs ===\n";
         }
-        return {R, machinecost, newcost, consts};
+        return {{R, consts}};
       } else {
         if (config::debug_enumerator) {
           llvm::errs()<<"!!! fails machine cost check, keep searching !!!\n";
@@ -655,8 +656,8 @@ push:
       }
     }
   }
-  constmap consts;
-  return {nullptr, 0, 0, consts};
+  */
+  return nullopt;
 }
 
 };

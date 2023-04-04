@@ -33,7 +33,7 @@ class EnumerativeSynthesis {
   bool getSketches(llvm::Value *V,
                    std::vector<Sketch>&);
 public:
-  std::tuple<Inst*, unsigned, unsigned, constmap&> synthesize(llvm::Function &F1);
+  std::optional<Rewrite> synthesize(llvm::Function &F1);
 };
 
 }

@@ -57,10 +57,11 @@ namespace minotaur {
 
 bool
 AliveEngine::compareFunctions(llvm::Function &Func1, llvm::Function &Func2) {
-  //llvm::TargetLibraryInfoWrapperPass TLI();
   smt::smt_initializer smt_init;
   llvm_util::Verifier verifier(TLI, smt_init, cout);
+  cerr<<"compare"<<endl;
   verifier.compareFunctions(Func1, Func2);
+  cerr<<"end-compare"<<endl;
   return verifier.num_correct;
 }
 
@@ -206,7 +207,7 @@ static Errors find_model(Transform &t,
 bool
 AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
                                constmap &consts) {
-  smt::smt_initializer smt_init;
+  //smt::smt_initializer smt_init;
 
   auto Func1 = llvm_util::llvm2alive(src, TLI.getTLI(src), true);
   auto Func2 = llvm_util::llvm2alive(tgt, TLI.getTLI(tgt), true);
@@ -229,7 +230,6 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
   DenseMap<const IR::Value*, const Argument*> inputs;
   for (auto &&I : Func2->getInputs()) {
     string input_name = I.getName();
-
     if (arguments.count(input_name) == 0)
       continue;
     inputs[&I] = arguments[input_name];
@@ -254,11 +254,11 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
   for (auto p : inputs) {
     auto ty = p.second->getType();
     if (ty->isIntegerTy()) {
-      if (!result[p.first].isConst())
-          return false;
-      IntegerType *ty = cast<IntegerType>(ty);;
+      // if (!result[p.first].isConst())
+      //     return false;
+      IntegerType *ity = cast<IntegerType>(ty);
       consts[p.second] =
-        ConstantInt::get(ty, result[p.first].numeral_string(), 10);
+        ConstantInt::get(ity, result[p.first].numeral_string(), 10);
     } else if (ty->isVectorTy()) {
       auto flat = result[p.first];
       FixedVectorType *vty = cast<FixedVectorType>(ty);
