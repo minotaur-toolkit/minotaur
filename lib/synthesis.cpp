@@ -571,8 +571,7 @@ push:
         Tgt->dump();
       }
 
-      bool good = false;
-
+      bool Good = false;
 
       try {
         if (!HaveC) {
@@ -592,14 +591,14 @@ push:
       if (HaveC)
         Src->eraseFromParent();
       Tgt->eraseFromParent();
-      if (good) {
+      if (Good) {
         R = G;
         success = true;
       }
       iter = Fns.erase(iter);
 
-      unsigned duration = ( std::clock() - start ) / CLOCKS_PER_SEC;
-      if (good || duration > 120) {
+      unsigned Duration = ( std::clock() - start ) / CLOCKS_PER_SEC;
+      if (Good || Duration > 120) {
         break;
       }
     }
