@@ -455,10 +455,13 @@ EnumerativeSynthesis::synthesize(llvm::Function &F) {
       }
       config::dbg() << "-----------------------------\n";
     }
-    unordered_map<string, ReservedConst*> constants;
     unsigned CI = 0;
 
-    vector<tuple<llvm::Function*, llvm::Function*, Inst*, bool>> Fns;
+    vector<tuple<llvm::Function*, // src
+                 llvm::Function*, // tgt
+                 Inst*,           // rewrite expr
+                 unordered_map<const llvm::Argument*, ReservedConst*>, // const
+                 bool>> Fns;
     auto FT = F.getFunctionType();
     // sketches -> llvm functions
 
@@ -490,11 +493,13 @@ EnumerativeSynthesis::synthesize(llvm::Function &F) {
         TgtArgI->setName(I->getName());
       }
 
+      unordered_map<const llvm::Argument*, ReservedConst*> ArgConst;
       // sketches with constants, duplicate F
       for (auto &C : Sketch.second) {
         string arg_name = "_reservedc_" + std::to_string(CI);
         TgtArgI->setName(arg_name);
         C->setA(TgtArgI);
+        ArgConst[TgtArgI] = C;
         ++CI;
         ++TgtArgI;
       }
@@ -512,9 +517,9 @@ EnumerativeSynthesis::synthesize(llvm::Function &F) {
       }
 
       llvm::Instruction *PrevI = llvm::cast<llvm::Instruction>(VMap[&*I]);
-      ConstMap consts;
+      ConstMap _consts;
       llvm::Value *V =
-         LLVMGen(PrevI, IntrinsicDecls).codeGen({*Src, G, consts}, VMap);
+         LLVMGen(PrevI, IntrinsicDecls).codeGen({*Src, G, _consts}, VMap);
       V = llvm::IRBuilder<>(PrevI).CreateBitCast(V, PrevI->getType());
       PrevI->replaceAllUsesWith(V);
 
@@ -555,7 +560,7 @@ push:
         if (HaveC)
           Src->eraseFromParent();
       } else {
-        Fns.push_back(make_tuple(Tgt, Src, G, !Sketch.second.empty()));
+        Fns.push_back(make_tuple(Tgt, Src, G, ArgConst, !Sketch.second.empty()));
       }
     }
     std::stable_sort(Fns.begin(), Fns.end(), approx);
@@ -563,8 +568,9 @@ push:
     auto iter = Fns.begin();
     Inst *R;
     bool success = false;
+    ConstMap Consts;
     for (;iter != Fns.end();) {
-      auto &[Tgt, Src, G, HaveC] = *iter;
+      auto &[Tgt, Src, G, ArgConst, HaveC] = *iter;
       unsigned tgt_cost = get_approx_cost(Tgt);
       if (config::debug_enumerator) {
         config::dbg() << "-- candidate approx_cost(tgt) = " << tgt_cost
@@ -573,12 +579,13 @@ push:
       }
 
       bool Good = false;
+      unordered_map<const llvm::Argument*, llvm::Constant*> ConstantResults;
 
       try {
         if (!HaveC) {
           Good = AE.compareFunctions(*Src, *Tgt);
         } else {
-          Good = AE.constantSynthesis(*Src, *Tgt, consts);
+          Good = AE.constantSynthesis(*Src, *Tgt, ConstantResults);
         }
       } catch (AliveException E) {
         if (config::debug_tv) {
@@ -594,6 +601,11 @@ push:
       Tgt->eraseFromParent();
       if (Good) {
         R = G;
+        if (HaveC) {
+          for (auto &[A, C] : ConstantResults) {
+            Consts[ArgConst[A]] = C;
+          }
+        }
         success = true;
       }
       iter = Fns.erase(iter);
@@ -616,9 +628,10 @@ push:
     }
     // replace
     if (success) {
-      return {{F, R, consts}};
+      return {{F, R, Consts}};
     }
-
+  }
+  return nullopt;
 /*
 
       if (config::debug_enumerator) {
@@ -649,7 +662,6 @@ push:
     }
   }
   */
-  return nullopt;
 }
 
 };
