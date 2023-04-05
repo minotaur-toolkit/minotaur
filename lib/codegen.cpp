@@ -238,7 +238,7 @@ llvm::Value* codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
   llvm::report_fatal_error("[ERROR] unknown instruction found in LLVMGen");
 }
 
-llvm::Value *LLVMGen::codeGen(Rewrite &R, ValueToValueMapTy &VMap) {
+llvm::Value *LLVMGen::codeGen(Rewrite &R) {
   for (auto const : R.const_map) {
     VMap[const.first] = const.second;
   }

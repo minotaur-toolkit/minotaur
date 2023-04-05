@@ -376,7 +376,7 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
   return true;
 }
 
-optional<rewrite>
+optional<Rewrite>
 EnumerativeSynthesis::synthesize(llvm::Function &F) {
   unsigned REWRITES = 0;
   unsigned PRUNED = 0;

@@ -29,8 +29,7 @@ public:
   llvm::Value *bitcastTo(llvm::Value*, llvm::Type*);
 
 private:
-  llvm::Value *codeGenImpl(Inst *I,
-                           llvm::ValueToValueMapTy &VMap);
+  llvm::Value *codeGenImpl(Rewrite&);
 };
 
 }
