@@ -19,12 +19,10 @@ namespace minotaur {
 
 class AliveEngine {
 private:
-  std::optional<smt::smt_initializer> smt_init;
   llvm::TargetLibraryInfoWrapperPass &TLI;
 
 public:
   AliveEngine(llvm::TargetLibraryInfoWrapperPass &TLI) : TLI(TLI) {
-    smt_init.emplace();
     util::config::disable_undef_input = config::disable_undef_input;
     util::config::disable_poison_input = config::disable_poison_input;
     util::config::set_debug(config::dbg());

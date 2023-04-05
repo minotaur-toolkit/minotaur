@@ -153,7 +153,8 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         insertpt = insertpt->getNextNode();
       }
 
-      llvm::Value *V = LLVMGen(insertpt, IntrinsicDecls).codeGen(move(*R), S.getValueMap());
+      llvm::Value *V =
+        LLVMGen(insertpt, IntrinsicDecls).codeGen(move(*R), S.getValueMap());
       V = llvm::IRBuilder<>(insertpt).CreateBitCast(V, I.getType());
 
       if (enable_caching) {

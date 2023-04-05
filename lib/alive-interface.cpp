@@ -61,14 +61,16 @@ bool
 AliveEngine::compareFunctions(llvm::Function &Func1, llvm::Function &Func2) {
   smt::smt_initializer smt_init;
   llvm_util::Verifier verifier(TLI, smt_init, cout);
-  cerr<<"compare"<<endl;
   verifier.compareFunctions(Func1, Func2);
-  cerr<<"end-compare"<<endl;
   return verifier.num_correct;
 }
 
 static Errors find_model(Transform &t,
                          unordered_map<const IR::Value*, smt::expr> &result) {
+
+  std::optional<smt::smt_initializer> smt_init;
+  smt_init.emplace();
+
   t.preprocess();
   t.tgt.syncDataWithSrc(t.src);
   ::calculateAndInitConstants(t);
@@ -209,7 +211,6 @@ static Errors find_model(Transform &t,
 bool
 AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
    unordered_map<const llvm::Argument*, llvm::Constant*>& ConstMap) {
-  //smt::smt_initializer smt_init;
 
   auto Func1 = llvm_util::llvm2alive(src, TLI.getTLI(src), true);
   auto Func2 = llvm_util::llvm2alive(tgt, TLI.getTLI(tgt), true);
@@ -229,17 +230,18 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
     }
   }
 
+  Transform t;
+  t.src = move(*Func1);
+  t.tgt = move(*Func2);
+
   DenseMap<const IR::Value*, const Argument*> inputs;
-  for (auto &&I : Func2->getInputs()) {
+  for (auto &&I : t.tgt.getInputs()) {
     string input_name = I.getName();
     if (arguments.count(input_name) == 0)
       continue;
     inputs[&I] = arguments[input_name];
   }
 
-  Transform t;
-  t.src = move(*Func1);
-  t.tgt = move(*Func2);
   // assume type verifies
   std::unordered_map<const IR::Value*, smt::expr> result;
 
