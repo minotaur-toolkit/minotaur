@@ -18,6 +18,7 @@
 
 #include <map>
 #include <sstream>
+#include <unordered_map>
 
 using namespace IR;
 using namespace smt;
@@ -206,7 +207,7 @@ static Errors find_model(Transform &t,
 // call constant synthesizer and fill in constMap if synthesis suceeeds
 bool
 AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
-                               constmap &consts) {
+  unordered_map<const llvm::Argument*, llvm::Constant*>& constmap) {
   //smt::smt_initializer smt_init;
 
   auto Func1 = llvm_util::llvm2alive(src, TLI.getTLI(src), true);
@@ -257,7 +258,7 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
       // if (!result[p.first].isConst())
       //     return false;
       IntegerType *ity = cast<IntegerType>(ty);
-      consts[p.second] =
+      constmap[p.second] =
         ConstantInt::get(ity, result[p.first].numeral_string(), 10);
     } else if (ty->isVectorTy()) {
       auto flat = result[p.first];
@@ -272,7 +273,7 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
           return false;
         v.push_back(ConstantInt::get(ety, elem.numeral_string(), 10));
       }
-      consts[p.second] = ConstantVector::get(v);
+      constmap[p.second] = ConstantVector::get(v);
     }
   }
 

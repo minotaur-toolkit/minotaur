@@ -475,13 +475,14 @@ EnumerativeSynthesis::synthesize(llvm::Function &F) {
         Args.push_back(C->getType().toLLVM(F.getContext()));
       }
 
-      auto nFT =
+      auto _functionType =
         llvm::FunctionType::get(FT->getReturnType(), Args, FT->isVarArg());
 
       llvm::Function *Tgt =
-        llvm::Function::Create(nFT, F.getLinkage(), F.getName(), F.getParent());
+        llvm::Function::Create(_functionType, F.getLinkage(),
+                               F.getName(), F.getParent());
 
-      llvm::SmallVector<llvm::ReturnInst *, 8> TgtReturns;
+
       llvm::Function::arg_iterator TgtArgI = Tgt->arg_begin();
 
       for (auto I = F.arg_begin(), E = F.arg_end(); I != E; ++I, ++TgtArgI) {
@@ -498,8 +499,9 @@ EnumerativeSynthesis::synthesize(llvm::Function &F) {
         ++TgtArgI;
       }
 
+      llvm::SmallVector<llvm::ReturnInst*, 8> _returns;
       llvm::CloneFunctionInto(Tgt, &F, VMap,
-        llvm::CloneFunctionChangeType::LocalChangesOnly, TgtReturns);
+        llvm::CloneFunctionChangeType::LocalChangesOnly, _returns);
 
       llvm::Function *Src;
       if (HaveC) {
@@ -510,9 +512,9 @@ EnumerativeSynthesis::synthesize(llvm::Function &F) {
       }
 
       llvm::Instruction *PrevI = llvm::cast<llvm::Instruction>(VMap[&*I]);
-      constmap consts;
+      ConstMap consts;
       llvm::Value *V =
-         LLVMGen(PrevI, IntrinsicDecls, consts).codeGen(G, VMap);
+         LLVMGen(PrevI, IntrinsicDecls).codeGen({*Src, G, consts}, VMap);
       V = llvm::IRBuilder<>(PrevI).CreateBitCast(V, PrevI->getType());
       PrevI->replaceAllUsesWith(V);
 
@@ -560,7 +562,6 @@ push:
     // llvm functions -> alive2 functions
     auto iter = Fns.begin();
     Inst *R;
-    constmap consts;
     bool success = false;
     for (;iter != Fns.end();) {
       auto &[Tgt, Src, G, HaveC] = *iter;
@@ -577,7 +578,7 @@ push:
         if (!HaveC) {
           Good = AE.compareFunctions(*Src, *Tgt);
         } else {
-          Good = AE.compareFunctions(*Src, *Tgt, consts);
+          Good = AE.constantSynthesis(*Src, *Tgt, consts);
         }
       } catch (AliveException E) {
         if (config::debug_tv) {

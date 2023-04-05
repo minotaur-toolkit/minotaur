@@ -241,12 +241,12 @@ public:
   type getNewTy () const { return type(lane, new_bits, false); }
 };
 
-using constmap = std::map<ReservedConst*, llvm::Constant*>;
+using ConstMap = std::map<ReservedConst*, llvm::Constant*>;
 
 struct Rewrite {
   llvm::Function &F;
   Inst *I;
-  constmap &const_map;
+  ConstMap &Consts;
 };
 
 }

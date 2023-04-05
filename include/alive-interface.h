@@ -13,6 +13,7 @@
 #include "llvm/IR/Argument.h"
 
 #include <iostream>
+#include <unordered_map>
 
 namespace minotaur {
 
@@ -29,8 +30,8 @@ public:
     util::config::set_debug(config::dbg());
   }
 
-
-  bool constantSynthesis(llvm::Function&, llvm::Function&, constmap&);
+  bool constantSynthesis(llvm::Function&, llvm::Function&,
+    std::unordered_map<const llvm::Argument*, llvm::Constant*>&);
   bool compareFunctions(llvm::Function&, llvm::Function&);
 };
 

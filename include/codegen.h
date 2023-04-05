@@ -15,7 +15,7 @@
 namespace minotaur {
 
 class LLVMGen {
-  std::unordered_set<llvm::Function *> &IntrinsicDecls;
+  std::unordered_set<llvm::Function*>& IntrinsicDecls;
   llvm::IRBuilder<> b;
   llvm::Module *M;
   llvm::LLVMContext &C;
@@ -24,12 +24,11 @@ public:
           std::unordered_set<llvm::Function *> &IDs)
     : IntrinsicDecls(IDs), b(llvm::IRBuilder<>(I)),
       M(I->getModule()), C(I->getContext()) {};
-  llvm::Value *codeGen(Rewrite &R,
-                       llvm::ValueToValueMapTy &VMap);
+  llvm::Value *codeGen(Rewrite &&R, llvm::ValueToValueMapTy &VMap);
   llvm::Value *bitcastTo(llvm::Value*, llvm::Type*);
 
 private:
-  llvm::Value *codeGenImpl(Rewrite&);
+  llvm::Value *codeGenImpl(Inst*, llvm::ValueToValueMapTy&, ConstMap&);
 };
 
 }

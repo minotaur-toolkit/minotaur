@@ -14,6 +14,7 @@
 #include "llvm/IR/IntrinsicsX86.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
 
 #include <iostream>
 
@@ -40,7 +41,8 @@ llvm::Value *LLVMGen::bitcastTo(llvm::Value *V, llvm::Type *to) {
   return b.CreateBitCast(V, to);
 }
 
-llvm::Value* codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
+llvm::Value*
+LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap, ConstMap &CMap) {
   if (auto V = dynamic_cast<Var*>(I)) {
     if (VMap.empty()) {
       return V->V();
@@ -55,7 +57,7 @@ llvm::Value* codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     }
   } else if (auto U = dynamic_cast<UnaryInst*>(I)) {
     type workty = U->getWorkTy();
-    auto op0 = codeGenImpl(U->Op0(), VMap);
+    auto op0 = codeGenImpl(U->Op0(), VMap, CMap);
     if(U->Op0()->getWidth() != workty.getWidth())
       report_fatal_error("operand width mismatch");
     op0 = bitcastTo(op0, workty.toLLVM(C));
@@ -79,10 +81,10 @@ llvm::Value* codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
       return b.CreateCall(F, op0);
     }
   } else if (auto U = dynamic_cast<CopyInst*>(I)) {
-    auto op0 = codeGenImpl(U->Op0(), VMap);
+    auto op0 = codeGenImpl(U->Op0(), VMap, CMap);
     return op0;
   } else if (auto CI = dynamic_cast<ConversionInst*>(I)) {
-    auto op0 = codeGenImpl(CI->V(), VMap);
+    auto op0 = codeGenImpl(CI->V(), VMap, CMap);
     op0 = bitcastTo(op0, CI->getPrevTy().toLLVM(C));
     Type *new_type = CI->getNewTy().toLLVM(C);
     llvm::Value *r = nullptr;
@@ -100,12 +102,12 @@ llvm::Value* codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     return r;
   } else if (auto B = dynamic_cast<BinaryInst*>(I)) {
     type workty = B->getWorkTy();
-    auto op0 = codeGenImpl(B->L(), VMap);
+    auto op0 = codeGenImpl(B->L(), VMap, CMap);
     if(B->L()->getWidth() != workty.getWidth())
       report_fatal_error("left operand width mismatch");
     op0 = bitcastTo(op0, workty.toLLVM(C));
 
-    auto op1 = codeGenImpl(B->R(), VMap);
+    auto op1 = codeGenImpl(B->R(), VMap, CMap);
     if(B->R()->getWidth() != workty.getWidth())
       report_fatal_error("left operand width mismatch");
     op1 = bitcastTo(op1, workty.toLLVM(C));
@@ -150,12 +152,12 @@ llvm::Value* codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     }
     return r;
   } else if (auto IC = dynamic_cast<ICmpInst*>(I)) {
-    auto op0 = codeGen(IC->L(), VMap);
+    auto op0 = codeGenImpl(IC->L(), VMap, CMap);
     auto workty = type(IC->getWidth(), IC->L()->getWidth()/IC->getWidth(),
                        false);
     op0 = bitcastTo(op0, workty.toLLVM(C));
 
-    auto op1 = codeGen(IC->R(), VMap);
+    auto op1 = codeGenImpl(IC->R(), VMap, CMap);
     op1 = bitcastTo(op1, workty.toLLVM(C));
     llvm::Value *r = nullptr;
     switch (IC->K()) {
@@ -183,12 +185,12 @@ llvm::Value* codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
   } else if (auto B = dynamic_cast<SIMDBinOpInst*>(I)) {
     type op0_ty = type::getIntrinsicOp0Ty(B->K());
     type op1_ty = type::getIntrinsicOp1Ty(B->K());
-    auto op0 = codeGen(B->L(), VMap);
+    auto op0 = codeGenImpl(B->L(), VMap, CMap);
     if(B->L()->getWidth() != op0_ty.getWidth())
       report_fatal_error("left operand width mismatch");
     op0 = bitcastTo(op0, op0_ty.toLLVM(C));
 
-    auto op1 = codeGen(B->R(), VMap);
+    auto op1 = codeGenImpl(B->R(), VMap, CMap);
     if(B->R()->getWidth() != op1_ty.getWidth())
       report_fatal_error("right operand width mismatch");
     op1 = bitcastTo(op1, op1_ty.toLLVM(C));
@@ -196,28 +198,27 @@ llvm::Value* codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     llvm::Function *decl = Intrinsic::getDeclaration(M, getIntrinsicID(B->K()));
     IntrinsicDecls.insert(decl);
 
-
     llvm::Value *CI = CallInst::Create(decl, ArrayRef<llvm::Value *>({op0, op1}),
                                        "intr",
                                        cast<Instruction>(b.GetInsertPoint()));
     return CI;
   } else if (auto RC = dynamic_cast<ReservedConst*>(I)) {
-    if (VMap.count(RC->getA())) {
-      return VMap.at(RC->getA());
+    if (CMap.count(RC)) {
+      return CMap[RC];
     } else {
       return RC->getA();
     }
   } else if (auto FSV = dynamic_cast<FakeShuffleInst*>(I)) {
-    auto op0 = codeGen(FSV->L(), VMap);
+    auto op0 = codeGenImpl(FSV->L(), VMap, CMap);
     op0 = bitcastTo(op0, FSV->getInputTy().toLLVM(C));
     llvm::Value *op1 = nullptr;
     if (FSV->R()) {
-      op1 = bitcastTo(codeGen(FSV->R(), VMap), op0->getType());
+      op1 = bitcastTo(codeGenImpl(FSV->R(), VMap, CMap), op0->getType());
     } else {
       op1 = llvm::PoisonValue::get(op0->getType());
     }
 
-    auto mask = codeGen(FSV->M(), VMap);
+    auto mask = codeGenImpl(FSV->M(), VMap, CMap);
     llvm::Value *SV = nullptr;
     if (isa<llvm::Constant>(mask)) {
       SV = b.CreateShuffleVector(op0, op1, mask, "sv");
@@ -238,11 +239,8 @@ llvm::Value* codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
   llvm::report_fatal_error("[ERROR] unknown instruction found in LLVMGen");
 }
 
-llvm::Value *LLVMGen::codeGen(Rewrite &R) {
-  for (auto const : R.const_map) {
-    VMap[const.first] = const.second;
-  }
-  return codeGenImpl(R.I, VMap);
+llvm::Value *LLVMGen::codeGen(Rewrite &&R, ValueToValueMapTy &VMap) {
+  return codeGenImpl(R.I, VMap, R.Consts);
 }
 
 }
