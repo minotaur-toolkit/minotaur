@@ -34,6 +34,7 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/TargetParser/Triple.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Support/KnownBits.h"
@@ -601,9 +602,6 @@ push:
         }
       }
 
-      if (HaveC)
-        Src->eraseFromParent();
-      Tgt->eraseFromParent();
       if (Good) {
         R = G;
         if (HaveC) {
@@ -613,6 +611,11 @@ push:
         }
         success = true;
       }
+
+      if (HaveC)
+        Src->eraseFromParent();
+      Tgt->eraseFromParent();
+
       iter = Fns.erase(iter);
 
       unsigned Duration = ( std::clock() - start ) / CLOCKS_PER_SEC;

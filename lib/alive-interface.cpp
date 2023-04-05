@@ -208,10 +208,8 @@ static Errors find_model(Transform &t,
 bool
 AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
    unordered_map<const llvm::Argument*, llvm::Constant*>& ConstMap) {
-
   std::optional<smt::smt_initializer> smt_init;
   smt_init.emplace();
-
 
   auto Func1 = llvm_util::llvm2alive(src, TLI.getTLI(src), true);
   auto Func2 = llvm_util::llvm2alive(tgt, TLI.getTLI(tgt), true);
@@ -223,11 +221,11 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
     return false;
   }
 
-  DenseMap<StringRef, const Argument*> arguments;
+  DenseMap<StringRef, const Argument*> Arguments;
   for (auto &arg : tgt.args()) {
-    StringRef ArgName = arg.getName();
+    string ArgName = "%" + string(arg.getName());
     if (ArgName.starts_with("%_reservedc")) {
-      arguments[ArgName] = &arg;
+      Arguments[ArgName] = &arg;
     }
   }
 
@@ -235,12 +233,12 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
   t.src = move(*Func1);
   t.tgt = move(*Func2);
 
-  DenseMap<const IR::Value*, const Argument*> inputs;
+  DenseMap<const IR::Value*, const Argument*> Inputs;
   for (auto &&I : t.tgt.getInputs()) {
-    string input_name = I.getName();
-    if (arguments.count(input_name) == 0)
+    string InputName = I.getName();
+    if (Arguments.count(InputName) == 0)
       continue;
-    inputs[&I] = arguments[input_name];
+    Inputs[&I] = Arguments[InputName];
   }
 
   // assume type verifies
@@ -256,16 +254,14 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
     return false;
   }
 
-  for (auto p : inputs) {
-    auto ty = p.second->getType();
+  for (auto I : Inputs) {
+    auto ty = I.second->getType();
     if (ty->isIntegerTy()) {
-      // if (!result[p.first].isConst())
-      //     return false;
       IntegerType *ity = cast<IntegerType>(ty);
-      ConstMap[p.second] =
-        ConstantInt::get(ity, result[p.first].numeral_string(), 10);
+      ConstMap[I.second] =
+        ConstantInt::get(ity, result[I.first].numeral_string(), 10);
     } else if (ty->isVectorTy()) {
-      auto flat = result[p.first];
+      auto flat = result[I.first];
       FixedVectorType *vty = cast<FixedVectorType>(ty);
       IntegerType *ety = cast<IntegerType>(vty->getElementType());
 
@@ -277,7 +273,7 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
           return false;
         v.push_back(ConstantInt::get(ety, elem.numeral_string(), 10));
       }
-      ConstMap[p.second] = ConstantVector::get(v);
+      ConstMap[I.second] = ConstantVector::get(v);
     }
   }
 
