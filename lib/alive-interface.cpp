@@ -68,9 +68,6 @@ AliveEngine::compareFunctions(llvm::Function &Func1, llvm::Function &Func2) {
 static Errors find_model(Transform &t,
                          unordered_map<const IR::Value*, smt::expr> &result) {
 
-  std::optional<smt::smt_initializer> smt_init;
-  smt_init.emplace();
-
   t.preprocess();
   t.tgt.syncDataWithSrc(t.src);
   ::calculateAndInitConstants(t);
@@ -211,6 +208,10 @@ static Errors find_model(Transform &t,
 bool
 AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
    unordered_map<const llvm::Argument*, llvm::Constant*>& ConstMap) {
+
+  std::optional<smt::smt_initializer> smt_init;
+  smt_init.emplace();
+
 
   auto Func1 = llvm_util::llvm2alive(src, TLI.getTLI(src), true);
   auto Func2 = llvm_util::llvm2alive(tgt, TLI.getTLI(tgt), true);
