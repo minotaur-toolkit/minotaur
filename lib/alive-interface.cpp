@@ -61,6 +61,7 @@ bool
 AliveEngine::compareFunctions(llvm::Function &Func1, llvm::Function &Func2) {
   smt::smt_initializer smt_init;
   llvm_util::Verifier verifier(TLI, smt_init, cout);
+  verifier.quiet = true;
   verifier.compareFunctions(Func1, Func2);
   return verifier.num_correct;
 }
