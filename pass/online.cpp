@@ -141,9 +141,9 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         llvm::errs()<<"*** working on Function:\n";
         (*NewF).get().dump();
       }
-      auto [R, oldcost, newcost] = ES.synthesize(*NewF);
+      auto R = ES.synthesize(*NewF);
 
-      if (!R) {
+      if (!R.has_value()) {
         hSetNoSolution(bytecode.c_str(), bytecode.size(), ctx, F.getName());
         continue;
       }
@@ -153,7 +153,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         insertpt = insertpt->getNextNode();
       }
 
-      llvm::Value *V = LLVMGen(insertpt, IntrinsicDecls).codeGen(R, S.getValueMap());
+      llvm::Value *V = LLVMGen(insertpt, IntrinsicDecls).codeGen(move(*R), S.getValueMap());
       V = llvm::IRBuilder<>(insertpt).CreateBitCast(V, I.getType());
 
       if (enable_caching) {
@@ -165,11 +165,11 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         WriteBitcodeToFile(*m, bs);
 
         stringstream rs;
-        R->print(rs);
+        R->I->print(rs);
         rs.flush();
         hSetRewrite(bytecode.c_str(), bytecode.size(),
                     optimized.c_str(), optimized.size(),
-                    rs.str(), ctx, oldcost, newcost, F.getName());
+                    rs.str(), ctx, /*TODO*/ 0, 0, F.getName());
       }
 
       I.replaceUsesWithIf(V, [&changed, &V, &DT](Use &U) {

@@ -16,6 +16,7 @@
 #include "llvm_util/llvm2alive.h"
 
 #include "llvm/ADT/Triple.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/IR/LLVMContext.h"
@@ -120,7 +121,7 @@ int main(int argc, char **argv) {
   auto TGT = findFunction(*M, "tgt");
 
   minotaur::config::debug_tv = true;
-  minotaur::constmap constMap;
+  unordered_map<const llvm::Argument*, llvm::Constant*> constMap;
   minotaur::AliveEngine AE(TLI);
   try {
     AE.constantSynthesis(*SRC, *TGT, constMap);

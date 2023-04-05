@@ -14,6 +14,7 @@
 #include "llvm_util/compare.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/IR/Argument.h"
 
 #include <map>
@@ -207,7 +208,7 @@ static Errors find_model(Transform &t,
 // call constant synthesizer and fill in constMap if synthesis suceeeds
 bool
 AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
-  unordered_map<const llvm::Argument*, llvm::Constant*>& constmap) {
+   unordered_map<const llvm::Argument*, llvm::Constant*>& ConstMap) {
   //smt::smt_initializer smt_init;
 
   auto Func1 = llvm_util::llvm2alive(src, TLI.getTLI(src), true);
@@ -258,7 +259,7 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
       // if (!result[p.first].isConst())
       //     return false;
       IntegerType *ity = cast<IntegerType>(ty);
-      constmap[p.second] =
+      ConstMap[p.second] =
         ConstantInt::get(ity, result[p.first].numeral_string(), 10);
     } else if (ty->isVectorTy()) {
       auto flat = result[p.first];
@@ -273,7 +274,7 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
           return false;
         v.push_back(ConstantInt::get(ety, elem.numeral_string(), 10));
       }
-      constmap[p.second] = ConstantVector::get(v);
+      ConstMap[p.second] = ConstantVector::get(v);
     }
   }
 

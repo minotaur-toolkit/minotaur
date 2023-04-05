@@ -24,6 +24,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/Analysis/LoopAnalysisManager.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/DataLayout.h"
@@ -376,6 +377,14 @@ EnumerativeSynthesis::getSketches(llvm::Value *V,
   return true;
 }
 
+using Candidate = tuple<llvm::Function*, llvm::Function*, Inst*,
+                        unordered_map<const llvm::Argument*, ReservedConst*>,
+                        bool>;
+
+static bool approx(const Candidate &f1, const Candidate &f2){
+  return get_approx_cost(get<0>(f1)) < get_approx_cost(get<0>(f2));
+}
+
 optional<Rewrite>
 EnumerativeSynthesis::synthesize(llvm::Function &F) {
   unsigned REWRITES = 0;
@@ -457,11 +466,7 @@ EnumerativeSynthesis::synthesize(llvm::Function &F) {
     }
     unsigned CI = 0;
 
-    vector<tuple<llvm::Function*, // src
-                 llvm::Function*, // tgt
-                 Inst*,           // rewrite expr
-                 unordered_map<const llvm::Argument*, ReservedConst*>, // const
-                 bool>> Fns;
+    vector<Candidate> Fns;
     auto FT = F.getFunctionType();
     // sketches -> llvm functions
 
@@ -617,7 +622,7 @@ push:
     }
 
     for (;iter != Fns.end(); ++iter) {
-      auto &[Tgt, Src, _, HaveC] = *iter;
+      auto &[Tgt, Src, _, __, HaveC] = *iter;
       if (HaveC)
         Src->eraseFromParent();
       Tgt->eraseFromParent();
