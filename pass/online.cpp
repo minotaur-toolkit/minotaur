@@ -4,6 +4,7 @@
 #include "synthesis.h"
 #include "codegen.h"
 #include "slice.h"
+#include "removal-slice.h"
 #include "utils.h"
 
 #include "ir/instr.h"
@@ -21,6 +22,7 @@
 #include "llvm/Analysis/MemoryDependenceAnalysis.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instruction.h"
@@ -111,7 +113,9 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
     for (auto &I : make_early_inc_range(BB)) {
       if (I.getType()->isVoidTy())
         continue;
-      minotaur::Slice S(F, LI, DT, MD);
+      //minotaur::Slice S(F, LI, DT, MD); 
+      DataLayout DL(F.getParent());
+      minotaur::RemovalSlice S(F.getContext(), DL, LI, DT, MD);
       auto NewF = S.extractExpr(I);
       auto m = S.getNewModule();
 

@@ -17,6 +17,10 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &v) {
   if(config::debug_slicer) {
     llvm::errs() << ">>> slicing value " << v << ">>>\n";
   }
+  SmallVector<Type *, 4> argTys;
+  Function *F = Function::Create(FunctionType::get(v.getType(), argTys, false),
+                                 GlobalValue::ExternalLinkage, "rewrite", *m);
+  return optional<reference_wrapper<Function>>(*F);
 }
 
 } // namespace minotaur
