@@ -19,6 +19,8 @@ extern bool smt_verbose;
 extern bool disable_avx512;
 extern bool show_stats;
 
+extern unsigned slicer_max_depth;
+
 std::ostream &dbg();
 void set_debug(std::ostream &os);
 
