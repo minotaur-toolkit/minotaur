@@ -5,6 +5,7 @@
 #include "removal-slice.h"
 
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 
 #include <optional>
@@ -42,26 +43,63 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &v) {
   }
 
 
-  SmallSet<Value*, 16> Harvested;
+  SmallSet<Value*, 16> Insts;
 
 
-  queue<pair<Value *, unsigned>> worklist;
-  worklist.push({&v, 0});
+  queue<pair<Value *, unsigned>> Worklist;
+  Worklist.push({&v, 0});
 
-  while (!worklist.empty()) {
-    auto &[w, depth] = worklist.front();
-    worklist.pop();
+  while (!Worklist.empty()) {
+    auto &[W, Depth] = Worklist.front();
+    Worklist.pop();
 
-    if (depth > config::slicer_max_depth) {
-      if(config::debug_slicer) {
+    if (Depth > config::slicer_max_depth) {
+      if(config::debug_slicer)
         llvm::errs() << "[INFO] max depth reached, stop harvesting";
-      }
-  }
+      continue;
+    }
 
+    if (Instruction *I = dyn_cast<Instruction>(W)) {
+      bool haveUnknownOperand = false;
+      for (unsigned op_i = 0; op_i < I->getNumOperands(); ++op_i ) {
+        if (isa<CallInst>(I) && op_i == 0) {
+          continue;
+        }
+
+        auto op = I->getOperand(op_i);
+        if (isa<ConstantExpr>(op)) {
+          if(config::debug_slicer)
+            llvm::errs() << "[INFO] found instruction that uses ConstantExpr\n";
+          haveUnknownOperand = true;
+          break;
+        }
+        auto op_ty = op->getType();
+        if (op_ty->isStructTy() || op_ty->isFloatingPointTy() || op_ty->isPointerTy()) {
+          if(config::debug_slicer)
+            llvm::errs() << "[INFO] found instruction with operands with type "
+                         << *op_ty <<"\n";
+          haveUnknownOperand = true;
+          break;
+        }
+      }
+
+      if (haveUnknownOperand) {
+        continue;
+      }
+
+      Insts.insert(W);
+      for (auto &Op : I->operands()) {
+        if (!isa<Instruction>(Op))
+          continue;
+        Worklist.push({Op, Depth + 1});
+      }
+    }
+  }
 
   SmallVector<Type *, 4> argTys;
   Function *F = Function::Create(FunctionType::get(v.getType(), argTys, false),
                                  GlobalValue::ExternalLinkage, "rewrite", *m);
+
   return optional<reference_wrapper<Function>>(*F);
 }
 
