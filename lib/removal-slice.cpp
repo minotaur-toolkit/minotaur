@@ -7,6 +7,8 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/Value.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 #include <optional>
 
@@ -19,13 +21,13 @@ static void remove_unreachable() {
 
 }
 
-optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &v) {
+optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
   assert(isa<Instruction>(&v) && "Expr to be extracted must be a Instruction");
   if(config::debug_slicer) {
-    llvm::errs() << ">>> slicing value " << v << ">>>\n";
+    llvm::errs() << ">>> slicing value " << V << ">>>\n";
   }
 
-  Instruction *vi = cast<Instruction>(&v);
+  Instruction *vi = cast<Instruction>(&V);
   BasicBlock *vbb = vi->getParent();
   Loop *loopv = LI.getLoopFor(vbb);
   if (loopv) {
@@ -47,7 +49,7 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &v) {
 
 
   queue<pair<Value *, unsigned>> Worklist;
-  Worklist.push({&v, 0});
+  Worklist.push({&V, 0});
 
   while (!Worklist.empty()) {
     auto &[W, Depth] = Worklist.front();
@@ -97,8 +99,15 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &v) {
   }
 
   SmallVector<Type *, 4> argTys;
-  Function *F = Function::Create(FunctionType::get(v.getType(), argTys, false),
-                                 GlobalValue::ExternalLinkage, "rewrite", *m);
+
+  llvm::SmallVector<llvm::ReturnInst*, 8> _returns;
+
+  Function *F = Function::Create(FunctionType::get(V.getType(), argTys, false),
+                                 GlobalValue::ExternalLinkage, "rewrite", *M);
+  ValueToValueMapTy VMap;
+  llvm::CloneFunctionInto(F, &VF, VMap,
+    llvm::CloneFunctionChangeType::LocalChangesOnly, _returns);
+
 
   return optional<reference_wrapper<Function>>(*F);
 }

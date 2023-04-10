@@ -17,22 +17,23 @@
 namespace minotaur {
 
 class RemovalSlice {
+  llvm::Function &VF;
   llvm::LLVMContext &Ctx;
   llvm::LoopInfo &LI;
   llvm::DominatorTree &DT;
   llvm::MemoryDependenceResults &MD;
 
-  std::unique_ptr<llvm::Module> m;
+  std::unique_ptr<llvm::Module> M;
   llvm::ValueToValueMapTy mapping;
 
 public:
-  RemovalSlice(llvm::LLVMContext &Ctx, llvm::DataLayout &DL, llvm::LoopInfo &LI, 
+  RemovalSlice(llvm::Function &VF, llvm::LoopInfo &LI, 
                llvm::DominatorTree &DT, llvm::MemoryDependenceResults &MD)
-    : Ctx(Ctx), LI(LI), DT(DT), MD(MD) {
-    m = std::make_unique<llvm::Module>("", Ctx);
-    m->setDataLayout(DL);
+    : VF(VF), Ctx(VF.getContext()), LI(LI), DT(DT), MD(MD) {
+    M = std::make_unique<llvm::Module>("", Ctx);
+    M->setDataLayout(VF.getParent()->getDataLayout());
   }
-  std::unique_ptr<llvm::Module> getNewModule() {return move(m); }
+  std::unique_ptr<llvm::Module> getNewModule() {return move(M); }
   llvm::ValueToValueMapTy& getValueMap() { return mapping; }
   std::optional<std::reference_wrapper<llvm::Function>>
     extractExpr(llvm::Value &V);
