@@ -83,7 +83,8 @@ add_library(utils STATIC "lib/utils.cpp")
 target_link_libraries(utils PRIVATE ${LLVM_LIBS} ${HIREDIS_LIBRARY})
 
 add_library(slice STATIC "lib/config.cpp"
-                         "lib/slice.cpp")
+                         "lib/slice.cpp"
+                         "lib/removal-slice.cpp")
 target_link_libraries(slice PRIVATE utils)
 
 add_library(synthesizer STATIC ${SYNTHESIZER_SRC})
