@@ -120,6 +120,7 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
   Instruction *NewV = cast<Instruction>(VMap[&V]);
   ReturnInst *Ret = ReturnInst::Create(Ctx, NewV, NewV->getNextNode());
 
+  // remove unreachable code within same block
   Instruction *RI = &NewV->getParent()->back();
   RI->dump();
   while (RI != Ret) {
