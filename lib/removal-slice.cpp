@@ -98,15 +98,26 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
     }
   }
 
-  SmallVector<Type *, 4> argTys;
+  SmallVector<Type *, 4> argTys(VF.getFunctionType()->params());
+
+  // TODO: Add more arguments for the new function.
+  FunctionType *FTy = FunctionType::get(VF.getReturnType(), argTys, false);
+  Function *F = Function::Create(FTy, GlobalValue::ExternalLinkage, "foo", *M);
+
+  ValueToValueMapTy VMap;
+  llvm::Function::arg_iterator TgtArgI = VF.arg_begin();
+
+  for (auto I = VF.arg_begin(), E = VF.arg_end(); I != E; ++I, ++TgtArgI) {
+    VMap[I] = TgtArgI;
+    TgtArgI->setName(I->getName());
+  }
 
   llvm::SmallVector<llvm::ReturnInst*, 8> _returns;
-
-  Function *F = Function::Create(FunctionType::get(V.getType(), argTys, false),
-                                 GlobalValue::ExternalLinkage, "rewrite", *M);
-  ValueToValueMapTy VMap;
   llvm::CloneFunctionInto(F, &VF, VMap,
-    llvm::CloneFunctionChangeType::LocalChangesOnly, _returns);
+    llvm::CloneFunctionChangeType::DifferentModule, _returns);
+  llvm::errs()<<"M->dump()\n";
+  M->dump();
+  llvm::errs()<<"end of m dump\n";
 
 
   return optional<reference_wrapper<Function>>(*F);
