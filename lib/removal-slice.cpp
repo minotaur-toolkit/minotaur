@@ -115,11 +115,25 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
 
   SmallVector<ReturnInst*, 8> _r;
   CloneFunctionInto(F, &VF, VMap, CloneFunctionChangeType::DifferentModule, _r);
+
+  // insert return
+  Instruction *NewV = cast<Instruction>(VMap[&V]);
+  ReturnInst *Ret = ReturnInst::Create(Ctx, NewV, NewV->getNextNode());
+
+  Instruction *RI = &NewV->getParent()->back();
+  RI->dump();
+  while (RI != Ret) {
+    RI->dump();
+    Instruction *Prev = RI->getPrevNode();
+    RI->eraseFromParent();
+    RI = Prev;
+  }
+
   llvm::errs()<<"M->dump() for slice value ";
   V.dump();
   M->dump();
   llvm::errs()<<"end of m dump\n";
-  
+
   string err;
   llvm::raw_string_ostream err_stream(err);
   bool illformed = verifyFunction(*F, &err_stream);
