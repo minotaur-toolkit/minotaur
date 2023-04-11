@@ -8,6 +8,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Value.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #include <optional>
@@ -101,7 +102,7 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
   SmallVector<Type *, 4> argTys(VF.getFunctionType()->params());
 
   // TODO: Add more arguments for the new function.
-  FunctionType *FTy = FunctionType::get(VF.getReturnType(), argTys, false);
+  FunctionType *FTy = FunctionType::get(V.getType(), argTys, false);
   Function *F = Function::Create(FTy, GlobalValue::ExternalLinkage, "foo", *M);
 
   ValueToValueMapTy VMap;
@@ -112,13 +113,23 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
     TgtArgI->setName(I->getName());
   }
 
-  llvm::SmallVector<llvm::ReturnInst*, 8> _returns;
-  llvm::CloneFunctionInto(F, &VF, VMap,
-    llvm::CloneFunctionChangeType::DifferentModule, _returns);
-  llvm::errs()<<"M->dump()\n";
+  SmallVector<ReturnInst*, 8> _r;
+  CloneFunctionInto(F, &VF, VMap, CloneFunctionChangeType::DifferentModule, _r);
+  llvm::errs()<<"M->dump() for slice value ";
+  V.dump();
   M->dump();
   llvm::errs()<<"end of m dump\n";
-
+  
+  string err;
+  llvm::raw_string_ostream err_stream(err);
+  bool illformed = verifyFunction(*F, &err_stream);
+  if (illformed) {
+    llvm::errs() << "[ERROR] found errors in the generated function\n";
+    F->dump();
+    llvm::errs() << err << "\n";
+    llvm::report_fatal_error("illformed function generated");
+    return nullopt;
+  }
 
   return optional<reference_wrapper<Function>>(*F);
 }
