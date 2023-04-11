@@ -16,11 +16,11 @@
 using namespace llvm;
 using namespace std;
 
-namespace minotaur {
-
-static void remove_unreachable() {
-
+static unsigned remove_unreachable() {
+  return 0;
 }
+
+namespace minotaur {
 
 optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
   assert(isa<Instruction>(&v) && "Expr to be extracted must be a Instruction");
