@@ -134,6 +134,10 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
       RI = Prev;
     }
   }
+
+  // handle non-branching BBs
+  // * delete all the instructions inside BB
+  // * insert unreachable instruction
   for (auto NonBranchingBB : NonBranchingBBs) {
     BasicBlock *BB = cast<BasicBlock>(VMap[NonBranchingBB]);
     new UnreachableInst(Ctx, BB);
