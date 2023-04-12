@@ -8,6 +8,7 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -50,6 +51,19 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
 
   queue<pair<Value *, unsigned>> Worklist;
   Worklist.push({&V, 0});
+  SmallSet<BasicBlock*, 4> NonBranchingBBs;
+
+  for (auto &BB : VF) {
+    if (&BB == vbb) {
+      continue;
+    }
+    Instruction *T = BB.getTerminator();
+    if (isa<BranchInst>(T) || isa<SwitchInst>(T))
+      Worklist.push({T, 0});
+    else {
+      NonBranchingBBs.insert(&BB);
+    }
+  }
 
   while (!Worklist.empty()) {
     auto &[W, Depth] = Worklist.front();
@@ -62,33 +76,6 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
     }
 
     if (Instruction *I = dyn_cast<Instruction>(W)) {
-      bool haveUnknownOperand = false;
-      for (unsigned op_i = 0; op_i < I->getNumOperands(); ++op_i ) {
-        if (isa<CallInst>(I) && op_i == 0) {
-          continue;
-        }
-
-        auto op = I->getOperand(op_i);
-        if (isa<ConstantExpr>(op)) {
-          if(config::debug_slicer)
-            llvm::errs() << "[INFO] found instruction that uses ConstantExpr\n";
-          haveUnknownOperand = true;
-          break;
-        }
-        auto op_ty = op->getType();
-        if (op_ty->isStructTy() || op_ty->isFloatingPointTy() || op_ty->isPointerTy()) {
-          if(config::debug_slicer)
-            llvm::errs() << "[INFO] found instruction with operands with type "
-                         << *op_ty <<"\n";
-          haveUnknownOperand = true;
-          break;
-        }
-      }
-
-      if (haveUnknownOperand) {
-        continue;
-      }
-
       Candidates.insert(W);
       for (auto &Op : I->operands()) {
         if (!isa<Instruction>(Op))
@@ -120,10 +107,9 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
   Instruction *NewV = cast<Instruction>(VMap[&V]);
   ReturnInst *Ret = ReturnInst::Create(Ctx, NewV, NewV->getNextNode());
 
-
   llvm::errs()<<Candidates.size()<<"\n";
-  for (auto Inst : Candidates) {
-    Inst->dump();
+  for (auto C : Candidates) {
+    C->dump();
   }
   // remove unreachable code within same block
   SmallSet<Value*, 16> ClonedCandidates;
@@ -143,13 +129,15 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
         llvm::errs()<<"erase "<<*RI<<"\n";
         llvm::errs()<<ClonedCandidates.count(RI)<<"\n";
         RI->eraseFromParent();
+
       }
       RI = Prev;
     }
   }
-
-
-  //eliminate_dead_code(*F);
+  for (auto NonBranchingBB : NonBranchingBBs) {
+    BasicBlock *BB = cast<BasicBlock>(VMap[NonBranchingBB]);
+    new UnreachableInst(Ctx, BB);
+  }
 
   llvm::errs()<<"M->dump() for slice value ";
   M->dump();
