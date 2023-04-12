@@ -106,7 +106,7 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
   Function *F = Function::Create(FTy, GlobalValue::ExternalLinkage, "foo", *M);
 
   ValueToValueMapTy VMap;
-  llvm::Function::arg_iterator TgtArgI = VF.arg_begin();
+  llvm::Function::arg_iterator TgtArgI = F->arg_begin();
 
   for (auto I = VF.arg_begin(), E = VF.arg_end(); I != E; ++I, ++TgtArgI) {
     VMap[I] = TgtArgI;
