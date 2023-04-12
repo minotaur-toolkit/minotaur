@@ -46,8 +46,7 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
     }
   }
 
-  SmallSet<Value*, 16> Insts;
-
+  SmallSet<Value*, 16> Candidates;
 
   queue<pair<Value *, unsigned>> Worklist;
   Worklist.push({&V, 0});
@@ -90,7 +89,7 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
         continue;
       }
 
-      Insts.insert(W);
+      Candidates.insert(W);
       for (auto &Op : I->operands()) {
         if (!isa<Instruction>(Op))
           continue;
@@ -121,15 +120,34 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
   Instruction *NewV = cast<Instruction>(VMap[&V]);
   ReturnInst *Ret = ReturnInst::Create(Ctx, NewV, NewV->getNextNode());
 
-  // remove unreachable code within same block
-  Instruction *RI = &NewV->getParent()->back();
-  RI->dump();
-  while (RI != Ret) {
-    RI->dump();
-    Instruction *Prev = RI->getPrevNode();
-    RI->eraseFromParent();
-    RI = Prev;
+
+  llvm::errs()<<Candidates.size()<<"\n";
+  for (auto Inst : Candidates) {
+    Inst->dump();
   }
+  // remove unreachable code within same block
+  SmallSet<Value*, 16> ClonedCandidates;
+  for (auto C : Candidates) {
+    ClonedCandidates.insert(VMap[C]);
+  }
+
+  ClonedCandidates.insert(Ret);
+  for (auto &BB : *F) {
+    Instruction *RI = &BB.back();
+    RI->dump();
+    while (RI) {
+      RI->dump();
+      Instruction *Prev = RI->getPrevNode();
+
+      if (!ClonedCandidates.count(RI)) {
+        llvm::errs()<<"erase "<<*RI<<"\n";
+        llvm::errs()<<ClonedCandidates.count(RI)<<"\n";
+        RI->eraseFromParent();
+      }
+      RI = Prev;
+    }
+  }
+
 
   //eliminate_dead_code(*F);
 
