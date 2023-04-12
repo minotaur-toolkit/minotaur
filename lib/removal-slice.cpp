@@ -3,6 +3,7 @@
 
 #include "config.h"
 #include "removal-slice.h"
+#include "utils.h"
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/IR/Constants.h"
@@ -44,7 +45,6 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
       return nullopt;
     }
   }
-
 
   SmallSet<Value*, 16> Insts;
 
@@ -99,7 +99,7 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
     }
   }
 
-  SmallVector<Type *, 4> argTys(VF.getFunctionType()->params());
+  SmallVector<Type*, 4> argTys(VF.getFunctionType()->params());
 
   // TODO: Add more arguments for the new function.
   FunctionType *FTy = FunctionType::get(V.getType(), argTys, false);
@@ -129,6 +129,8 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
     RI->eraseFromParent();
     RI = Prev;
   }
+
+  //eliminate_dead_code(*F);
 
   llvm::errs()<<"M->dump() for slice value ";
   V.dump();

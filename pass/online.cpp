@@ -113,7 +113,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
     for (auto &I : make_early_inc_range(BB)) {
       if (I.getType()->isVoidTy())
         continue;
-      //minotaur::Slice S(F, LI, DT, MD); 
+      //minotaur::Slice S(F, LI, DT, MD);
       DataLayout DL(F.getParent());
       minotaur::RemovalSlice S(F, LI, DT, MD);
       auto NewF = S.extractExpr(I);

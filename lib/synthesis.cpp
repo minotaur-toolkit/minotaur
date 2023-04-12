@@ -403,8 +403,6 @@ EnumerativeSynthesis::synthesize(llvm::Function &F) {
   llvm::DominatorTree DT(F);
   DT.recalculate(F);
 
-  unsigned machinecost = get_machine_cost(&F);
-
   std::unordered_set<llvm::Function *> IntrinsicDecls;
 
   unsigned src_cost = get_approx_cost(&F);
