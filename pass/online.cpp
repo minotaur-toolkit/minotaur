@@ -184,6 +184,8 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         }
         return false;
       });
+      F.dump();
+      m->dump();
     }
   }
   if (changed) {

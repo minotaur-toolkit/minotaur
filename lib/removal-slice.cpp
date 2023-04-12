@@ -106,11 +106,12 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
   Function *F = Function::Create(FTy, GlobalValue::ExternalLinkage, "foo", *M);
 
   ValueToValueMapTy VMap;
-  llvm::Function::arg_iterator TgtArgI = F->arg_begin();
+  Function::arg_iterator TgtArgI = F->arg_begin();
 
   for (auto I = VF.arg_begin(), E = VF.arg_end(); I != E; ++I, ++TgtArgI) {
     VMap[I] = TgtArgI;
     TgtArgI->setName(I->getName());
+    this->mapping[TgtArgI] = I;
   }
 
   SmallVector<ReturnInst*, 8> _r;
@@ -133,7 +134,6 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
   //eliminate_dead_code(*F);
 
   llvm::errs()<<"M->dump() for slice value ";
-  V.dump();
   M->dump();
   llvm::errs()<<"end of m dump\n";
 
