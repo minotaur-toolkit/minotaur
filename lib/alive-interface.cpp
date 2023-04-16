@@ -59,10 +59,18 @@ void calculateAndInitConstants(Transform &t);
 
 namespace minotaur {
 
+class NullBuffer : public std::streambuf
+{
+public:
+  int overflow(int c) { return c; }
+};
+
 bool
 AliveEngine::compareFunctions(llvm::Function &Func1, llvm::Function &Func2) {
   smt::smt_initializer smt_init;
-  llvm_util::Verifier verifier(TLI, smt_init, cout);
+  NullBuffer null_buffer;
+  std::ostream null_stream(&null_buffer);
+  llvm_util::Verifier verifier(TLI, smt_init, null_stream);
   verifier.quiet = true;
   verifier.compareFunctions(Func1, Func2);
   return verifier.num_correct;
