@@ -132,7 +132,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     if (Instruction *i = dyn_cast<Instruction>(w)) {
       bool haveUnknownOperand = false;
       for (unsigned op_i = 0; op_i < i->getNumOperands(); ++op_i ) {
-        if (isa<CallInst>(w) && op_i == 0) {
+        if (isa<CallInst>(i) && op_i == 0) {
           continue;
         }
 
