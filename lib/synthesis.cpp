@@ -414,6 +414,8 @@ EnumerativeSynthesis::synthesize(llvm::Function &F) {
 
   AliveEngine AE(TLI);
 
+  unsigned machinecost = get_machine_cost(&F);
+
   for (auto &BB : F) {
     auto T = BB.getTerminator();
     if(!llvm::isa<llvm::ReturnInst>(T))
@@ -635,18 +637,13 @@ push:
     }
     // replace
     if (success) {
-      return {{F, R, Consts}};
-    }
-  }
-  return nullopt;
-/*
-
       if (config::debug_enumerator) {
         llvm::errs()<<"=== original ir (uops="<<machinecost<<") ===\n";
         F.dump();
       }
       llvm::ValueToValueMapTy VMap;
-      llvm::Value *V = LLVMGen(&*I, IntrinsicDecls, consts).codeGen(R, VMap);
+      Rewrite r = {F, R, Consts};
+      llvm::Value *V = LLVMGen(&*I, IntrinsicDecls).codeGen(r, VMap);
       V = llvm::IRBuilder<>(I).CreateBitCast(V, I->getType());
       I->replaceAllUsesWith(V);
       unsigned newcost = get_machine_cost(&F);
@@ -660,15 +657,16 @@ push:
         if (config::debug_enumerator) {
           llvm::errs()<<"=== successfully synthesized rhs ===\n";
         }
-        return {{R, consts}};
+        return {{F, R, Consts}};
       } else {
         if (config::debug_enumerator) {
-          llvm::errs()<<"!!! fails machine cost check, keep searching !!!\n";
+          llvm::errs()<<"!!! discard !!!\n";
         }
+        return nullopt;
       }
     }
   }
-  */
+  return nullopt;
 }
 
 };
