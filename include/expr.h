@@ -246,7 +246,7 @@ using ConstMap = std::map<ReservedConst*, llvm::Constant*>;
 struct Rewrite {
   llvm::Function &F;
   Inst *I;
-  ConstMap &Consts;
+  ConstMap Consts;
 };
 
 }
