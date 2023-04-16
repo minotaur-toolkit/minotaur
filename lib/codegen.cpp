@@ -7,6 +7,7 @@
 #include "ir/instr.h"
 
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -50,10 +51,15 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap, ConstMap &CMap) {
       if (VMap.count(V->V()))
         return VMap[V->V()];
       else {
-        //for (auto [k, v] : VMap){k->dump();}
         cerr<<*V<<endl;
         llvm::report_fatal_error("Value is not found in VMap");
       }
+    }
+  } else if (auto RC = dynamic_cast<ReservedConst*>(I)) {
+    if (CMap.count(RC)) {
+      return CMap[RC];
+    } else {
+      return RC->getA();
     }
   } else if (auto U = dynamic_cast<UnaryInst*>(I)) {
     type workty = U->getWorkTy();
@@ -202,12 +208,6 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap, ConstMap &CMap) {
                                        "intr",
                                        cast<Instruction>(b.GetInsertPoint()));
     return CI;
-  } else if (auto RC = dynamic_cast<ReservedConst*>(I)) {
-    if (CMap.count(RC)) {
-      return CMap[RC];
-    } else {
-      return RC->getA();
-    }
   } else if (auto FSV = dynamic_cast<FakeShuffleInst*>(I)) {
     auto op0 = codeGenImpl(FSV->L(), VMap, CMap);
     op0 = bitcastTo(op0, FSV->getInputTy().toLLVM(C));
@@ -220,8 +220,11 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap, ConstMap &CMap) {
 
     auto mask = codeGenImpl(FSV->M(), VMap, CMap);
     llvm::Value *SV = nullptr;
-    if (isa<llvm::Constant>(mask)) {
-      SV = b.CreateShuffleVector(op0, op1, mask, "sv");
+    if (isa<Constant>(mask)) {
+      ConstantVector *CV = cast<ConstantVector>(mask);
+      auto zm = b.CreateZExt(mask,
+        FixedVectorType::get(b.getInt32Ty(), CV->getType()->getNumElements()));
+      SV = b.CreateShuffleVector(op0, op1, zm, "sv");
     } else {
       unsigned elem_bits = FSV->getElementBits();
       auto op_ty = type(FSV->L()->getWidth()/elem_bits, elem_bits, false);
@@ -239,7 +242,7 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap, ConstMap &CMap) {
   llvm::report_fatal_error("[ERROR] unknown instruction found in LLVMGen");
 }
 
-llvm::Value *LLVMGen::codeGen(Rewrite &&R, ValueToValueMapTy &VMap) {
+llvm::Value *LLVMGen::codeGen(Rewrite &R, ValueToValueMapTy &VMap) {
   return codeGenImpl(R.I, VMap, R.Consts);
 }
 

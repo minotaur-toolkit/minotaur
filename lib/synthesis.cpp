@@ -522,8 +522,9 @@ EnumerativeSynthesis::synthesize(llvm::Function &F) {
 
       llvm::Instruction *PrevI = llvm::cast<llvm::Instruction>(VMap[&*I]);
       ConstMap _consts;
+      Rewrite R{*Src, G, _consts};
       llvm::Value *V =
-         LLVMGen(PrevI, IntrinsicDecls).codeGen({*Src, G, _consts}, VMap);
+         LLVMGen(PrevI, IntrinsicDecls).codeGen(R, VMap);
       V = llvm::IRBuilder<>(PrevI).CreateBitCast(V, PrevI->getType());
       PrevI->replaceAllUsesWith(V);
 

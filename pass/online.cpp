@@ -151,14 +151,13 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         hSetNoSolution(bytecode.c_str(), bytecode.size(), ctx, F.getName());
         continue;
       }
-      unordered_set<llvm::Function *> IntrinsicDecls;
+      unordered_set<llvm::Function *> IntrinDecls;
       Instruction *insertpt = I.getNextNode();
       while(isa<PHINode>(insertpt)) {
         insertpt = insertpt->getNextNode();
       }
 
-      llvm::Value *V =
-        LLVMGen(insertpt, IntrinsicDecls).codeGen(move(*R), S.getValueMap());
+      auto *V = LLVMGen(insertpt, IntrinDecls).codeGen(*R, S.getValueMap());
       V = llvm::IRBuilder<>(insertpt).CreateBitCast(V, I.getType());
 
       if (enable_caching) {
@@ -184,8 +183,6 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         }
         return false;
       });
-      F.dump();
-      m->dump();
     }
   }
   if (changed) {

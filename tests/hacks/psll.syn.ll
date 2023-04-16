@@ -1,4 +1,4 @@
-; CHECK: successful
+; CHECK: pslli
 define <2 x i64> @sliced_(i32 %0) {                                                                                                                                                                                                                                                                                                                                         entry:
   %1 = and i32 %0, 7
   %2 = icmp eq i32 %1, 7

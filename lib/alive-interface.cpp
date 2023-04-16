@@ -7,6 +7,7 @@
 #include "ir/globals.h"
 #include "llvm_util/llvm2alive.h"
 #include "smt/smt.h"
+#include "util/compiler.h"
 #include "util/config.h"
 #include "util/errors.h"
 #include "util/symexec.h"
@@ -16,6 +17,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/IR/Argument.h"
+#include "llvm/Support/TypeSize.h"
 
 #include <map>
 #include <sstream>
@@ -222,7 +224,7 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
     return false;
   }
 
-  DenseMap<StringRef, const Argument*> Arguments;
+  unordered_map<string, const Argument*> Arguments;
   for (auto &arg : tgt.args()) {
     string ArgName = "%" + string(arg.getName());
     if (ArgName.starts_with("%_reservedc")) {
@@ -234,12 +236,12 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
   t.src = move(*Func1);
   t.tgt = move(*Func2);
 
-  DenseMap<const IR::Value*, const Argument*> Inputs;
+  unordered_map<const IR::Value*, const Argument*> Inputs;
   for (auto &&I : t.tgt.getInputs()) {
     string InputName = I.getName();
-    if (Arguments.count(InputName) == 0)
-      continue;
-    Inputs[&I] = Arguments[InputName];
+
+    if (InputName.starts_with("%_reservedc"))
+      Inputs[&I] = Arguments[InputName];
   }
 
   // assume type verifies
@@ -275,6 +277,9 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
         v.push_back(ConstantInt::get(ety, elem.numeral_string(), 10));
       }
       ConstMap[I.second] = ConstantVector::get(v);
+    }
+    else {
+      UNREACHABLE();
     }
   }
 

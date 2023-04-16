@@ -1,4 +1,4 @@
-; CHECK: successful
+; CHECK: bswap
 declare <4 x i32> @llvm.fshl.v4i32(<4 x i32>, <4 x i32>, <4 x i32>) #17
 
 declare <8 x i16> @llvm.bswap.v8i16(<8 x i16>) #17
