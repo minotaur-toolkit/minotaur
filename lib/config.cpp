@@ -18,7 +18,7 @@ bool debug_enumerator = false;
 bool debug_tv = false;
 bool ignore_machine_cost = false;
 bool smt_verbose = false;
-bool disable_avx512 = true;
+bool disable_avx512 = false;
 bool show_stats = false;
 
 unsigned slicer_max_depth = 5;
@@ -33,3 +33,4 @@ void set_debug(ostream &os) {
 
 }
 }
+
