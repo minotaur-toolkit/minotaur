@@ -203,7 +203,7 @@ static Errors find_model(Transform &t,
 
     if (var->getName().rfind("%_reservedc", 0) == 0) {
       auto In = static_cast<const Input *>(var);
-      result[In] = m.eval(val.val.value);
+      result[In] = m.eval(val.val.value, true);
       s << *var << " = ";
       tools::print_model_val(s, src_state, m, var, var->getType(), val.val);
       s << '\n';
