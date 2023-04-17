@@ -84,6 +84,10 @@ llvm::cl::opt<bool> opt_debug(
     llvm::cl::desc("minotaur: Show debug data"),
     llvm::cl::init(false), llvm::cl::Hidden);
 
+  llvm::cl::opt<unsigned> redis_port(
+    "redis-port",
+    llvm::cl::desc("redis port number"),
+    llvm::cl::init(6379));
 
 static bool dom_check(llvm::Value *V, DominatorTree &DT, llvm::Use &U) {
   if (auto I = dyn_cast<Instruction> (V)) {
@@ -107,7 +111,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
 
   smt::set_query_timeout(to_string(opt_smt_to * 1000));
 
-  redisContext *ctx = redisConnect("127.0.0.1", 6379);
+  redisContext *ctx = redisConnect("127.0.0.1", redis_port);
   bool changed = false;
   for (auto &BB : F) {
     for (auto &I : make_early_inc_range(BB)) {
