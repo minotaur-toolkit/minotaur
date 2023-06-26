@@ -14,5 +14,5 @@ set -ex
 @LLVM_BINARY_DIR@/bin/opt -enable-new-pm=0 -load=@ONLINE_PASS@ -so \
   -minotaur-enable-caching=false \
   -minotaur-ignore-machine-cost=true \
-  -minotaur-debug=true \
+  -minotaur-debug-enumerator=true \
    "$@" -S -o -

@@ -1,7 +1,7 @@
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
 #include "config.h"
-#include "synthesis.h"
+#include "enumerator.h"
 #include "codegen.h"
 #include "slice.h"
 #include "removal-slice.h"
@@ -50,21 +50,14 @@ using namespace std;
 using namespace llvm;
 using namespace minotaur;
 
-static constexpr unsigned DEBUG_LEVEL = 0;
-
 namespace {
 
-llvm::cl::opt<unsigned> opt_smt_to(
+llvm::cl::opt<unsigned> smt_to(
     "minotaur-query-to",
     llvm::cl::desc("minotaur: timeout for SMT queries"),
     llvm::cl::init(10), llvm::cl::value_desc("s"));
 
-llvm::cl::opt<unsigned> opt_problem_to(
-    "minotaur-problem-to",
-    llvm::cl::desc("minotaur: timeout for each synthesis problem"),
-    llvm::cl::init(1200), llvm::cl::value_desc("s"));
-
-llvm::cl::opt<bool> opt_smt_verbose(
+llvm::cl::opt<bool> smt_verbose(
     "minotaur-smt-verbose",
     llvm::cl::desc("minotaur: SMT verbose mode"),
     llvm::cl::init(false));
@@ -79,13 +72,23 @@ llvm::cl::opt<bool> ignore_mca(
     llvm::cl::desc("minotaur: ignore llvm-mca cost model"),
     llvm::cl::init(false));
 
-llvm::cl::opt<bool> opt_debug(
-    "minotaur-debug",
-    llvm::cl::desc("minotaur: Show debug data"),
-    llvm::cl::init(false), llvm::cl::Hidden);
+llvm::cl::opt<bool> debug_enumerator(
+    "minotaur-debug-enumerator",
+    llvm::cl::desc("minotaur: enable enumerator debug output"),
+    llvm::cl::init(false));
 
-  llvm::cl::opt<unsigned> redis_port(
-    "redis-port",
+llvm::cl::opt<bool> debug_slicer(
+    "minotaur-debug-slicer",
+    llvm::cl::desc("minotaur: enable slicer debug output"),
+    llvm::cl::init(false));
+
+llvm::cl::opt<bool> debug_tv(
+    "minotaur-debug-tv",
+    llvm::cl::desc("minotaur: enable alive2 debug output"),
+    llvm::cl::init(false));
+
+llvm::cl::opt<unsigned> redis_port(
+    "minotaur-redis-port",
     llvm::cl::desc("redis port number"),
     llvm::cl::init(6379));
 
@@ -99,17 +102,31 @@ static bool dom_check(llvm::Value *V, DominatorTree &DT, llvm::Use &U) {
   }
   return true;
 }
+
+struct debug {
+  template<class T>
+  debug &operator<<(const T &s)
+  {
+    if (debug_enumerator || debug_slicer || debug_tv)
+      llvm::errs()<<s;
+    return *this;
+  }
+};
+
 static bool
 optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
                   TargetLibraryInfoWrapperPass &TLI,
                   MemoryDependenceResults &MD) {
-  config::ignore_machine_cost = ignore_mca;
-  config::debug_enumerator = opt_debug;
-  smt::solver_print_queries(opt_smt_verbose);
-  if (DEBUG_LEVEL > 0)
-    llvm::errs()<<"=== start of minotaur run ===\n";
 
-  smt::set_query_timeout(to_string(opt_smt_to * 1000));
+  config::ignore_machine_cost = ignore_mca;
+  config::debug_enumerator = debug_enumerator;
+  config::debug_tv = debug_tv;
+  config::debug_slicer = debug_slicer;
+  smt::solver_print_queries(smt_verbose);
+
+  debug() << "[online] starting minotaur\n";
+
+  smt::set_query_timeout(to_string(smt_to * 1000));
 
   redisContext *ctx = redisConnect("127.0.0.1", redis_port);
   bool changed = false;
@@ -117,7 +134,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
     for (auto &I : make_early_inc_range(BB)) {
       if (I.getType()->isVoidTy())
         continue;
-      //minotaur::Slice S(F, LI, DT, MD);
+
       DataLayout DL(F.getParent());
       minotaur::Slice S(F, LI, DT, MD);
       auto NewF = S.extractExpr(I);
@@ -134,22 +151,18 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         std::string rewrite;
         if (minotaur::hGet(bytecode.c_str(), bytecode.size(), rewrite, ctx)) {
           if (rewrite == "<no-sol>") {
-            if (DEBUG_LEVEL > 0) {
-              llvm::errs()<<"*** cache matched, but no solution found in"
-                            "previous run, skipping function: \n";
-              (*NewF).get().dump();
-            }
+            debug() << "[online] cache matched, but no solution found in "
+                       "previous run, skipping function: \n"
+                    << (*NewF).get();
             continue;
           }
         }
       }
 
-      EnumerativeSynthesis ES;
-      if (DEBUG_LEVEL > 0) {
-        llvm::errs()<<"*** working on Function:\n";
-        (*NewF).get().dump();
-      }
-      auto R = ES.synthesize(*NewF);
+      Enumerator EN;
+      debug() << "[online] working on Function:\n" << (*NewF).get();
+
+      auto R = EN.synthesize(*NewF);
 
       if (!R.has_value()) {
         hSetNoSolution(bytecode.c_str(), bytecode.size(), ctx, F.getName());
@@ -194,8 +207,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
     eliminate_dead_code(F);
   }
   redisFree(ctx);
-  if (DEBUG_LEVEL > 0)
-    llvm::errs()<<"=== end of minotaur run ===\n";
+  debug() << "[online] minotaur completed optimization\n";
   return changed;
 }
 
@@ -281,17 +293,17 @@ void passBuilderCallback(PassBuilder &PB) {
       });
 }
 
-PassPluginLibraryInfo getSuperoptimizerPassPluginInfo() {
-  llvm::PassPluginLibraryInfo Res;
+PassPluginLibraryInfo getMinotaurPassInfo() {
+  llvm::PassPluginLibraryInfo PPLI;
 
-  Res.APIVersion = LLVM_PLUGIN_API_VERSION;
-  Res.PluginName = "SuperoptimizerPass";
-  Res.PluginVersion = LLVM_VERSION_STRING;
-  Res.RegisterPassBuilderCallbacks = passBuilderCallback;
+  PPLI.APIVersion = LLVM_PLUGIN_API_VERSION;
+  PPLI.PluginName = "MinotaurPass";
+  PPLI.PluginVersion = LLVM_VERSION_STRING;
+  PPLI.RegisterPassBuilderCallbacks = passBuilderCallback;
 
-  return Res;
+  return PPLI;
 }
 
 extern "C" LLVM_ATTRIBUTE_WEAK PassPluginLibraryInfo llvmGetPassPluginInfo() {
-  return getSuperoptimizerPassPluginInfo();
+  return getMinotaurPassInfo();
 }
