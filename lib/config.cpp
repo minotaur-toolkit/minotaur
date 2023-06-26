@@ -18,7 +18,7 @@ bool debug_enumerator = false;
 bool debug_tv = false;
 bool ignore_machine_cost = false;
 bool smt_verbose = false;
-bool disable_avx512 = false;
+bool disable_avx512 = true;
 bool show_stats = false;
 
 unsigned slicer_max_depth = 5;
