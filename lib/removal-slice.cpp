@@ -27,7 +27,7 @@ namespace minotaur {
 optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
   assert(isa<Instruction>(&v) && "Expr to be extracted must be a Instruction");
   if(config::debug_slicer) {
-    llvm::errs() << ">>> slicing value " << V << ">>>\n";
+    llvm::errs() << ">>> slicing value (Removal Slicer)" << V << ">>>\n";
   }
 
   Instruction *vi = cast<Instruction>(&V);

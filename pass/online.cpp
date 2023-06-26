@@ -84,7 +84,7 @@ llvm::cl::opt<bool> opt_debug(
     llvm::cl::desc("minotaur: Show debug data"),
     llvm::cl::init(false), llvm::cl::Hidden);
 
-  llvm::cl::opt<unsigned> redis_port(
+llvm::cl::opt<unsigned> redis_port(
     "redis-port",
     llvm::cl::desc("redis port number"),
     llvm::cl::init(6379));
