@@ -135,7 +135,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         if (minotaur::hGet(bytecode.c_str(), bytecode.size(), rewrite, ctx)) {
           if (rewrite == "<no-sol>") {
             if (DEBUG_LEVEL > 0) {
-              llvm::errs()<<"*** cache matched, but no solution found in"
+              llvm::errs()<<"[minotaur] cache matched, but no solution found in"
                             "previous run, skipping function: \n";
               (*NewF).get().dump();
             }
@@ -146,7 +146,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
 
       EnumerativeSynthesis ES;
       if (DEBUG_LEVEL > 0) {
-        llvm::errs()<<"*** working on Function:\n";
+        llvm::errs()<<"[minotaur] working on Function:\n";
         (*NewF).get().dump();
       }
       auto R = ES.synthesize(*NewF);
@@ -195,7 +195,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
   }
   redisFree(ctx);
   if (DEBUG_LEVEL > 0)
-    llvm::errs()<<"=== end of minotaur run ===\n";
+    llvm::errs()<<"[minotaur] end of minotaur\n";
   return changed;
 }
 
