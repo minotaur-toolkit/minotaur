@@ -41,7 +41,7 @@ namespace minotaur {
 
 optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
   assert(isa<Instruction>(&v) && "Expr to be extracted must be a Instruction");
-  out() << "[slicer] slicing value" << V << "n";
+  out() << "[slicer] slicing value" << V << "\n";
 
   Instruction *vi = cast<Instruction>(&V);
   BasicBlock *vbb = vi->getParent();
