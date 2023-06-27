@@ -99,6 +99,7 @@ static bool dom_check(llvm::Value *V, DominatorTree &DT, llvm::Use &U) {
   }
   return true;
 }
+
 static bool
 optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
                   TargetLibraryInfoWrapperPass &TLI,

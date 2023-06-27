@@ -27,7 +27,7 @@ namespace minotaur {
 optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
   assert(isa<Instruction>(&v) && "Expr to be extracted must be a Instruction");
   if(config::debug_slicer) {
-    llvm::errs() << ">>> slicing value (Removal Slicer)" << V << ">>>\n";
+    llvm::errs() << "[slicer] slicing value" << V << ">>>\n";
   }
 
   Instruction *vi = cast<Instruction>(&V);
@@ -35,18 +35,17 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
   Loop *loopv = LI.getLoopFor(vbb);
   if (loopv) {
     if(config::debug_slicer) {
-      llvm::errs() << "[INFO] value is in " << *loopv;
+      llvm::errs() << "[slicer] value is in " << *loopv;
     }
     if (!loopv->isLoopSimplifyForm()) {
       // TODO: continue harvesting within loop boundary, even loop is not in
       // normal form.
       if(config::debug_slicer) {
-        llvm::errs() << "[INFO] loop is not in normal form\n";
+        llvm::errs() << "[slicer] loop is not in normal form\n";
       }
       return nullopt;
     }
   }
-
 
   SmallSet<Value*, 16> Candidates;
 
