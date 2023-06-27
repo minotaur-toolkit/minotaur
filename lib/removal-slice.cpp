@@ -139,10 +139,7 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
       Instruction *Prev = RI->getPrevNode();
 
       if (!ClonedCandidates.count(RI)) {
-        if (config::debug_slicer) {
-          llvm::errs()<<"[slicer] erasing"<<*RI<<"\n";
-          llvm::errs()<<ClonedCandidates.count(RI)<<"\n";
-        }
+        debug() << "[slicer] erasing" << *RI << "\n";
         RI->eraseFromParent();
       }
       RI = Prev;
