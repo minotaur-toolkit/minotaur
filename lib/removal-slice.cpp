@@ -22,9 +22,9 @@ using namespace std;
 
 namespace {
 
-struct debug {
+struct out {
   template<class T>
-  debug &operator<<(const T &s)
+  out &operator<<(const T &s)
   {
     if (minotaur::config::debug_slicer)
       llvm::errs()<<s;
@@ -41,17 +41,17 @@ namespace minotaur {
 
 optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
   assert(isa<Instruction>(&v) && "Expr to be extracted must be a Instruction");
-  debug() << "[slicer] slicing value" << V << ">>>\n";
+  out() << "[slicer] slicing value" << V << "n";
 
   Instruction *vi = cast<Instruction>(&V);
   BasicBlock *vbb = vi->getParent();
   Loop *loopv = LI.getLoopFor(vbb);
   if (loopv) {
-    debug() << "[slicer] value is in " << *loopv;
+    out() << "[slicer] value is in " << *loopv;
     if (!loopv->isLoopSimplifyForm()) {
       // TODO: continue harvesting within loop boundary, even loop is not in
       // normal form.
-      debug() << "[slicer] loop is not in normal form\n";
+      out() << "[slicer] loop is not in normal form\n";
       return nullopt;
     }
   }
@@ -80,7 +80,7 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
 
     if (Depth > config::slicer_max_depth) {
       if(config::debug_slicer)
-        debug() << "[INFO] max depth reached, stop harvesting";
+        out() << "[INFO] max depth reached, stop harvesting";
       continue;
     }
 
@@ -118,10 +118,10 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
   Instruction *NewV = cast<Instruction>(VMap[&V]);
   ReturnInst *Ret = ReturnInst::Create(Ctx, NewV, NewV->getNextNode());
 
-  debug() << "[slicer] harvested " << Candidates.size() << " candidates\n";
+  out() << "[slicer] harvested " << Candidates.size() << " candidates\n";
 
   for (auto C : Candidates) {
-    debug() << *C;
+    out() << *C << "\n";
   }
 
   // remove unreachable code within same block
@@ -133,13 +133,13 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
   ClonedCandidates.insert(Ret);
   for (auto &BB : *F) {
     Instruction *RI = &BB.back();
-    debug()<<*RI;
+    out()<<*RI<<"\n";
     while (RI) {
-      debug()<<*RI;
+      out()<<*RI<<"\n";
       Instruction *Prev = RI->getPrevNode();
 
       if (!ClonedCandidates.count(RI)) {
-        debug() << "[slicer] erasing" << *RI << "\n";
+        out() << "[slicer] erasing" << *RI << "\n";
         RI->eraseFromParent();
       }
       RI = Prev;
@@ -154,7 +154,7 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
     new UnreachableInst(Ctx, BB);
   }
 
-  debug() << "[slicer] create module " << *M;
+  out() << "[slicer] create module " << *M;
 
   string err;
   llvm::raw_string_ostream err_stream(err);
