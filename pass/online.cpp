@@ -54,17 +54,17 @@ static constexpr unsigned DEBUG_LEVEL = 0;
 
 namespace {
 
-llvm::cl::opt<unsigned> opt_smt_to(
+llvm::cl::opt<unsigned> smt_to(
     "minotaur-query-to",
     llvm::cl::desc("minotaur: timeout for SMT queries"),
     llvm::cl::init(10), llvm::cl::value_desc("s"));
 
-llvm::cl::opt<unsigned> opt_problem_to(
-    "minotaur-problem-to",
-    llvm::cl::desc("minotaur: timeout for each synthesis problem"),
-    llvm::cl::init(1200), llvm::cl::value_desc("s"));
+// llvm::cl::opt<unsigned> problem_to(
+//     "minotaur-problem-to",
+//     llvm::cl::desc("minotaur: timeout for each synthesis problem"),
+//     llvm::cl::init(1200), llvm::cl::value_desc("s"));
 
-llvm::cl::opt<bool> opt_smt_verbose(
+llvm::cl::opt<bool> smt_verbose(
     "minotaur-smt-verbose",
     llvm::cl::desc("minotaur: SMT verbose mode"),
     llvm::cl::init(false));
@@ -79,13 +79,13 @@ llvm::cl::opt<bool> ignore_mca(
     llvm::cl::desc("minotaur: ignore llvm-mca cost model"),
     llvm::cl::init(false));
 
-llvm::cl::opt<bool> opt_debug(
-    "minotaur-debug",
-    llvm::cl::desc("minotaur: Show debug data"),
-    llvm::cl::init(false), llvm::cl::Hidden);
+llvm::cl::opt<bool> debug_enumerator(
+    "minotaur-debug-enumerator",
+    llvm::cl::desc("minotaur: show enumerator debug data"),
+    llvm::cl::init(false));
 
 llvm::cl::opt<unsigned> redis_port(
-    "redis-port",
+    "minotaur-redis-port",
     llvm::cl::desc("redis port number"),
     llvm::cl::init(6379));
 
@@ -104,12 +104,12 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
                   TargetLibraryInfoWrapperPass &TLI,
                   MemoryDependenceResults &MD) {
   config::ignore_machine_cost = ignore_mca;
-  config::debug_enumerator = opt_debug;
-  smt::solver_print_queries(opt_smt_verbose);
+  config::debug_enumerator = debug_enumerator;
+  smt::solver_print_queries(smt_verbose);
   if (DEBUG_LEVEL > 0)
     llvm::errs()<<"=== start of minotaur run ===\n";
 
-  smt::set_query_timeout(to_string(opt_smt_to * 1000));
+  smt::set_query_timeout(to_string(smt_to * 1000));
 
   redisContext *ctx = redisConnect("127.0.0.1", redis_port);
   bool changed = false;
@@ -117,7 +117,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
     for (auto &I : make_early_inc_range(BB)) {
       if (I.getType()->isVoidTy())
         continue;
-      //minotaur::Slice S(F, LI, DT, MD);
+
       DataLayout DL(F.getParent());
       minotaur::RemovalSlice S(F, LI, DT, MD);
       auto NewF = S.extractExpr(I);
