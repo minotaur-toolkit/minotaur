@@ -120,10 +120,10 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
 
   debug() << "[slicer] harvested " << Candidates.size() << " candidates\n";
 
-
   for (auto C : Candidates) {
     debug() << *C;
   }
+
   // remove unreachable code within same block
   SmallSet<Value*, 16> ClonedCandidates;
   for (auto C : Candidates) {
@@ -135,7 +135,7 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
     Instruction *RI = &BB.back();
     debug()<<*RI;
     while (RI) {
-      RI->dump();
+      debug()<<*RI;
       Instruction *Prev = RI->getPrevNode();
 
       if (!ClonedCandidates.count(RI)) {
