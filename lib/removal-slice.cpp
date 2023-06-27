@@ -6,6 +6,7 @@
 #include "utils.h"
 
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
@@ -14,9 +15,23 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #include <optional>
+#include <string>
 
 using namespace llvm;
 using namespace std;
+
+namespace {
+
+struct debug {
+  template<class T>
+  debug &operator<<(const T &s)
+  {
+    if (minotaur::config::debug_slicer)
+      llvm::errs()<<s;
+    return *this;
+  }
+};
+}
 
 static unsigned remove_unreachable() {
   return 0;
@@ -26,23 +41,17 @@ namespace minotaur {
 
 optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
   assert(isa<Instruction>(&v) && "Expr to be extracted must be a Instruction");
-  if(config::debug_slicer) {
-    llvm::errs() << "[slicer] slicing value" << V << ">>>\n";
-  }
+  debug() << "[slicer] slicing value" << V << ">>>\n";
 
   Instruction *vi = cast<Instruction>(&V);
   BasicBlock *vbb = vi->getParent();
   Loop *loopv = LI.getLoopFor(vbb);
   if (loopv) {
-    if(config::debug_slicer) {
-      llvm::errs() << "[slicer] value is in " << *loopv;
-    }
+    debug() << "[slicer] value is in " << *loopv;
     if (!loopv->isLoopSimplifyForm()) {
       // TODO: continue harvesting within loop boundary, even loop is not in
       // normal form.
-      if(config::debug_slicer) {
-        llvm::errs() << "[slicer] loop is not in normal form\n";
-      }
+      debug() << "[slicer] loop is not in normal form\n";
       return nullopt;
     }
   }
@@ -71,12 +80,14 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
 
     if (Depth > config::slicer_max_depth) {
       if(config::debug_slicer)
-        llvm::errs() << "[INFO] max depth reached, stop harvesting";
+        debug() << "[INFO] max depth reached, stop harvesting";
       continue;
     }
 
     if (Instruction *I = dyn_cast<Instruction>(W)) {
-      Candidates.insert(W);
+      if(!Candidates.insert(W).second)
+        continue;
+
       for (auto &Op : I->operands()) {
         if (!isa<Instruction>(Op))
           continue;
@@ -107,12 +118,11 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
   Instruction *NewV = cast<Instruction>(VMap[&V]);
   ReturnInst *Ret = ReturnInst::Create(Ctx, NewV, NewV->getNextNode());
 
-  if(config::debug_slicer) {
-    llvm::errs()<<"[slicer] harvested "<<Candidates.size()<<" candidates\n";
-  }
+  debug() << "[slicer] harvested " << Candidates.size() << " candidates\n";
+
 
   for (auto C : Candidates) {
-    C->dump();
+    debug() << *C;
   }
   // remove unreachable code within same block
   SmallSet<Value*, 16> ClonedCandidates;
@@ -123,7 +133,7 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
   ClonedCandidates.insert(Ret);
   for (auto &BB : *F) {
     Instruction *RI = &BB.back();
-    RI->dump();
+    debug()<<*RI;
     while (RI) {
       RI->dump();
       Instruction *Prev = RI->getPrevNode();
@@ -147,9 +157,7 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
     new UnreachableInst(Ctx, BB);
   }
 
-  llvm::errs()<<"M->dump() for slice value ";
-  M->dump();
-  llvm::errs()<<"end of m dump\n";
+  debug() << "[slicer] create module " << *M;
 
   string err;
   llvm::raw_string_ostream err_stream(err);
