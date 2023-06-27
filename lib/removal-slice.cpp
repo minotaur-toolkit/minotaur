@@ -47,6 +47,7 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
     }
   }
 
+
   SmallSet<Value*, 16> Candidates;
 
   queue<pair<Value *, unsigned>> Worklist;
@@ -107,7 +108,10 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
   Instruction *NewV = cast<Instruction>(VMap[&V]);
   ReturnInst *Ret = ReturnInst::Create(Ctx, NewV, NewV->getNextNode());
 
-  llvm::errs()<<Candidates.size()<<"\n";
+  if(config::debug_slicer) {
+    llvm::errs()<<"[slicer] harvested "<<Candidates.size()<<" candidates\n";
+  }
+
   for (auto C : Candidates) {
     C->dump();
   }
@@ -126,10 +130,11 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
       Instruction *Prev = RI->getPrevNode();
 
       if (!ClonedCandidates.count(RI)) {
-        llvm::errs()<<"erase "<<*RI<<"\n";
-        llvm::errs()<<ClonedCandidates.count(RI)<<"\n";
+        if (config::debug_slicer) {
+          llvm::errs()<<"[slicer] erasing"<<*RI<<"\n";
+          llvm::errs()<<ClonedCandidates.count(RI)<<"\n";
+        }
         RI->eraseFromParent();
-
       }
       RI = Prev;
     }
