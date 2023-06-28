@@ -50,8 +50,6 @@ using namespace std;
 using namespace llvm;
 using namespace minotaur;
 
-static constexpr unsigned DEBUG_LEVEL = 0;
-
 namespace {
 
 llvm::cl::opt<unsigned> smt_to(
@@ -81,7 +79,17 @@ llvm::cl::opt<bool> ignore_mca(
 
 llvm::cl::opt<bool> debug_enumerator(
     "minotaur-debug-enumerator",
-    llvm::cl::desc("minotaur: show enumerator debug data"),
+    llvm::cl::desc("minotaur: enable enumerator debug output"),
+    llvm::cl::init(false));
+
+llvm::cl::opt<bool> debug_slicer(
+    "minotaur-debug-slicer",
+    llvm::cl::desc("minotaur: enable slicer debug output"),
+    llvm::cl::init(false));
+
+llvm::cl::opt<bool> debug_tv(
+    "minotaur-debug-tv",
+    llvm::cl::desc("minotaur: enable alive2 debug output"),
     llvm::cl::init(false));
 
 llvm::cl::opt<unsigned> redis_port(
@@ -100,15 +108,29 @@ static bool dom_check(llvm::Value *V, DominatorTree &DT, llvm::Use &U) {
   return true;
 }
 
+struct debug {
+  template<class T>
+  debug &operator<<(const T &s)
+  {
+    if (debug_enumerator || debug_slicer || debug_tv)
+      llvm::errs()<<s;
+    return *this;
+  }
+};
+}
+
 static bool
 optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
                   TargetLibraryInfoWrapperPass &TLI,
                   MemoryDependenceResults &MD) {
+
   config::ignore_machine_cost = ignore_mca;
   config::debug_enumerator = debug_enumerator;
+  config::debug_tv = debug_tv;
+  config::debug_slicer = debug_slicer;
   smt::solver_print_queries(smt_verbose);
-  if (DEBUG_LEVEL > 0)
-    llvm::errs()<<"=== start of minotaur run ===\n";
+
+  debug() << "[online] starting minotaur\n";
 
   smt::set_query_timeout(to_string(smt_to * 1000));
 
@@ -135,21 +157,17 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         std::string rewrite;
         if (minotaur::hGet(bytecode.c_str(), bytecode.size(), rewrite, ctx)) {
           if (rewrite == "<no-sol>") {
-            if (DEBUG_LEVEL > 0) {
-              llvm::errs()<<"[minotaur] cache matched, but no solution found in"
-                            "previous run, skipping function: \n";
-              (*NewF).get().dump();
-            }
+            debug() << "[online] cache matched, but no solution found in "
+                       "previous run, skipping function: \n"
+                    << (*NewF).get();
             continue;
           }
         }
       }
 
       EnumerativeSynthesis ES;
-      if (DEBUG_LEVEL > 0) {
-        llvm::errs()<<"[minotaur] working on Function:\n";
-        (*NewF).get().dump();
-      }
+      debug() << "[online] working on Function:\n" << (*NewF).get();
+
       auto R = ES.synthesize(*NewF);
 
       if (!R.has_value()) {
@@ -195,8 +213,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
     eliminate_dead_code(F);
   }
   redisFree(ctx);
-  if (DEBUG_LEVEL > 0)
-    llvm::errs()<<"[minotaur] end of minotaur\n";
+  debug() << "[online] minotaur completed optimization\n";
   return changed;
 }
 
