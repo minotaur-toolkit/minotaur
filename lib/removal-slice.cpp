@@ -56,12 +56,11 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
     }
   }
 
-  SmallSet<Value*, 16> Candidates;
-
   queue<pair<Value *, unsigned>> Worklist;
-  Worklist.push({&V, 0});
   SmallSet<BasicBlock*, 4> NonBranchingBBs;
 
+  // initial population of worklist and nonbranchingBBs.
+  Worklist.push({&V, 0});
   for (auto &BB : VF) {
     if (&BB == vbb) {
       continue;
@@ -74,6 +73,8 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
     }
   }
 
+  // recursively populate candidates set
+  SmallSet<Value*, 16> Candidates;
   while (!Worklist.empty()) {
     auto &[W, Depth] = Worklist.front();
     Worklist.pop();
