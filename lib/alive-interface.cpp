@@ -57,6 +57,18 @@ static expr preprocess(Transform &t, const set<expr> &qvars0,
 
 void calculateAndInitConstants(Transform &t);
 
+namespace {
+ostream out {
+  template<class T>
+  out &operator<<(const T &s)
+  {
+    if (minotaur::config::debug_tv)
+      cerr<<s;
+    return *this;
+  }
+};
+}
+
 namespace minotaur {
 
 class NullBuffer : public std::streambuf

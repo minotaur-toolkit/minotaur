@@ -13,19 +13,23 @@
 #include "llvm/IR/Argument.h"
 
 #include <iostream>
+#include <ostream>
 #include <unordered_map>
 
 namespace minotaur {
 
+static std::ostream ns(nullptr);
+
 class AliveEngine {
 private:
   llvm::TargetLibraryInfoWrapperPass &TLI;
+  std::ostream *debug;
 
 public:
   AliveEngine(llvm::TargetLibraryInfoWrapperPass &TLI) : TLI(TLI) {
     util::config::disable_undef_input = config::disable_undef_input;
     util::config::disable_poison_input = config::disable_poison_input;
-    util::config::set_debug(config::dbg());
+    debug = config::debug_tv ? &std::cerr : &ns;
   }
 
   bool constantSynthesis(llvm::Function&, llvm::Function&,
