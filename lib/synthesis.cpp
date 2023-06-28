@@ -51,6 +51,20 @@ using namespace util;
 using namespace std;
 using namespace IR;
 
+namespace {
+
+struct debug {
+  template<class T>
+  debug &operator<<(const T &s)
+  {
+    if (minotaur::config::debug_enumerator)
+      llvm::errs() << s;
+    return *this;
+  }
+};
+}
+
+
 namespace minotaur {
 
 void
@@ -393,10 +407,9 @@ EnumerativeSynthesis::synthesize(llvm::Function &F) {
 
   assert (!V->getType()->isPointerTy() && "pointer arith is not supported");
 
-  if (config::debug_enumerator) {
-    config::dbg()<<"working on slice\n";
-    F.dump();
-  }
+
+  debug() << "[enumerator] working on slice\n" << F << "\n";
+
 
   clock_t start = std::clock();
 
@@ -458,13 +471,11 @@ EnumerativeSynthesis::synthesize(llvm::Function &F) {
     }
     getSketches(&*I, Sketches);
 
-    if (config::debug_enumerator) {
-      config::dbg() << "---------sketches------------\n";
-      for (auto &Sketch : Sketches) {
-        config::dbg() << *Sketch.first << endl;
-      }
-      config::dbg() << "-----------------------------\n";
+    debug() << "[enumerator] listing sketches\n";
+    for (auto &Sketch : Sketches) {
+      if(config::debug_enumerator) cerr << *Sketch.first << "\n";
     }
+
     unsigned CI = 0;
 
     vector<Candidate> Fns;
@@ -579,11 +590,9 @@ push:
     for (;iter != Fns.end();) {
       auto &[Tgt, Src, G, ArgConst, HaveC] = *iter;
       unsigned tgt_cost = get_approx_cost(Tgt);
-      if (config::debug_enumerator) {
-        config::dbg() << "-- candidate approx_cost(tgt) = " << tgt_cost
-                      << ", approx_cost(src) = " << src_cost <<" --\n";
-        Tgt->dump();
-      }
+      debug() << "[enumerator] candidate approx_cost(tgt) = " << tgt_cost
+              << ", approx_cost(src) = " << src_cost <<" --\n";
+      debug() << *Tgt;
 
       bool Good = false;
       unordered_map<const llvm::Argument*, llvm::Constant*> ConstantResults;
@@ -595,9 +604,7 @@ push:
           Good = AE.constantSynthesis(*Src, *Tgt, ConstantResults);
         }
       } catch (AliveException E) {
-        if (config::debug_tv) {
-          llvm::errs()<<E.msg<<"\n";
-        }
+        debug() << E.msg << "\n";
         if (E.msg == "slow vcgen") {
           continue;
         }
@@ -632,36 +639,30 @@ push:
       Tgt->eraseFromParent();
     }
 
-    if (config::show_stats) {
-      llvm::outs() <<"rewrites,"<< REWRITES << ",pruned," << PRUNED << "\n";
-    }
+    debug() <<"rewrites,"<< REWRITES << ",pruned," << PRUNED << "\n";
+
     // replace
     if (success) {
-      if (config::debug_enumerator) {
-        llvm::errs()<<"=== original ir (uops="<<machinecost<<") ===\n";
-        F.dump();
-      }
+      debug() << "[enumerator] original ir (uops=" <<machinecost<<")\n"
+              << F << "\n";
+
       llvm::ValueToValueMapTy VMap;
       Rewrite r = {F, R, Consts};
       llvm::Value *V = LLVMGen(&*I, IntrinsicDecls).codeGen(r, VMap);
       V = llvm::IRBuilder<>(I).CreateBitCast(V, I->getType());
       I->replaceAllUsesWith(V);
       unsigned newcost = get_machine_cost(&F);
-      if (config::debug_enumerator) {
-        llvm::errs()<<"=== optimized ir (uops="<<newcost<<") ===\n";
-        F.dump();
-      }
+
+      debug() << "[enumerator] optimized ir (uops=" << newcost << ")\n"
+              << F << "\n";
+
       if (config::ignore_machine_cost ||
           !machinecost || !newcost || newcost <= machinecost) {
         removeUnusedDecls(IntrinsicDecls);
-        if (config::debug_enumerator) {
-          llvm::errs()<<"=== successfully synthesized rhs ===\n";
-        }
+        debug () << "[enumerator] successfully synthesized rhs\n";
         return {{F, R, Consts}};
       } else {
-        if (config::debug_enumerator) {
-          llvm::errs()<<"!!! discard !!!\n";
-        }
+        debug() <<  "[enumerator] !!! discard !!!\n";
         return nullopt;
       }
     }

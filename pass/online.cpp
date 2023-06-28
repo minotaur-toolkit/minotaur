@@ -117,7 +117,6 @@ struct debug {
     return *this;
   }
 };
-}
 
 static bool
 optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
@@ -299,17 +298,17 @@ void passBuilderCallback(PassBuilder &PB) {
       });
 }
 
-PassPluginLibraryInfo getSuperoptimizerPassPluginInfo() {
-  llvm::PassPluginLibraryInfo Res;
+PassPluginLibraryInfo getMinotaurPassInfo() {
+  llvm::PassPluginLibraryInfo PPLI;
 
-  Res.APIVersion = LLVM_PLUGIN_API_VERSION;
-  Res.PluginName = "SuperoptimizerPass";
-  Res.PluginVersion = LLVM_VERSION_STRING;
-  Res.RegisterPassBuilderCallbacks = passBuilderCallback;
+  PPLI.APIVersion = LLVM_PLUGIN_API_VERSION;
+  PPLI.PluginName = "MinotaurPass";
+  PPLI.PluginVersion = LLVM_VERSION_STRING;
+  PPLI.RegisterPassBuilderCallbacks = passBuilderCallback;
 
-  return Res;
+  return PPLI;
 }
 
 extern "C" LLVM_ATTRIBUTE_WEAK PassPluginLibraryInfo llvmGetPassPluginInfo() {
-  return getSuperoptimizerPassPluginInfo();
+  return getMinotaurPassInfo();
 }
