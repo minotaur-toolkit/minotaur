@@ -132,15 +132,18 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
   }
 
   ClonedCandidates.insert(Ret);
+
+  out() <<"[slicer] function before instruction delection\n"<< *F;
+
   for (auto &BB : *F) {
     Instruction *RI = &BB.back();
-    out()<<*RI<<"\n";
     while (RI) {
-      out()<<*RI<<"\n";
       Instruction *Prev = RI->getPrevNode();
 
       if (!ClonedCandidates.count(RI)) {
         out() << "[slicer] erasing" << *RI << "\n";
+        while(!RI->use_empty())
+          RI->replaceAllUsesWith(PoisonValue::get(RI->getType()));
         RI->eraseFromParent();
       }
       RI = Prev;
