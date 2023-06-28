@@ -25,6 +25,9 @@ private:
   llvm::TargetLibraryInfoWrapperPass &TLI;
   std::ostream *debug;
 
+  util::Errors find_model(tools::Transform &t,
+    std::unordered_map<const IR::Value*, smt::expr>&);
+
 public:
   AliveEngine(llvm::TargetLibraryInfoWrapperPass &TLI) : TLI(TLI) {
     util::config::disable_undef_input = config::disable_undef_input;

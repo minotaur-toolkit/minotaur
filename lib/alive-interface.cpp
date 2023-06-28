@@ -57,48 +57,27 @@ static expr preprocess(Transform &t, const set<expr> &qvars0,
 
 void calculateAndInitConstants(Transform &t);
 
-namespace {
-ostream out {
-  template<class T>
-  out &operator<<(const T &s)
-  {
-    if (minotaur::config::debug_tv)
-      cerr<<s;
-    return *this;
-  }
-};
-}
-
 namespace minotaur {
-
-class NullBuffer : public std::streambuf
-{
-public:
-  int overflow(int c) { return c; }
-};
 
 bool
 AliveEngine::compareFunctions(llvm::Function &Func1, llvm::Function &Func2) {
   smt::smt_initializer smt_init;
-  NullBuffer null_buffer;
-  std::ostream null_stream(&null_buffer);
-  llvm_util::Verifier verifier(TLI, smt_init, null_stream);
+  llvm_util::Verifier verifier(TLI, smt_init, ns);
   verifier.quiet = true;
   verifier.compareFunctions(Func1, Func2);
   return verifier.num_correct;
 }
 
-static Errors find_model(Transform &t,
-                         unordered_map<const IR::Value*, smt::expr> &result) {
+Errors
+AliveEngine::find_model(Transform &t,
+                        unordered_map<const IR::Value*, smt::expr> &result) {
 
   t.preprocess();
   t.tgt.syncDataWithSrc(t.src);
   ::calculateAndInitConstants(t);
 
-  if (config::debug_tv) {
-    TransformPrintOpts print_opts;
-    t.print(config::dbg(), print_opts);
-  }
+  TransformPrintOpts print_opts;
+  t.print(*debug, print_opts);
 
   State::resetGlobals();
   IR::State src_state(t.src, true);
@@ -221,9 +200,7 @@ static Errors find_model(Transform &t,
       s << '\n';
     }
   }
-  if (config::debug_tv) {
-    config::dbg() << s.str() << endl;
-  }
+  *debug << s.str() << endl;
   return errs;
 }
 
@@ -238,9 +215,7 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
   auto Func2 = llvm_util::llvm2alive(tgt, TLI.getTLI(tgt), true);
 
   if (!Func1.has_value() || !Func2.has_value()) {
-    if (config::debug_tv) {
-      config::dbg() << "error found when converting llvm to alive2\n";
-    }
+    *debug << "error found when converting llvm to alive2\n";
     return false;
   }
 
@@ -271,9 +246,7 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
 
   bool ret(errs);
   if (ret) {
-    if (config::debug_tv) {
-      config::dbg() << "unable to find constants: \n" << errs;
-    }
+    *debug << "unable to find constants: \n" << errs;
     return false;
   }
 
