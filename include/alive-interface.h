@@ -18,7 +18,7 @@
 
 namespace minotaur {
 
-static std::ostream ns(nullptr);
+static std::ostream NOP_OSTREAM(nullptr);
 
 class AliveEngine {
 private:
@@ -32,7 +32,7 @@ public:
   AliveEngine(llvm::TargetLibraryInfoWrapperPass &TLI) : TLI(TLI) {
     util::config::disable_undef_input = config::disable_undef_input;
     util::config::disable_poison_input = config::disable_poison_input;
-    debug = config::debug_tv ? &std::cerr : &ns;
+    debug = config::debug_tv ? &std::cerr : &NOP_OSTREAM;
   }
 
   bool constantSynthesis(llvm::Function&, llvm::Function&,
