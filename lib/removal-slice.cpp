@@ -21,15 +21,14 @@ using namespace llvm;
 using namespace std;
 
 namespace {
-
 struct debug {
-  template<class T>
-  debug &operator<<(const T &s)
-  {
-    if (minotaur::config::debug_slicer)
-      llvm::errs()<<s;
-    return *this;
-  }
+template<class T>
+debug &operator<<(const T &s)
+{
+  if (minotaur::config::debug_slicer)
+    llvm::errs()<<s;
+  return *this;
+}
 };
 }
 

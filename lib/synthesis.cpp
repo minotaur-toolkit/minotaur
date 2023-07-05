@@ -52,15 +52,14 @@ using namespace std;
 using namespace IR;
 
 namespace {
-
 struct debug {
-  template<class T>
-  debug &operator<<(const T &s)
-  {
-    if (minotaur::config::debug_enumerator)
-      llvm::errs() << s;
-    return *this;
-  }
+template<class T>
+debug &operator<<(const T &s)
+{
+  if (minotaur::config::debug_enumerator)
+    llvm::errs() << s;
+  return *this;
+}
 };
 }
 
