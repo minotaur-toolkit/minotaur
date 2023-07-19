@@ -52,7 +52,7 @@ include_directories(include)
 set(SYNTHESIZER_SRC
   "lib/alive-interface.cpp"
   "lib/config.cpp"
-  "lib/synthesis.cpp"
+  "lib/enumerator.cpp"
   "lib/expr.cpp"
   "lib/codegen.cpp"
   "lib/parse.cpp"

@@ -1,7 +1,7 @@
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
 #include "config.h"
-#include "synthesis.h"
+#include "enumerator.h"
 #include "codegen.h"
 #include "slice.h"
 #include "removal-slice.h"
@@ -56,11 +56,6 @@ llvm::cl::opt<unsigned> smt_to(
     "minotaur-query-to",
     llvm::cl::desc("minotaur: timeout for SMT queries"),
     llvm::cl::init(10), llvm::cl::value_desc("s"));
-
-// llvm::cl::opt<unsigned> problem_to(
-//     "minotaur-problem-to",
-//     llvm::cl::desc("minotaur: timeout for each synthesis problem"),
-//     llvm::cl::init(1200), llvm::cl::value_desc("s"));
 
 llvm::cl::opt<bool> smt_verbose(
     "minotaur-smt-verbose",
@@ -164,10 +159,10 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         }
       }
 
-      EnumerativeSynthesis ES;
+      Enumerator EN;
       debug() << "[online] working on Function:\n" << (*NewF).get();
 
-      auto R = ES.synthesize(*NewF);
+      auto R = EN.synthesize(*NewF);
 
       if (!R.has_value()) {
         hSetNoSolution(bytecode.c_str(), bytecode.size(), ctx, F.getName());
