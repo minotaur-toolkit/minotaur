@@ -85,6 +85,32 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
     }
 
     if (Instruction *I = dyn_cast<Instruction>(W)) {
+      bool haveUnknownOperand = false;
+      for (unsigned op_i = 0; op_i < I->getNumOperands(); ++op_i ) {
+        if (isa<CallInst>(I) && op_i == 0) {
+          continue;
+        }
+
+        auto op = I->getOperand(op_i);
+        if (isa<ConstantExpr>(op)) {
+          if(config::debug_slicer)
+            llvm::errs() << "[INFO] found instruction that uses ConstantExpr\n";
+          haveUnknownOperand = true;
+          break;
+        }
+        auto op_ty = op->getType();
+        if (op_ty->isStructTy() || op_ty->isFloatingPointTy() || op_ty->isPointerTy()) {
+          if(config::debug_slicer)
+            llvm::errs() << "[INFO] found instruction with operands with type "
+                         << *op_ty <<"\n";
+          haveUnknownOperand = true;
+          break;
+        }
+      }
+
+      if (haveUnknownOperand) {
+        continue;
+      }
       if(!Candidates.insert(W).second)
         continue;
 

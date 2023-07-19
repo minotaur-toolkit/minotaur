@@ -24,8 +24,6 @@ EOF
   }
 }
 
-my $minotaur = 1;
-
 sub is_compiling() {
   foreach my $arg (@ARGV) {
     return 1 if ($arg =~ /\.c$|\.cpp$|\.CC$|\.c\+\+$|\.cc$|\.cxx$|\.C$|\.c\+$/);
@@ -33,10 +31,24 @@ sub is_compiling() {
   return 0;
 }
 
+my $minotaur = 1;
 $minotaur = 0 unless exists($ENV{"ENABLE_MINOTAUR"}) && is_compiling();
 
 if ($minotaur) {
   push @ARGV, ("-fpass-plugin=@ONLINE_PASS@");
+}
+
+my %whitelist = ();
+sub getenv($) {
+    (my $e) = @_;
+    die "oops '$e'" unless $e =~ /^MINOTAUR_/;
+    $whitelist{$e} = 1;
+    return undef unless exists($ENV{$e});
+    return $ENV{$e};
+}
+
+if (getenv("MINOTAUR_DEBUG_SLICER")) {
+  push @ARGV, ("-mllvm", "-minotaur-debug-slicer");
 }
 
 exec @ARGV;
