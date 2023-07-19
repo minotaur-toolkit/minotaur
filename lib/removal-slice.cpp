@@ -128,6 +128,7 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
   SmallSet<Value*, 16> ClonedCandidates;
   for (auto C : Candidates) {
     ClonedCandidates.insert(VMap[C]);
+    mapping[VMap[C]] = C;
   }
 
   ClonedCandidates.insert(Ret);
