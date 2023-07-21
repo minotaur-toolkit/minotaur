@@ -9,6 +9,7 @@ To build the docker container use:
     docker build -t minotaur-dev -f Dockerfile .
 
 To run the container use:
+
     docker run -it minotaur-dev bash
 
 ## Build Minotaur from source code
