@@ -1,5 +1,18 @@
 # Minotaur: A SIMD-Oriented Synthesizing Superoptimizer
 
+A description of how Minotaur works can be found in https://arxiv.org/abs/2306.00229.
+
+## Build Minotaur using Docker
+
+To build the docker container use:
+
+    docker build -t minotaur-dev -f Dockerfile .
+
+To run the container use:
+    docker run -it minotaur-dev bash
+
+## Build Minotaur from source code
+
 The Alive2 requires a LLVM compiled with RTTI and exceptions enabled, use the following command to fetch and build LLVM. The project requires `cmake`, `ninja-build`, `gcc-10`, `g++-10`, `redis`, `redis-server`, `libhiredis-dev`, `libbsd-resource-perl`, `libredis-perl`, `libgtest-dev`, and `re2c` as dependencies. Manually install the latest stable `z3`.
 
     sudo apt-get install cmake ninja-build gcc-10 g++-10 redis redis-server libhiredis-dev libbsd-resource-perl libredis-perl re2c libgtest-dev
