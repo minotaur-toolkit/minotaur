@@ -45,6 +45,6 @@ To run the program synthesizer on llvm IR files, use the following command
 
     $HOME/llvm/build/bin/opt  -enable-new-pm=0 -load $HOME/minotaur/build/minotaur.so -so -S <LLVM bitcode>
 
-For C/C++ programs, we have a drop-in replacement of C/C++ compiler. Users can call `minotaur-cc` or `minotaur-cxx` to compile files. The minotaur optimizer will automatically triggered as a compiler pass.
+For C/C++ programs, we have a drop-in replacement of C/C++ compiler. Users can call `minotaur-cc` or `minotaur-cxx` in the `build` directory to compile C/C++ programs. Minotaur pass is disabled by default; the pass can be enabled by setting environment variable `ENABLE_MINOTAUR`.
 
     $HOME/minotaur/build/minotaur-cc <c source> [clang options]
