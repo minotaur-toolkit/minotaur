@@ -247,6 +247,8 @@ struct Rewrite {
   llvm::Function &F;
   Inst *I;
   ConstMap Consts;
+  unsigned CostBefore;
+  unsigned CostAfter;
 };
 
 }

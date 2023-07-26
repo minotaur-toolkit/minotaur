@@ -190,7 +190,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         rs.flush();
         hSetRewrite(bytecode.c_str(), bytecode.size(),
                     optimized.c_str(), optimized.size(),
-                    rs.str(), ctx, /*TODO*/ 0, 0, F.getName());
+                    rs.str(), ctx, R->CostBefore, R->CostAfter, F.getName());
       }
 
       I.replaceUsesWithIf(V, [&changed, &V, &DT](Use &U) {
