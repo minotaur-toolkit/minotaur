@@ -11,7 +11,8 @@ set -ex
 #fi
 
 
-@LLVM_BINARY_DIR@/bin/opt -enable-new-pm=0 -load=@ONLINE_PASS@ -so \
+@LLVM_BINARY_DIR@/bin/opt -load-pass-plugin=@ONLINE_PASS@ \
+  -passes="minotaur-online" \
   -minotaur-enable-caching=false \
   -minotaur-ignore-machine-cost=true \
   -minotaur-debug-enumerator=true \
