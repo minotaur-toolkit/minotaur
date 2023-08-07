@@ -14,9 +14,15 @@ To run the container use:
 
 ## Build Minotaur from source code
 
-The Alive2 requires a LLVM compiled with RTTI and exceptions enabled, use the following command to fetch and build LLVM. The project requires `cmake`, `ninja-build`, `gcc-10`, `g++-10`, `redis`, `redis-server`, `libhiredis-dev`, `libbsd-resource-perl`, `libredis-perl`, `libgtest-dev`, and `re2c` as dependencies. Manually install the latest stable `z3`.
+The Alive2 requires a LLVM compiled with RTTI and exceptions enabled, use the following command to fetch and build LLVM. The project requires `cmake`, `ninja-build`, `gcc-10`, `g++-10`, `redis`, `redis-server`, `libhiredis-dev`, `libbsd-resource-perl`, `libredis-perl`, `libgtest-dev`, and `re2c` as dependencies. On Ubuntu/Debian, use
 
     sudo apt-get install cmake ninja-build gcc-10 g++-10 redis redis-server libhiredis-dev libbsd-resource-perl libredis-perl re2c libgtest-dev
+
+or on mac, use
+
+    brew install re2c z3 hiredis
+
+to install dependencies.
 
     git clone git@github.com:zhengyang92/llvm $HOME/llvm
     mkdir $HOME/llvm/build && cd $HOME/llvm/build

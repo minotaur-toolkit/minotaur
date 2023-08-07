@@ -4,4 +4,4 @@
 
 #include "string"
 
-constexpr const char *GET_COST_COMMAND="/home/liuz/minotaur/build/get-cost";
+constexpr const char *GET_COST_COMMAND="/Users/liuz/minotaur/build/get-cost";
