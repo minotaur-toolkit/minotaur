@@ -128,7 +128,11 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
 
   smt::set_query_timeout(to_string(smt_to * 1000));
 
-  redisContext *ctx = redisConnect("127.0.0.1", redis_port);
+  redisContext *ctx = nullptr;
+  if (enable_caching) {
+    redisConnect("127.0.0.1", redis_port);
+  }
+
   bool changed = false;
   for (auto &BB : F) {
     for (auto &I : make_early_inc_range(BB)) {
