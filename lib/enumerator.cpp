@@ -75,7 +75,7 @@ Enumerator::findInputs(llvm::Function &F,
     if (A.getType()->isIntOrIntVectorTy()) {
       auto T = make_unique<Var>(&A);
       values.insert(T.get());
-      exprs.emplace_back(move(T));
+      exprs.emplace_back(std::move(T));
     }
   }
   for (auto &BB : F) {
@@ -91,7 +91,7 @@ Enumerator::findInputs(llvm::Function &F,
 
       auto T = make_unique<Var>(&I);
       values.insert(T.get());
-      exprs.emplace_back(move(T));
+      exprs.emplace_back(std::move(T));
     }
   }
 }
@@ -127,13 +127,13 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
         set<ReservedConst*> RCs1;
         auto SI = make_unique<ConversionInst>(ConversionInst::sext, *Op, lane,
                                               op_bits, nb);
-        sketches.push_back(make_pair(SI.get(), move(RCs1)));
-        exprs.emplace_back(move(SI));
+        sketches.push_back(make_pair(SI.get(), std::move(RCs1)));
+        exprs.emplace_back(std::move(SI));
         set<ReservedConst*> RCs2;
         auto ZI = make_unique<ConversionInst>(ConversionInst::zext, *Op, lane,
                                               op_bits, nb);
-        sketches.push_back(make_pair(ZI.get(), move(RCs2)));
-        exprs.emplace_back(move(ZI));
+        sketches.push_back(make_pair(ZI.get(), std::move(RCs2)));
+        exprs.emplace_back(std::move(ZI));
       } else if (expected < op_w){
         if (op_w % expected != 0)
           continue;
@@ -144,8 +144,8 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
         set<ReservedConst*> RCs1;
         auto SI = make_unique<ConversionInst>(ConversionInst::trunc, *Op, lane,
                                               op_bits, nb);
-        sketches.push_back(make_pair(SI.get(), move(RCs1)));
-        exprs.emplace_back(move(SI));
+        sketches.push_back(make_pair(SI.get(), std::move(RCs1)));
+        exprs.emplace_back(std::move(SI));
       }
     }
   }
@@ -166,8 +166,8 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
           continue;
         set<ReservedConst*> RCs;
         auto U = make_unique<UnaryInst>(Op, **Op0, workty);
-        sketches.push_back(make_pair(U.get(), move(RCs)));
-        exprs.emplace_back(move(U));
+        sketches.push_back(make_pair(U.get(), std::move(RCs)));
+        exprs.emplace_back(std::move(U));
       }
     }
   }
@@ -196,7 +196,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
               auto T = make_unique<ReservedConst>(workty);
               I = T.get();
               RCs.insert(T.get());
-              exprs.emplace_back(move(T));
+              exprs.emplace_back(std::move(T));
               J = R;
               if (BinaryInst::isCommutative(Op)) {
                 swap(I, J);
@@ -215,7 +215,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
               auto T = make_unique<ReservedConst>(workty);
               J = T.get();
               RCs.insert(T.get());
-              exprs.emplace_back(move(T));
+              exprs.emplace_back(std::move(T));
             } else continue;
           }
           // (op var, var)
@@ -230,8 +230,8 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
             J = *Op1;
           }
           auto BO = make_unique<BinaryInst>(Op, *I, *J, workty);
-          sketches.push_back(make_pair(BO.get(), move(RCs)));
-          exprs.emplace_back(move(BO));
+          sketches.push_back(make_pair(BO.get(), std::move(RCs)));
+          exprs.emplace_back(std::move(BO));
         }
       }
     }
@@ -270,7 +270,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
               auto T = make_unique<ReservedConst>(jty);
               J = T.get();
               RCs.insert(T.get());
-              exprs.emplace_back(move(T));
+              exprs.emplace_back(std::move(T));
             // (icmp var, var)
             } else if (auto R = dynamic_cast<Var*>(*Op1)) {
               if (L->getWidth() != R->getWidth())
@@ -280,8 +280,8 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
             } else UNREACHABLE();
           } else UNREACHABLE();
           auto BO = make_unique<ICmpInst>(Cond, *I, *J, expected);
-          sketches.push_back(make_pair(BO.get(), move(RCs)));
-          exprs.emplace_back(move(BO));
+          sketches.push_back(make_pair(BO.get(), std::move(RCs)));
+          exprs.emplace_back(std::move(BO));
         }
       }
     }
@@ -318,7 +318,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
           auto T = make_unique<ReservedConst>(op0_ty);
           I = T.get();
           RCs.insert(T.get());
-          exprs.emplace_back(move(T));
+          exprs.emplace_back(std::move(T));
         }
         Value *J = nullptr;
         if (auto R = dynamic_cast<Var *>(*Op1)) {
@@ -330,11 +330,11 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
           auto T = make_unique<ReservedConst>(op1_ty);
           J = T.get();
           RCs.insert(T.get());
-          exprs.emplace_back(move(T));
+          exprs.emplace_back(std::move(T));
         }
         auto B = make_unique<SIMDBinOpInst>(op, *I, *J);
-        sketches.push_back(make_pair(B.get(), move(RCs)));
-        exprs.emplace_back(move(B));
+        sketches.push_back(make_pair(B.get(), std::move(RCs)));
+        exprs.emplace_back(std::move(B));
       }
     }
   }
@@ -356,9 +356,9 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
         auto m = make_unique<ReservedConst>(type(ty.getLane(), 8, false));
         RCs.insert(m.get());
         auto sv = make_unique<FakeShuffleInst>(**Op0, nullptr, *m.get(), ty);
-        exprs.emplace_back(move(m));
-        sketches.push_back(make_pair(sv.get(), move(RCs)));
-        exprs.emplace_back(move(sv));
+        exprs.emplace_back(std::move(m));
+        sketches.push_back(make_pair(sv.get(), std::move(RCs)));
+        exprs.emplace_back(std::move(sv));
       }
       // (sv var1, var2, mask)
       for (auto Op1 = Op0 + 1; Op1 != Comps.end(); ++Op1) {
@@ -375,14 +375,14 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
           auto T = make_unique<ReservedConst>(op_ty);
           J = T.get();
           RCs.insert(T.get());
-          exprs.emplace_back(move(T));
+          exprs.emplace_back(std::move(T));
         }
         auto m = make_unique<ReservedConst>(type(ty.getLane(), 8, false));
         RCs.insert(m.get());
         auto sv2 = make_unique<FakeShuffleInst>(**Op0, J, *m.get(), ty);
-        exprs.emplace_back(move(m));
-        sketches.push_back(make_pair(sv2.get(), move(RCs)));
-        exprs.emplace_back(move(sv2));
+        exprs.emplace_back(std::move(m));
+        sketches.push_back(make_pair(sv2.get(), std::move(RCs)));
+        exprs.emplace_back(std::move(sv2));
       }
     }
   }
@@ -447,9 +447,9 @@ optional<Rewrite> Enumerator::synthesize(llvm::Function &F) {
       auto RC = make_unique<ReservedConst>(type(I->getType()));
       auto CI = make_unique<CopyInst>(*RC.get());
       RCs.insert(RC.get());
-      Sketches.push_back(make_pair(CI.get(), move(RCs)));
-      exprs.emplace_back(move(CI));
-      exprs.emplace_back(move(RC));
+      Sketches.push_back(make_pair(CI.get(), std::move(RCs)));
+      exprs.emplace_back(std::move(CI));
+      exprs.emplace_back(std::move(RC));
     }
     // nops
     {
@@ -461,8 +461,8 @@ optional<Rewrite> Enumerator::synthesize(llvm::Function &F) {
           continue;
         set<ReservedConst*> RCs;
         auto VA = make_unique<Var>(V->V());
-        Sketches.push_back(make_pair(VA.get(), move(RCs)));
-        exprs.emplace_back(move(VA));
+        Sketches.push_back(make_pair(VA.get(), std::move(RCs)));
+        exprs.emplace_back(std::move(VA));
       }
     }
     getSketches(&*I, Sketches);

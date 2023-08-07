@@ -27,13 +27,13 @@ class RemovalSlice {
   llvm::ValueToValueMapTy mapping;
 
 public:
-  RemovalSlice(llvm::Function &VF, llvm::LoopInfo &LI, 
+  RemovalSlice(llvm::Function &VF, llvm::LoopInfo &LI,
                llvm::DominatorTree &DT, llvm::MemoryDependenceResults &MD)
     : VF(VF), Ctx(VF.getContext()), LI(LI), DT(DT), MD(MD) {
     M = std::make_unique<llvm::Module>("", Ctx);
     M->setDataLayout(VF.getParent()->getDataLayout());
   }
-  std::unique_ptr<llvm::Module> getNewModule() {return move(M); }
+  std::unique_ptr<llvm::Module> getNewModule() {return std::move(M); }
   llvm::ValueToValueMapTy& getValueMap() { return mapping; }
   std::optional<std::reference_wrapper<llvm::Function>>
     extractExpr(llvm::Value &V);

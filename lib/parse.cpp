@@ -22,7 +22,7 @@ using namespace minotaur;
 namespace parse {
 
 static void error(string &&s) {
-  throw ParseException(move(s), yylineno);
+  throw ParseException(std::move(s), yylineno);
 }
 
 struct tokenizer_t {
@@ -92,7 +92,7 @@ private:
 #endif
       return t;
     } catch (LexException &e) {
-      throw ParseException(move(e.str), e.lineno);
+      throw ParseException(std::move(e.str), e.lineno);
     }
   }
 };
@@ -133,7 +133,7 @@ static Var* parse_var(vector<unique_ptr<minotaur::Inst>>&exprs) {
   tokenizer.ensure(RPAREN);
   auto V = make_unique<Var>(id, width);
   Var *T = V.get();
-  exprs.emplace_back(move(V));
+  exprs.emplace_back(std::move(V));
   return T;
 }
 
@@ -181,7 +181,7 @@ Value* parse_copy(vector<unique_ptr<minotaur::Inst>>&exprs) {
 
   auto CI = make_unique<CopyInst>(*a);
   Value *T = CI.get();
-  exprs.emplace_back(move(CI));
+  exprs.emplace_back(std::move(CI));
   return T;
 }
 
@@ -208,7 +208,7 @@ Value* parse_unary(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
   tokenizer.ensure(RPAREN);
   auto UI = make_unique<UnaryInst>(op, *a, workty);
   Value *T = UI.get();
-  exprs.emplace_back(move(UI));
+  exprs.emplace_back(std::move(UI));
   return T;
 }
 
@@ -248,7 +248,7 @@ Value* parse_binary(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
   tokenizer.ensure(RPAREN);
   auto BI = make_unique<BinaryInst>(op, *a, *b, workty);
   Value *T = BI.get();
-  exprs.emplace_back(move(BI));
+  exprs.emplace_back(std::move(BI));
   return T;
 }
 
@@ -279,7 +279,7 @@ Value* parse_icmp(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
   tokenizer.ensure(RPAREN);
   auto II = make_unique<ICmpInst>(op, *a, *b, width);
   Value *T = II.get();
-  exprs.emplace_back(move(II));
+  exprs.emplace_back(std::move(II));
   return T;
 }
 
@@ -293,7 +293,7 @@ Value* parse_shuffle(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
   auto mask = parse_const(exprs);
   auto SI = make_unique<FakeShuffleInst>(*lhs, rhs, *mask, workty);
   Value *T = SI.get();
-  exprs.emplace_back(move(SI));
+  exprs.emplace_back(std::move(SI));
   return T;
 }
 
@@ -316,7 +316,7 @@ Value* parse_conv(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
   tokenizer.ensure(RPAREN);
   auto CI = make_unique<ConversionInst>(op, *a, from.getLane(), from.getBits(), to.getBits());
   Value *T = CI.get();
-  exprs.emplace_back(move(CI));
+  exprs.emplace_back(std::move(CI));
   return T;
 }
 
@@ -333,7 +333,7 @@ Value* parse_x86(string_view ops, vector<unique_ptr<minotaur::Inst>>&exprs) {
   tokenizer.ensure(RPAREN);
   auto CI = make_unique<SIMDBinOpInst>(op, *a, *b);
   Value *T = CI.get();
-  exprs.emplace_back(move(CI));
+  exprs.emplace_back(std::move(CI));
   return T;
 }
 

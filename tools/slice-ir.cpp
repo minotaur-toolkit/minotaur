@@ -34,7 +34,7 @@ static std::unique_ptr<Module> openInputFile(LLVMContext &Context,
                                              string InputFilename) {
   auto MB = ExitOnErr(errorOrToExpected(MemoryBuffer::getFile(InputFilename)));
   llvm::SMDiagnostic Diag;
-  auto M = getLazyIRModule(move(MB), Diag, Context,
+  auto M = getLazyIRModule(std::move(MB), Diag, Context,
                            /*ShouldLazyLoadMetadata=*/true);
   if (!M) {
     Diag.print("", llvm::errs(), false);

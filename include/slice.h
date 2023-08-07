@@ -30,7 +30,7 @@ public:
     m = std::make_unique<llvm::Module>("", f.getContext());
     m->setDataLayout(f.getParent()->getDataLayout());
   }
-  std::unique_ptr<llvm::Module> getNewModule() {return move(m); }
+  std::unique_ptr<llvm::Module> getNewModule() {return std::move(m); }
   llvm::ValueToValueMapTy& getValueMap() { return mapping; }
   std::optional<std::reference_wrapper<llvm::Function>>
     extractExpr(llvm::Value &V);

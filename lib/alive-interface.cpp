@@ -35,7 +35,7 @@ using namespace llvm;
 static expr preprocess(Transform &t, const set<expr> &qvars0,
                        const set<expr> &undef_qvars, expr &&e) {
   if (hit_half_memory_limit())
-    return expr::mkForAll(qvars0, move(e));
+    return expr::mkForAll(qvars0, std::move(e));
 
   // eliminate all quantified boolean vars; Z3 gets too slow with those
   auto qvars = qvars0;
@@ -52,7 +52,7 @@ static expr preprocess(Transform &t, const set<expr> &qvars0,
     I = qvars.erase(I);
   }
 
-  return expr::mkForAll(qvars, move(e));
+  return expr::mkForAll(qvars, std::move(e));
 }
 
 void calculateAndInitConstants(Transform &t);
@@ -138,10 +138,10 @@ AliveEngine::find_model(Transform &t,
     // \forall v . (pre_tgt && !pre_src(v)) ->  [\exists v . pre_src(v)]
     // false
     if (refines.isFalse())
-      return move(refines);
+      return std::move(refines);
 
     auto fml = pre_tgt && pre_src.implies(refines);
-    return axioms_expr && preprocess(t, qvars, uvars, move(fml));
+    return axioms_expr && preprocess(t, qvars, uvars, std::move(fml));
   };
 
 
@@ -228,8 +228,8 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
   }
 
   Transform t;
-  t.src = move(*Func1);
-  t.tgt = move(*Func2);
+  t.src = std::move(*Func1);
+  t.tgt = std::move(*Func2);
 
   unordered_map<const IR::Value*, const Argument*> Inputs;
   for (auto &&I : t.tgt.getInputs()) {
