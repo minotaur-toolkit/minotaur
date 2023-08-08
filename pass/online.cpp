@@ -169,7 +169,8 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
       auto R = EN.synthesize(*NewF);
 
       if (!R.has_value()) {
-        hSetNoSolution(bytecode.c_str(), bytecode.size(), ctx, F.getName());
+        if (enable_caching)
+          hSetNoSolution(bytecode.c_str(), bytecode.size(), ctx, F.getName());
         continue;
       }
       unordered_set<llvm::Function *> IntrinDecls;
