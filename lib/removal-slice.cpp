@@ -12,6 +12,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #include <optional>
@@ -84,27 +85,30 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
     }
 
     if (Instruction *I = dyn_cast<Instruction>(W)) {
-      bool haveUnknownOperand = false;
-      for (unsigned op_i = 0; op_i < I->getNumOperands(); ++op_i ) {
-        if (isa<CallInst>(I) && op_i == 0) {
-          continue;
-        }
-
-        auto op = I->getOperand(op_i);
-        if (isa<ConstantExpr>(op)) {
+      auto checkValueUnknown = [] (Value *V) {
+        if (isa<ConstantExpr>(V)) {
           debug() << "[slicer] found instruction that uses ConstantExpr\n";
-          haveUnknownOperand = true;
-          break;
+          return true;
         }
-        auto op_ty = op->getType();
-        if (op_ty->isStructTy() || op_ty->isFloatingPointTy() || op_ty->isPointerTy()) {
+        Type *ty = V->getType();;
+        if (ty->isStructTy() || ty->isFloatingPointTy() || ty->isPointerTy()) {
+          debug() << "[slicer] found operands with type " << *ty;
+          return true;
+        }
+        return false;
+      };
 
-          debug() << "[slicer] found operands with type " << *op_ty <<"\n";
+      auto range = I->operands();
+      if (isa<CallInst>(I))
+        range = cast<CallInst>(I)->args();
+
+      bool haveUnknownOperand = false;
+      for (auto &op : range) {
+        if (checkValueUnknown(op)) {
           haveUnknownOperand = true;
           break;
         }
       }
-
       if (haveUnknownOperand) {
         continue;
       }
