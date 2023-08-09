@@ -79,8 +79,7 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
     Worklist.pop();
 
     if (Depth > config::slicer_max_depth) {
-      if(config::debug_slicer)
-        debug() << "[INFO] max depth reached, stop harvesting";
+      debug() << "[slicer] max depth reached, stop harvesting";
       continue;
     }
 
@@ -93,16 +92,14 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
 
         auto op = I->getOperand(op_i);
         if (isa<ConstantExpr>(op)) {
-          if(config::debug_slicer)
-            llvm::errs() << "[INFO] found instruction that uses ConstantExpr\n";
+          debug() << "[slicer] found instruction that uses ConstantExpr\n";
           haveUnknownOperand = true;
           break;
         }
         auto op_ty = op->getType();
         if (op_ty->isStructTy() || op_ty->isFloatingPointTy() || op_ty->isPointerTy()) {
-          if(config::debug_slicer)
-            llvm::errs() << "[INFO] found instruction with operands with type "
-                         << *op_ty <<"\n";
+
+          debug() << "[slicer] found operands with type " << *op_ty <<"\n";
           haveUnknownOperand = true;
           break;
         }
