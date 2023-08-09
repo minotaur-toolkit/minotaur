@@ -53,7 +53,7 @@ struct CacheExprsPass : PassInfoMixin<CacheExprsPass> {
 
     LoopInfo &LI = FAM.getResult<LoopAnalysis>(F);
     DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
-    MemoryDependenceResults &MD = FAM.getResult<MemoryDependenceAnalysis>(F);
+    //MemoryDependenceResults &MD = FAM.getResult<MemoryDependenceAnalysis>(F);
 
     redisContext *c = redisConnect("127.0.0.1", 6379);
     if (c == NULL || c->err) {
@@ -68,7 +68,7 @@ struct CacheExprsPass : PassInfoMixin<CacheExprsPass> {
       for (auto &I : BB) {
         if (I.getType()->isVoidTy())
           continue;
-        Slice S(F, LI, DT, MD);
+        Slice S(F, LI, DT);
         S.extractExpr(I);
         auto m = S.getNewModule();
         optimizeModule(m.get());

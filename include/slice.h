@@ -7,6 +7,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Value.h"
+#include "llvm/Passes/PassBuilder.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
 #include <functional>
@@ -18,15 +19,13 @@ class Slice {
   llvm::Function &f;
   llvm::LoopInfo &LI;
   llvm::DominatorTree &DT;
-  llvm::MemoryDependenceResults &MD;
 
   std::unique_ptr<llvm::Module> m;
   llvm::ValueToValueMapTy mapping;
 
 public:
-  Slice(llvm::Function &f, llvm::LoopInfo &LI, llvm::DominatorTree &DT,
-        llvm::MemoryDependenceResults &MD)
-    : f(f), LI(LI), DT(DT), MD(MD) {
+  Slice(llvm::Function &f, llvm::LoopInfo &LI, llvm::DominatorTree &DT)
+    : f(f), LI(LI), DT(DT) {
     m = std::make_unique<llvm::Module>("", f.getContext());
     m->setDataLayout(f.getParent()->getDataLayout());
   }

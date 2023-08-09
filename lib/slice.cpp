@@ -225,7 +225,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
         }
       } else if (auto LI = dyn_cast<LoadInst>(i)) {
         continue;
-        auto dep = MD.getDependency(LI);
+        /*auto dep = MD.getDependency(LI);
         if (dep.isDef() || dep.isClobber()) {
           auto st = dep.getInst();
 
@@ -233,7 +233,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
             insts.push_back(st);
             bb_insts[ibb].push_back({st, getInstructionIdx(st)});
           }
-        }
+        }*/
       }
 
       if (insts.size() > MAX_INSTNS)
