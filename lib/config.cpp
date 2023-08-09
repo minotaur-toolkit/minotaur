@@ -13,7 +13,7 @@ namespace config {
 
 bool disable_poison_input = true;
 bool disable_undef_input = true;
-bool debug_slicer = true;
+bool debug_slicer = false;
 bool debug_enumerator = false;
 bool debug_tv = false;
 bool ignore_machine_cost = false;

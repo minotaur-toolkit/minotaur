@@ -1,6 +1,7 @@
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
 #include "removal-slice.h"
+#include "config.h"
 
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"
@@ -50,6 +51,8 @@ int main(int argc, char **argv) {
   llvm::EnableDebugBuffering = true;
   llvm::llvm_shutdown_obj llvm_shutdown; // Call llvm_shutdown() on exit.
   llvm::LLVMContext Context;
+
+  config::debug_slicer = true;
 
   llvm::cl::ParseCommandLineOptions(argc, argv, "Minotaur Program Slicer\n");
 
