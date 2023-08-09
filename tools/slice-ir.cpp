@@ -25,8 +25,12 @@ using namespace minotaur;
 static cl::OptionCategory minotaur_slice("slice-ir options");
 
 static cl::opt<string> opt_file(cl::Positional, cl::desc("bitcode_file"),
-                                cl::Required, cl::value_desc("filename"),
-                                cl::cat(minotaur_slice));
+  cl::Required, cl::value_desc("filename"),
+  cl::cat(minotaur_slice));
+
+static cl::opt<bool> dump_files("dump-files",
+  llvm::cl::desc("if enabled, dump the sliced bitcode to files"),
+  llvm::cl::init(false), llvm::cl::cat(minotaur_slice));
 
 static llvm::ExitOnError ExitOnErr;
 
@@ -78,7 +82,10 @@ int main(int argc, char **argv) {
         if (I.getType()->isVoidTy())
           continue;
         S.extractExpr(I);
-        S.getNewModule()->dump();
+
+        if (!dump_files)
+          continue;
+
         std::error_code EC;
         string filename = "slice_" + string(F.getName()) +
                           "_" + to_string(count++) + ".bc";
