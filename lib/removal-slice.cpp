@@ -85,30 +85,42 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
     }
 
     if (Instruction *I = dyn_cast<Instruction>(W)) {
-      auto checkValueUnknown = [] (Value *V) {
+      auto checkValueUnknown = [](Value *V) {
         if (isa<ConstantExpr>(V)) {
           debug() << "[slicer] found instruction that uses ConstantExpr\n";
           return true;
         }
-        Type *ty = V->getType();;
+        Type *ty = V->getType();
         if (ty->isStructTy() || ty->isFloatingPointTy() || ty->isPointerTy()) {
-          debug() << "[slicer] found operands with type " << *ty;
+          debug() << "[slicer] found operand with type " << *ty;
           return true;
         }
         return false;
       };
 
-      auto range = I->operands();
-      if (isa<CallInst>(I))
-        range = cast<CallInst>(I)->args();
+      if (CallInst *CI = dyn_cast<CallInst>(I)) {
+        auto callee = CI->getCalledFunction();
+        if (!callee || !callee->isIntrinsic()) {
+          debug() << "[slicer] unknown callee found "
+                  << callee->getName() << "\n";
+          continue;
+        }
+      }
+
+      auto ops = I->operands();
+
+      if (isa<CallInst>(I)) {
+        ops = cast<CallInst>(I)->args();
+      }
 
       bool haveUnknownOperand = false;
-      for (auto &op : range) {
+      for (auto &op : ops) {
         if (checkValueUnknown(op)) {
           haveUnknownOperand = true;
           break;
         }
       }
+
       if (haveUnknownOperand) {
         continue;
       }
@@ -136,6 +148,18 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
     VMap[I] = TgtArgI;
     TgtArgI->setName(I->getName());
     this->mapping[TgtArgI] = I;
+  }
+
+  for (auto C : Candidates) {
+    if (CallInst *CI = dyn_cast<CallInst>(C)) {
+      Function *callee = CI->getCalledFunction();
+      assert(callee->isIntrinsic() && "callee must be an intrinsic");
+      FunctionCallee intrindecl =
+          M->getOrInsertFunction(callee->getName(), callee->getFunctionType(),
+                                  callee->getAttributes());
+      intrindecl.getCallee()->dump();
+      VMap[callee] = intrindecl.getCallee();
+    }
   }
 
   SmallVector<ReturnInst*, 8> _r;
@@ -191,7 +215,7 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
   llvm::raw_string_ostream err_stream(err);
   bool illformed = verifyFunction(*F, &err_stream);
   if (illformed) {
-    llvm::errs() << "[ERROR] found errors in the generated function\n";
+    llvm::errs() << "[slicer] found errors in the generated function\n";
     F->dump();
     llvm::errs() << err << "\n";
     llvm::report_fatal_error("illformed function generated");
