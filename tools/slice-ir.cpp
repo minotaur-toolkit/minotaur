@@ -1,6 +1,6 @@
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
-#include "slice.h"
+#include "removal-slice.h"
 
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"
@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
     unsigned count = 0;
     for (auto &BB : F) {
       for (auto &I : BB) {
-        Slice S(F, LI, DT);
+        RemovalSlice S(F, LI, DT);
         if (I.getType()->isVoidTy())
           continue;
         S.extractExpr(I);

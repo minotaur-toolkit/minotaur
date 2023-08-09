@@ -270,7 +270,7 @@ struct SuperoptimizerPass : PassInfoMixin<SuperoptimizerPass> {
 
     LoopInfo &LI = FAM.getResult<llvm::LoopAnalysis>(F);
     DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
-    MemoryDependenceResults &MD = FAM.getResult<MemoryDependenceAnalysis>(F);
+    // MemoryDependenceResults &MD = FAM.getResult<MemoryDependenceAnalysis>(F);
 
     TargetLibraryInfoWrapperPass TLI(Triple(F.getParent()->getTargetTriple()));
     optimize_function(F, LI, DT, TLI);
