@@ -21,7 +21,7 @@ bool smt_verbose = false;
 bool disable_avx512 = true;
 bool show_stats = false;
 
-unsigned slicer_max_depth = 5;
+unsigned slicer_max_depth = 2;
 
 ostream &dbg() {
   return *debug_os;

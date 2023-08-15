@@ -9,6 +9,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Verifier.h"
@@ -74,13 +75,13 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
   }
 
   // recursively populate candidates set
-  SmallSet<Value*, 16> Candidates;
+  SmallSet<Instruction*, 16> Candidates;
   while (!Worklist.empty()) {
     auto &[W, Depth] = Worklist.front();
     Worklist.pop();
 
     if (Depth > config::slicer_max_depth) {
-      debug() << "[slicer] max depth reached, stop harvesting";
+      debug() << "[slicer] max depth reached, stop harvesting\n";
       continue;
     }
 
@@ -124,7 +125,7 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
       if (haveUnknownOperand) {
         continue;
       }
-      if(!Candidates.insert(W).second)
+      if(!Candidates.insert(I).second)
         continue;
 
       for (auto &Op : I->operands()) {
@@ -135,19 +136,43 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
     }
   }
 
-  SmallVector<Type*, 4> argTys(VF.getFunctionType()->params());
+  // populate argument list for the new function
+  unsigned idx = 0;
+  DenseMap<Value *, unsigned> argMap;
+  SmallVector<Type *, 4> argTys;
+  for (auto &arg : VF.args()) {
+    argTys.push_back(arg.getType());
+    argMap[&arg] = idx++;
+  }
+
+  for (auto I : Candidates) {
+    for (auto &op : I->operands()) {
+       if (Instruction *op_i = dyn_cast<Instruction>(op)) {
+        auto unknown = find(Candidates.begin(), Candidates.end(), op_i);
+        if (unknown != Candidates.end())
+          continue;
+        debug() << *op_i << "\n";
+
+        if (argMap.count(op.get()))
+          continue;
+        argTys.push_back(op->getType());
+        argMap[op.get()] = idx++;
+      }
+    }
+  }
+  debug()<<argTys.size()<<" arguments\n";;
 
   // TODO: Add more arguments for the new function.
   FunctionType *FTy = FunctionType::get(V.getType(), argTys, false);
-  Function *F = Function::Create(FTy, GlobalValue::ExternalLinkage, "foo", *M);
+  Function *F = Function::Create(FTy, GlobalValue::ExternalLinkage, "slice", *M);
 
   ValueToValueMapTy VMap;
-  Function::arg_iterator TgtArgI = F->arg_begin();
 
-  for (auto I = VF.arg_begin(), E = VF.arg_end(); I != E; ++I, ++TgtArgI) {
-    VMap[I] = TgtArgI;
-    TgtArgI->setName(I->getName());
-    this->mapping[TgtArgI] = I;
+  for (auto &varg : VF.args()) {
+    Argument *arg = F->getArg(argMap[&varg]);
+    arg->setName(varg.getName());
+    VMap[&varg] = arg;
+    mapping[arg] = &varg;
   }
 
   for (auto C : Candidates) {
@@ -157,7 +182,6 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
       FunctionCallee intrindecl =
           M->getOrInsertFunction(callee->getName(), callee->getFunctionType(),
                                   callee->getAttributes());
-      intrindecl.getCallee()->dump();
       VMap[callee] = intrindecl.getCallee();
     }
   }
@@ -175,11 +199,26 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
     debug() << *C << "\n";
   }
 
-  // remove unreachable code within same block
-  SmallSet<Value*, 16> ClonedCandidates;
+  SmallSet<Instruction*, 16> ClonedCandidates;
+
   for (auto C : Candidates) {
-    ClonedCandidates.insert(VMap[C]);
-    mapping[VMap[C]] = C;
+    auto NewC = cast<Instruction>(VMap[C]);
+    mapping[NewC] = C;
+    for (auto &U : C->operands()) {
+      if (!isa<Instruction>(U))
+        continue;
+      if (Candidates.count(cast<Instruction>(U)))
+        continue;
+      mapping[VMap[U]] = U.get();
+    }
+    ClonedCandidates.insert(NewC);
+
+    for (auto &op : NewC->operands()) {
+      auto vop = mapping[op];
+      if (!argMap.count(vop))
+        continue;
+      op.set(F->getArg(argMap[vop]));
+    }
   }
 
   ClonedCandidates.insert(Ret);
