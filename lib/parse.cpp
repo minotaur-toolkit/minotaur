@@ -324,7 +324,7 @@ Value* parse_conv(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
 Value* parse_x86(string_view ops, vector<unique_ptr<minotaur::Inst>>&exprs) {
   IR::X86IntrinBinOp::Op op;
   #define PROCESS(NAME,A,B,C,D,E,F) if (ops == #NAME) op = IR::X86IntrinBinOp::NAME;
-  #include "ir/intrinsics.h"
+  #include "ir/intrinsics_binop.h"
   #undef PROCESS
 
   auto a = parse_expr(exprs);

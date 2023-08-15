@@ -25,14 +25,25 @@ using namespace llvm;
 namespace minotaur {
 
 static constexpr
-std::array<llvm::Intrinsic::ID, IR::X86IntrinBinOp::numOfX86Intrinsics> IntrinsicIDs = {
+std::array<llvm::Intrinsic::ID, IR::X86IntrinBinOp::numOfX86Intrinsics> IntrinsicBinOpIDs = {
 #define PROCESS(NAME,A,B,C,D,E,F) llvm::Intrinsic::NAME,
-#include "ir/intrinsics.h"
+#include "ir/intrinsics_binop.h"
 #undef PROCESS
 };
 
 static llvm::Intrinsic::ID getIntrinsicID(IR::X86IntrinBinOp::Op op) {
-  return IntrinsicIDs[op];
+  return IntrinsicBinOpIDs[op];
+}
+
+static constexpr
+std::array<llvm::Intrinsic::ID, IR::X86IntrinTerOp::numOfX86Intrinsics> IntrinsicTerOpIDs = {
+#define PROCESS(NAME,A,B,C,D,E,F,G,H) llvm::Intrinsic::NAME,
+#include "ir/intrinsics_terop.h"
+#undef PROCESS
+};
+
+static llvm::Intrinsic::ID getIntrinsicID(IR::X86IntrinTerOp::Op op) {
+  return IntrinsicTerOpIDs[op];
 }
 
 llvm::Value *LLVMGen::bitcastTo(llvm::Value *V, llvm::Type *to) {
@@ -208,6 +219,7 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap, ConstMap &CMap) {
                                        "intr",
                                        cast<Instruction>(b.GetInsertPoint()));
     return CI;
+  // TODO: handle terop
   } else if (auto FSV = dynamic_cast<FakeShuffleInst*>(I)) {
     auto op0 = codeGenImpl(FSV->L(), VMap, CMap);
     op0 = bitcastTo(op0, FSV->getInputTy().toLLVM(C));
