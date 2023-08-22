@@ -24,10 +24,18 @@ class RemovalSlice {
 
   std::unique_ptr<llvm::Module> M;
   llvm::ValueToValueMapTy mapping;
+  bool discarded_at_precheck = false;
 
 public:
   RemovalSlice(llvm::Function &VF, llvm::LoopInfo &LI, llvm::DominatorTree &DT)
     : VF(VF), Ctx(VF.getContext()), LI(LI), DT(DT) {
+
+    for (auto &arg : VF.args()) {
+      auto argTy = arg.getType();
+      if (argTy->isPPC_FP128Ty() || argTy->isX86_FP80Ty())
+        discarded_at_precheck = true;
+    }
+
     M = std::make_unique<llvm::Module>("", Ctx);
     M->setDataLayout(VF.getParent()->getDataLayout());
   }

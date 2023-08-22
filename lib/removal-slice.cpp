@@ -44,6 +44,17 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
   assert(isa<Instruction>(&v) && "Expr to be extracted must be a Instruction");
   debug() << "[slicer] slicing value" << V << "\n";
 
+  if (discarded_at_precheck) {
+    debug() << "[slicer] discard flag is set, skip\n";
+    return nullopt;
+  }
+
+  // We only support integer or vector of integer as of now
+  if (!V.getType()->isIntOrIntVectorTy()) {
+    debug() << "[slicer] value is not integer or vector of integer, skip\n";
+    return nullopt;
+  }
+
   Instruction *vi = cast<Instruction>(&V);
   BasicBlock *vbb = vi->getParent();
   Loop *loopv = LI.getLoopFor(vbb);
@@ -247,6 +258,8 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
     BasicBlock *BB = cast<BasicBlock>(VMap[NonBranchingBB]);
     new UnreachableInst(Ctx, BB);
   }
+
+  F->removeRetAttr(Attribute::NoAlias);
 
   debug() << "[slicer] create module " << *M;
 
