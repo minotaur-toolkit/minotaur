@@ -129,7 +129,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
 
   redisContext *ctx = nullptr;
   if (enable_caching) {
-    redisConnect("127.0.0.1", redis_port);
+    ctx = redisConnect("127.0.0.1", redis_port);
   }
 
   bool changed = false;
@@ -210,7 +210,11 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
     F.removeFnAttr("min-legal-vector-width");
     eliminate_dead_code(F);
   }
-  redisFree(ctx);
+
+  if (enable_caching) {
+    redisFree(ctx);
+  }
+
   debug() << "[online] minotaur completed optimization\n";
   return changed;
 }
