@@ -49,9 +49,10 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
     return nullopt;
   }
 
-  // We only support integer or vector of integer as of now
-  if (!V.getType()->isIntOrIntVectorTy()) {
-    debug() << "[slicer] value is not integer or vector of integer, skip\n";
+  // only support slicing integer and fp values as of now
+  auto scalarTy = V.getType()->getScalarType();
+  if (!scalarTy->isIntegerTy() && !scalarTy->isIEEELikeFPTy()) {
+    debug() << "[slicer] value is not a integer or fp value, skip\n";
     return nullopt;
   }
 
@@ -102,9 +103,9 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
           debug() << "[slicer] found instruction that uses ConstantExpr\n";
           return true;
         }
-        Type *ty = V->getType();
-        if (ty->isStructTy() || ty->isFloatingPointTy() || ty->isPointerTy()) {
-          debug() << "[slicer] found operand with type " << *ty;
+        Type *ty = V->getType()->getScalarType();
+        if (!ty->isIEEELikeFPTy() && !ty->isIntegerTy()) {
+          debug() << "[slicer] found operand with type " << *V->getType();
           return true;
         }
         return false;

@@ -54,6 +54,8 @@ static Type* getFloatingPointType(LLVMContext &C, unsigned bits) {
     return Type::getFloatTy(C);
   case 64:
     return Type::getDoubleTy(C);
+  case 128:
+    return Type::getFP128Ty(C);
   }
   UNREACHABLE();
 }
