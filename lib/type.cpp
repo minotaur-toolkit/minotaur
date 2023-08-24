@@ -59,19 +59,23 @@ static Type* getFloatingPointType(LLVMContext &C, unsigned bits) {
 }
 
 Type* type::toLLVM(LLVMContext &C) const {
-  if (lane == 0 || bits == 0)
+  if (lane == 0 || bits == 0) {
     report_fatal_error("error minotaur type");
-  if (lane == 1) {
-    if (fp)
-      return getFloatingPointType(C, bits);
-    else
-      return Type::getIntNTy(C, bits);
-  } else {
-    if (fp)
-      return FixedVectorType::get(getFloatingPointType(C, bits), lane);
-    else
-      return FixedVectorType::get(Type::getIntNTy(C, bits), lane);
   }
+
+  Type *Ty = nullptr;
+
+  if (fp) {
+    Ty = getFloatingPointType(C, bits);
+  } else {
+    Ty = Type::getIntNTy(C, bits);
+  }
+
+  if (lane != 1) {
+    Ty = FixedVectorType::get(Ty, lane);
+  }
+
+  return Ty;
 }
 
 ostream& operator<<(ostream &os, const type &val) {
