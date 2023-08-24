@@ -200,8 +200,8 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap, ConstMap &CMap) {
     return r;
 
   } else if (auto B = dynamic_cast<SIMDBinOpInst*>(I)) {
-    type op0_ty = type::getIntrinsicOp0Ty(B->K());
-    type op1_ty = type::getIntrinsicOp1Ty(B->K());
+    type op0_ty = getIntrinsicOp0Ty(B->K());
+    type op1_ty = getIntrinsicOp1Ty(B->K());
     auto op0 = codeGenImpl(B->L(), VMap, CMap);
     if(B->L()->getWidth() != op0_ty.getWidth())
       report_fatal_error("left operand width mismatch");

@@ -11,18 +11,16 @@ namespace minotaur {
 
 class type {
   unsigned lane, bits;
-  bool pointer;
+  bool fp;
 
 public:
-  type(unsigned l, unsigned b, bool p) : lane(l), bits(b), pointer(p) {};
-  type(llvm::Type *t);
+  type(unsigned l, unsigned b, bool f) : lane(l), bits(b), fp(f) {};
   type(const type &t)
-  : lane(t.getLane()), bits(t.getBits()), pointer(t.isPointer()) {}
+  : lane(t.getLane()), bits(t.getBits()), fp(t.isFP()) {}
+  type(llvm::Type *t);
 
   bool isVector() const { return lane > 1; }
-
   bool isScalar() const { return lane == 1; }
-
 
   bool operator==(const type &rhs) const;
   bool same_width(const type &rhs) const;
@@ -33,32 +31,8 @@ public:
   unsigned getWidth() const { return lane * bits; }
   unsigned getLane() const { return lane; }
   unsigned getBits() const  { return bits; }
-  bool isPointer() const { return pointer; }
+  bool isFP() const { return fp; }
 
-  type getStrippedType () {
-    assert(pointer == true);
-    return type(lane, bits, false);
-  }
-
-  static type getIntrinsicRetTy(IR::X86IntrinBinOp::Op);
-  static type getIntrinsicOp0Ty(IR::X86IntrinBinOp::Op);
-  static type getIntrinsicOp1Ty(IR::X86IntrinBinOp::Op);
-
-  static std::vector<type> getBinaryInstWorkTypes(unsigned width) {
-    std::vector<unsigned> bits = {64, 32, 16, 8};
-    std::vector<type> types;
-    if (width % 8 != 0) {
-      types.push_back(type(1, width, false));
-      return types;
-    }
-
-    for (unsigned i = 0 ; i < bits.size() ; ++ i) {
-      if (width % bits[i] == 0) {
-        types.push_back(type(width/bits[i], bits[i], false));
-      }
-    }
-    return types;
-  }
   static std::vector<type> getVectorTypes(unsigned width) {
     std::vector<unsigned> bits = {64, 32, 16, 8};
     std::vector<type> types;
@@ -71,5 +45,11 @@ public:
     return types;
   }
 };
+
+type getIntrinsicRetTy(IR::X86IntrinBinOp::Op);
+type getIntrinsicOp0Ty(IR::X86IntrinBinOp::Op);
+type getIntrinsicOp1Ty(IR::X86IntrinBinOp::Op);
+
+std::vector<type> getBinaryInstWorkTypes(unsigned width);
 
 }

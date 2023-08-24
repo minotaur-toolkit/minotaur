@@ -171,7 +171,6 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
       }
     }
   }
-  debug()<<argTys.size()<<" arguments\n";;
 
   // TODO: Add more arguments for the new function.
   FunctionType *FTy = FunctionType::get(V.getType(), argTys, false);
@@ -211,6 +210,7 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
   }
 
   SmallSet<Instruction*, 16> ClonedCandidates;
+  SmallSet<PHINode*, 16> ClonedPhis;
 
   for (auto C : Candidates) {
     auto NewC = cast<Instruction>(VMap[C]);
@@ -223,6 +223,10 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
       mapping[VMap[U]] = U.get();
     }
     ClonedCandidates.insert(NewC);
+
+    if (isa<PHINode>(NewC)) {
+      ClonedPhis.insert(cast<PHINode>(NewC));
+    }
 
     for (auto &op : NewC->operands()) {
       auto vop = mapping[op];

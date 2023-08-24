@@ -112,7 +112,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
     if (!Op) continue;
     vector<type> tys;
     auto op_w = Op->getWidth();
-    tys = type::getBinaryInstWorkTypes(op_w);
+    tys = getBinaryInstWorkTypes(op_w);
     for (auto workty : tys) {
       unsigned op_bits = workty.getBits();
       unsigned lane = workty.getLane();
@@ -158,7 +158,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
       continue;
     for (unsigned K = UnaryInst::bitreverse; K <= UnaryInst::ctpop; ++K) {
       UnaryInst::Op Op = static_cast<UnaryInst::Op>(K);
-      vector<type> tys = type::getBinaryInstWorkTypes(expected);
+      vector<type> tys = getBinaryInstWorkTypes(expected);
 
       for (auto workty : tys) {
         unsigned bits = workty.getBits();
@@ -182,7 +182,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
         if (BinaryInst::isLaneIndependent(Op)) {
           tys.push_back(type(1, expected, false));
         } else {
-          tys = type::getBinaryInstWorkTypes(expected);
+          tys = getBinaryInstWorkTypes(expected);
         }
         for (auto workty : tys) {
           Value *I = nullptr, *J = nullptr;
@@ -293,9 +293,9 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
     X86IntrinBinOp::Op op = static_cast<X86IntrinBinOp::Op>(K);
     if (config::disable_avx512 && SIMDBinOpInst::is512(op))
       continue;
-    type ret_ty = type::getIntrinsicRetTy(op);
-    type op0_ty = type::getIntrinsicOp0Ty(op);
-    type op1_ty = type::getIntrinsicOp1Ty(op);
+    type ret_ty = getIntrinsicRetTy(op);
+    type op0_ty = getIntrinsicOp0Ty(op);
+    type op1_ty = getIntrinsicOp1Ty(op);
 
     if (ret_ty.getWidth() != expected)
       continue;
