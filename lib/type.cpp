@@ -4,9 +4,12 @@
 
 #include "ir/instr.h"
 #include "util/compiler.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Type.h"
+#include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
+#include <string>
 
 using namespace std;
 using namespace llvm;
@@ -14,7 +17,7 @@ using namespace llvm;
 namespace minotaur {
 
 type::type(llvm::Type *t) {
-  if (t->isScalableTy()) {
+  if (t->isIntegerTy()) {
     lane = 1;
     bits = t->getPrimitiveSizeInBits();
     fp = t->isFloatingPointTy();
@@ -34,7 +37,7 @@ type::type(llvm::Type *t) {
       llvm::report_fatal_error("non-trivial vectors are not supported\n");
     }
   } else {
-    llvm::report_fatal_error("unrecognized type");
+    llvm::report_fatal_error("[expr] unrecognized type");
   }
 }
 
