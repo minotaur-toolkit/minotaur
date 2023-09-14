@@ -264,6 +264,7 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
   }
 
   F->removeRetAttr(Attribute::NoAlias);
+  F->removeRetAttr(Attribute::NonNull);
 
   debug() << "[slicer] create module " << *M;
 
