@@ -22,7 +22,6 @@
 using namespace llvm;
 using namespace std;
 
-namespace {
 struct debug {
 template<class T>
 debug &operator<<(const T &s)
@@ -32,7 +31,6 @@ debug &operator<<(const T &s)
   return *this;
 }
 };
-}
 
 static unsigned remove_unreachable() {
   return 0;
@@ -104,8 +102,9 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
           return true;
         }
         Type *ty = V->getType()->getScalarType();
-        if (!ty->isIEEELikeFPTy() && !ty->isIntegerTy()) {
-          debug() << "[slicer] found operand with type " << *V->getType();
+        if (!ty->isIEEELikeFPTy() && !ty->isIntegerTy() && !ty->isLabelTy()) {
+          debug() << "[slicer] found operand with type "
+                  << *V->getType() << "\n";
           return true;
         }
         return false;
