@@ -14,6 +14,7 @@
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #include <optional>
@@ -116,6 +117,15 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
           debug() << "[slicer] unknown callee found "
                   << callee->getName() << "\n";
           continue;
+        }
+      } else if (PHINode *P = dyn_cast<PHINode>(I)) {
+        Loop *philoop = LI.getLoopFor(I->getParent());
+        if (philoop) {
+          if (!philoop->isLoopSimplifyForm())
+            continue;
+
+          if (philoop->getHeader () == I->getParent())
+            continue;
         }
       }
 
@@ -265,6 +275,7 @@ optional<reference_wrapper<Function>> RemovalSlice::extractExpr(Value &V) {
 
   F->removeRetAttr(Attribute::NoAlias);
   F->removeRetAttr(Attribute::NonNull);
+  EliminateUnreachableBlocks(*F);
 
   debug() << "[slicer] create module " << *M;
 
