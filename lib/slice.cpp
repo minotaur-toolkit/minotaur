@@ -119,94 +119,31 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     if (!visited.insert(w).second)
       continue;
 
+
     if (Instruction *i = dyn_cast<Instruction>(w)) {
-      bool haveUnknownOperand = false;
-      for (unsigned op_i = 0; op_i < i->getNumOperands(); ++op_i ) {
-        if (isa<CallInst>(i) && op_i == 0) {
-          continue;
-        }
-
-        auto op = i->getOperand(op_i);
-        if (isa<ConstantExpr>(op)) {
-          debug() << "[slicer] found instruction that uses ConstantExpr\n";
-          haveUnknownOperand = true;
-          break;
-        }
-        auto op_ty = op->getType();
-        if (op_ty->isStructTy() || op_ty->isFloatingPointTy() || op_ty->isPointerTy()) {
-          debug() << "[slicer] found instruction with operands with type "
-                  << *op_ty <<"\n";
-          haveUnknownOperand = true;
-          break;
-        }
-      }
-
-      if (haveUnknownOperand) {
-        continue;
-      }
-
-      // do not harvest instructions beyond loop boundry.
       BasicBlock *ibb = i->getParent();
       Loop *loopi = LI.getLoopFor(ibb);
 
+      // do not harvest instructions beyond loop boundry.
       if (loopi != loopv)
         continue;
 
-      // handle callsites
-      if (CallInst *ci = dyn_cast<CallInst>(i)) {
-        Function *callee = ci->getCalledFunction();
-        if (!callee) {
-          debug() << "[slicer] indirect call found\n";
+      auto ops = i->operands();
+
+      // filter unknown operation by instruction
+      if (CallInst *call = dyn_cast<CallInst>(i)) {
+        auto callee = call->getCalledFunction();
+        if (!callee || !callee->isIntrinsic()) {
+          debug() << "[slicer] unknown callee: " << callee->getName() << "\n";
           continue;
         }
-        if (!callee->isIntrinsic()) {
-          debug() << "[slicer] unknown callee found "
-                  << callee->getName() << "\n";
-          continue;
-        }
+
         FunctionCallee intrindecl =
             m->getOrInsertFunction(callee->getName(), callee->getFunctionType(),
                                    callee->getAttributes());
 
         vmap[callee] = intrindecl.getCallee();
-      } else if (auto phi = dyn_cast<PHINode>(i)) {
-        bool phiHasUnknownIncome = false;
-
-        unsigned incomes = phi->getNumIncomingValues();
-        for (unsigned i = 0; i < incomes; i ++) {
-          BasicBlock *block = phi->getIncomingBlock(i);
-
-          if (!isa<Instruction>(phi->getIncomingValue(i))) {
-            phiHasUnknownIncome = true;
-            break;
-          }
-
-          Loop *loopbb = LI.getLoopFor(block);
-          if (loopbb != loopv) {
-            phiHasUnknownIncome = true;
-            break;
-          }
-        }
-
-        // if a phi node has unknown income, do not harvest
-        if (phiHasUnknownIncome) {
-          debug() << "[slicer]" << *phi << " has external income\n";
-          continue;
-        }
-
-        unsigned e = phi->getNumIncomingValues();
-        for (unsigned pi = 0 ; pi != e ; ++pi) {
-          auto vi = phi->getIncomingValue(pi);
-          BasicBlock *income = phi->getIncomingBlock(pi);
-          blocks.insert(income);
-          if (!isa<Instruction>(vi))
-            continue;
-
-          BasicBlock *bb_i = cast<Instruction>(vi)->getParent();
-          auto inc_pds = predecessors(income);
-          if (find(inc_pds.begin(), inc_pds.end(), bb_i) == inc_pds.end())
-            bb_deps[income].insert(bb_i);
-        }
+        ops = call->args();
       } else if (auto LI = dyn_cast<LoadInst>(i)) {
         continue;
         /*auto dep = MD.getDependency(LI);
@@ -218,6 +155,28 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
             bb_insts[ibb].push_back({st, getInstructionIdx(st)});
           }
         }*/
+      }
+
+      // filter unknown operation by operand type
+      bool haveUnknownOperand = false;
+      for (auto &op : ops) {
+        if (isa<ConstantExpr>(op)) {
+          debug() << "[slicer] found instruction that uses ConstantExpr\n";
+          haveUnknownOperand = true;
+          break;
+        }
+        auto op_ty = op->getType();
+        if (op_ty->isStructTy() || op_ty->isFloatingPointTy() ||
+            op_ty->isPointerTy()) {
+          debug() << "[slicer] found instruction with operands with type "
+                  << *op_ty <<"\n";
+          haveUnknownOperand = true;
+          break;
+        }
+      }
+
+      if (haveUnknownOperand) {
+        continue;
       }
 
       insts.push_back(i);
