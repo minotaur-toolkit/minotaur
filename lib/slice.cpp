@@ -29,19 +29,26 @@
 using namespace llvm;
 using namespace std;
 
-static constexpr unsigned MAX_DEPTH = 5;
-static constexpr unsigned MAX_INSTNS = 20;
+struct debug {
+  template<class T>
+  debug &operator<<(const T &s)
+  {
+    if (minotaur::config::debug_slicer)
+      llvm::errs()<<s;
+    return *this;
+  }
+};
+
 
 // place instructions within a basicblock with topology sort
-static
-bool cmp(const pair<Instruction*, unsigned>& lhs,
-         const pair<Instruction*, unsigned>& rhs) {
+static bool cmp(const pair<Instruction*, unsigned>& lhs,
+                const pair<Instruction*, unsigned>& rhs) {
   return lhs.second < rhs.second;
 }
+
 static vector<Instruction*>
 schedule_insts(vector<pair<Instruction*, unsigned>> &iis) {
   std::sort(iis.begin(), iis.end(), cmp);
-
 
   vector<Instruction*> sorted_iis;
   for (auto ii : iis) {
@@ -50,7 +57,7 @@ schedule_insts(vector<pair<Instruction*, unsigned>> &iis) {
   return sorted_iis;
 }
 
-unsigned getInstructionIdx(const Instruction *I) {
+static unsigned getInstructionIdx(const Instruction *I) {
   unsigned idx = 0;
   for (auto &ii : *(I->getParent())) {
     if (&ii == I)
@@ -65,9 +72,7 @@ namespace minotaur {
 //  * if a external value is outside the loop, and it does not dominates v,
 //    do not extract it
 optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
-  if(config::debug_slicer) {
-    llvm::errs() << ">>> slicing value " << v << ">>>\n";
-  }
+  debug() << ">>> slicing value " << v << ">>>\n";
 
   if (!v.getType()->isIntOrIntVectorTy())
     return nullopt;
@@ -78,29 +83,23 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
   Loop *loopv = LI.getLoopFor(vbb);
   if (loopv) {
-    if(config::debug_slicer) {
-      llvm::errs() << "[INFO] value is in " << *loopv;
-    }
+    debug() << "[slicer] value is in " << *loopv;
+
     if (!loopv->isLoopSimplifyForm()) {
-      // TODO: continue harvesting within loop boundary, even loop is not in
-      // normal form.
-      if(config::debug_slicer) {
-        llvm::errs() << "[INFO] loop is not in normal form\n";
-      }
+      debug() << "[slicer] loop is not in normal form, terminating\n";
       return nullopt;
     }
   }
 
   LLVMContext &ctx = m->getContext();
-  unordered_set<Value *> visited;
+  unordered_set<Value*> visited;
 
-  queue<pair<Value *, unsigned>> worklist;
+  queue<pair<Value*, unsigned>> worklist;
 
   ValueToValueMapTy vmap;
-  vector<Instruction *> insts;
-  unordered_map<BasicBlock *, vector<pair<Instruction*,unsigned>>> bb_insts;
-  unordered_set<BasicBlock *> blocks;
-  set<Value*> pointers;
+  vector<Instruction*> insts;
+  unordered_map<BasicBlock*, vector<pair<Instruction*,unsigned>>> bb_insts;
+  unordered_set<BasicBlock*> blocks;
 
   // set of predecessor bb a bb depends on
   unordered_map<BasicBlock *, unordered_set<BasicBlock *>> bb_deps;
@@ -117,13 +116,6 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     auto &[w, depth] = worklist.front();
     worklist.pop();
 
-    if (isa<LandingPadInst>(w))
-      continue;
-
-    if (isa<FreezeInst>(w)) {
-      continue;
-    }
-
     if (!visited.insert(w).second)
       continue;
 
@@ -136,16 +128,14 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
         auto op = i->getOperand(op_i);
         if (isa<ConstantExpr>(op)) {
-          if(config::debug_slicer)
-            llvm::errs() << "[INFO] found instruction that uses ConstantExpr\n";
+          debug() << "[slicer] found instruction that uses ConstantExpr\n";
           haveUnknownOperand = true;
           break;
         }
         auto op_ty = op->getType();
         if (op_ty->isStructTy() || op_ty->isFloatingPointTy() || op_ty->isPointerTy()) {
-          if(config::debug_slicer)
-            llvm::errs() << "[INFO] found instruction with operands with type "
-                         << *op_ty <<"\n";
+          debug() << "[slicer] found instruction with operands with type "
+                  << *op_ty <<"\n";
           haveUnknownOperand = true;
           break;
         }
@@ -166,14 +156,12 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       if (CallInst *ci = dyn_cast<CallInst>(i)) {
         Function *callee = ci->getCalledFunction();
         if (!callee) {
-          if(config::debug_slicer)
-            llvm::errs() << "[INFO] indirect call found\n";
+          debug() << "[slicer] indirect call found\n";
           continue;
         }
         if (!callee->isIntrinsic()) {
-          if(config::debug_slicer)
-            llvm::errs() << "[INFO] unknown callee found "
-                         << callee->getName() << "\n";
+          debug() << "[slicer] unknown callee found "
+                  << callee->getName() << "\n";
           continue;
         }
         FunctionCallee intrindecl =
@@ -202,9 +190,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
         // if a phi node has unknown income, do not harvest
         if (phiHasUnknownIncome) {
-          if(config::debug_slicer) {
-            llvm::errs()<<"[INFO]"<<*phi<<" has external income\n";
-          }
+          debug() << "[slicer]" << *phi << " has external income\n";
           continue;
         }
 
@@ -234,19 +220,12 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
         }*/
       }
 
-      if (insts.size() > MAX_INSTNS)
-        return nullopt;
-
       insts.push_back(i);
-
-
       bb_insts[ibb].push_back({i, getInstructionIdx(i)});
-
-      // BB->getInstList().push_front(c);
 
       bool never_visited = blocks.insert(ibb).second;
 
-      if (depth > MAX_DEPTH)
+      if (depth > config::slicer_max_depth)
         continue;
 
       // add condition to worklist
@@ -277,15 +256,13 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
         worklist.push({op, depth + 1});
       }
     } else {
-      llvm::report_fatal_error("[ERROR] Unknown value:" + w->getName() + "\n");
+      report_fatal_error("[slicer] Unknown value:" + w->getName() + "\n");
     }
   }
 
   // if no instructions satisfied the criteria of cloning, return null.
   if (insts.empty()) {
-    if(config::debug_slicer) {
-      llvm::errs()<<"[INFO] no instruction can be harvested\n";
-    }
+    debug() << "[slicer] no instruction can be harvested, skipping\n";
     return nullopt;
   }
 
@@ -333,8 +310,8 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   };
 
   for (auto &[bb, deps] : bb_deps) {
-    std::unordered_set<llvm::BasicBlock*> visited;
-    std::vector<llvm::BasicBlock*> currentPath;
+    unordered_set<BasicBlock*> visited;
+    vector<BasicBlock*> currentPath;
     search(search, bb, deps, visited, currentPath, blocks);
   }
 
@@ -502,7 +479,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
   BasicBlock *entry = nullptr;
   if (block_without_preds.size() == 0) {
-    llvm::report_fatal_error("[ERROR] no entry block found");
+    report_fatal_error("[ERROR] no entry block found");
   } if (block_without_preds.size() == 1) {
     entry = *block_without_preds.begin();
     entry->insertInto(F);
@@ -541,24 +518,20 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
   // make sure sliced function is loop free.
   if (!FLI->empty())
-    llvm::report_fatal_error("[ERROR] a loop is generated");
+    report_fatal_error("[slicer] a loop is generated");
 
   eliminate_dead_code(*F);
   // validate the created function
   string err;
-  llvm::raw_string_ostream err_stream(err);
-  bool illformed = llvm::verifyFunction(*F, &err_stream);
+  raw_string_ostream err_stream(err);
+  bool illformed = verifyFunction(*F, &err_stream);
   if (illformed) {
-    llvm::errs() << "[ERROR] found errors in the generated function\n";
-    F->dump();
-    llvm::errs() << err << "\n";
-    return nullopt;
-    //llvm::report_fatal_error("illformed function generated");
+    debug() << err << "\n" << F;
+    report_fatal_error("[slicer] illformed function generated, terminating\n");
   }
-  if (config::debug_slicer) {
-    F->dump();
-    llvm::errs() << "<<< end of %" << v.getName() << " <<<\n";
-  }
+
+  debug()<< *F << "\n" << "<<< end of %" << v.getName() << " <<<\n";
+
   return optional<reference_wrapper<Function>>(*F);
 }
 
