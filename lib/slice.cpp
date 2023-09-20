@@ -16,6 +16,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -144,18 +145,34 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
         vmap[callee] = intrindecl.getCallee();
         ops = call->args();
-      } else if (auto LI = dyn_cast<LoadInst>(i)) {
-        continue;
-        /*auto dep = MD.getDependency(LI);
-        if (dep.isDef() || dep.isClobber()) {
-          auto st = dep.getInst();
-
-          if (st->getParent() == ibb) {
-            insts.push_back(st);
-            bb_insts[ibb].push_back({st, getInstructionIdx(st)});
+      } else if (auto phi = dyn_cast<PHINode>(i)) {
+        bool phiHasUnknownIncome = false;
+        unsigned incomes = phi->getNumIncomingValues();
+        for (unsigned i = 0; i < incomes; i++) {
+          BasicBlock *block = phi->getIncomingBlock(i);
+          Loop *loopphi = LI.getLoopFor(block);
+          if (loopphi != loopv) {
+            phiHasUnknownIncome = true;
+            break;
           }
-        }*/
-      }
+        }
+        // if a phi node has unknown income, do not harvest
+        if (phiHasUnknownIncome) {
+          debug() << "[slicer]" << *phi << " has external income\n";
+          continue;
+        }
+      } else if (auto LI = dyn_cast<LoadInst>(i)) {
+          continue;
+          /*auto dep = MD.getDependency(LI);
+          if (dep.isDef() || dep.isClobber()) {
+            auto st = dep.getInst();
+
+            if (st->getParent() == ibb) {
+              insts.push_back(st);
+              bb_insts[ibb].push_back({st, getInstructionIdx(st)});
+            }
+          }*/
+        }
 
       // filter unknown operation by operand type
       bool haveUnknownOperand = false;
@@ -442,6 +459,12 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   } if (block_without_preds.size() == 1) {
     entry = *block_without_preds.begin();
     entry->insertInto(F);
+    for (auto &I : make_early_inc_range(*entry)) {
+      if (PHINode *phi = dyn_cast<PHINode>(&I)) {
+        phi->replaceAllUsesWith(PoisonValue::get(phi->getType()));
+        phi->eraseFromParent();
+      }
+    }
     for (auto block : cloned_blocks) {
       if (block == entry)
         continue;
@@ -485,7 +508,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   raw_string_ostream err_stream(err);
   bool illformed = verifyFunction(*F, &err_stream);
   if (illformed) {
-    debug() << err << "\n" << F;
+    debug() << err << "\n" << *F;
     report_fatal_error("[slicer] illformed function generated, terminating\n");
   }
 
