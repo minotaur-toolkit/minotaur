@@ -139,7 +139,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         continue;
 
       DataLayout DL(F.getParent());
-      minotaur::RemovalSlice S(F, LI, DT);
+      minotaur::Slice S(F, LI, DT);
       auto NewF = S.extractExpr(I);
       auto m = S.getNewModule();
 

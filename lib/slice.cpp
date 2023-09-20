@@ -31,8 +31,6 @@ using namespace std;
 
 static constexpr unsigned MAX_DEPTH = 5;
 static constexpr unsigned MAX_INSTNS = 20;
-static constexpr unsigned MAX_BLOCKS = 10;
-static constexpr unsigned MAX_WORKLIST= 500;
 
 // place instructions within a basicblock with topology sort
 static
@@ -307,47 +305,37 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   // values by simply backward-traversing def/use tree, Block I will be missed.
   // To solve this issue,  we identify all such missed block by searching.
   // TODO: better object management.
-  for (auto &[bb, deps] : bb_deps) {
-    unordered_set<Value *> visited;
-    queue<pair<unordered_set<BasicBlock *>, BasicBlock *>> worklist;
-    worklist.push({{bb}, bb});
-    // unordered_set<BasicBlock*> unreachable;
+  auto search = [](auto self,
+                   BasicBlock* current,
+                   unordered_set<BasicBlock*> target,
+                   unordered_set<BasicBlock*>& visited,
+                   vector<BasicBlock*>& currentPath,
+                   unordered_set<BasicBlock*>& result) -> void {
 
-    while (!worklist.empty()) {
-      auto [path, ibb] = worklist.front();
-      worklist.pop();
+    // Add current block to the path
+    currentPath.push_back(current);
 
-      if (deps.contains(ibb)) {
-        if (blocks.size() > MAX_BLOCKS)
-          return nullopt;
-        blocks.insert(path.begin(), path.end());
-        if(visited.insert(ibb).second) {
-          path.clear();
-          path.insert(ibb);
-        } else {
-          continue;
+    // If we reach the target block, add all blocks in currentPath to the result
+    if (target.count(current)) {
+        result.insert(currentPath.begin(), currentPath.end());
+    } else {
+        // Otherwise, visit successors
+        for (BasicBlock* pred : predecessors(current)) {
+            if (visited.find(pred) == visited.end()) {
+                visited.insert(pred);
+                self(self, pred, target, visited, currentPath, result);
+                visited.erase(pred);  // Backtrack
+            }
         }
-      }
-
-      for (BasicBlock *pred : predecessors(ibb)) {
-        // do not allow loop
-        if (path.count(pred)) {
-          return nullopt;
-        }
-        // if (unreachable.contains(pred)) {
-        //   continue;
-        // }
-        // SmallVector<BasicBlock*, 8> sv_deps(deps.begin(), deps.end());
-        // if (!isPotentiallyReachableFromMany(sv_deps, pred, nullptr, &DT, &LI)) {
-        //   unreachable.insert(pred);
-        //   continue;
-        // }
-        path.insert(pred);
-        if (worklist.size() > MAX_WORKLIST)
-          return nullopt;
-        worklist.push({path, pred});
-      }
     }
+    // Remove the current block from the path (backtrack)
+    currentPath.pop_back();
+  };
+
+  for (auto &[bb, deps] : bb_deps) {
+    std::unordered_set<llvm::BasicBlock*> visited;
+    std::vector<llvm::BasicBlock*> currentPath;
+    search(search, bb, deps, visited, currentPath, blocks);
   }
 
   // FIXME: Do not handle switch for now
