@@ -118,6 +118,9 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     auto &[w, depth] = worklist.front();
     worklist.pop();
 
+    if (depth > config::slicer_max_depth)
+      continue;
+
     if (!visited.insert(w).second)
       continue;
 
@@ -202,9 +205,6 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
       bool never_visited = blocks.insert(ibb).second;
 
-      if (depth > config::slicer_max_depth)
-        continue;
-
       // add condition to worklist
       if (ibb != vbb && never_visited) {
         Instruction *term = ibb->getTerminator();
@@ -224,7 +224,6 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
       if (PHINode *phi = dyn_cast<PHINode>(i)) {
         for (auto income : phi->blocks()) {
-          blocks.insert(income);
           bb_deps[ibb].insert(income);
         }
       }
