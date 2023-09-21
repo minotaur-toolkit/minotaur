@@ -13,6 +13,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Verifier.h"
@@ -73,7 +74,7 @@ namespace minotaur {
 //  * if a external value is outside the loop, and it does not dominates v,
 //    do not extract it
 optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
-  debug() << ">>> slicing value " << v << ">>>\n";
+  debug() << "[slicer] slicing value " << v << ">>>\n";
 
   if (!v.getType()->isIntOrIntVectorTy())
     return nullopt;
@@ -87,7 +88,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     debug() << "[slicer] value is in " << *loopv;
 
     if (!loopv->isLoopSimplifyForm()) {
-      debug() << "[slicer] loop is not in normal form, terminating\n";
+      debug() << "[slicer] loop is not in simplified form, skipping\n";
       return nullopt;
     }
   }
@@ -158,7 +159,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
         }
         // if a phi node has unknown income, do not harvest
         if (phiHasUnknownIncome) {
-          debug() << "[slicer]" << *phi << " has external income\n";
+          debug() << "[slicer]" << *phi << " has external or constant income\n";
           continue;
         }
       } else if (auto LI = dyn_cast<LoadInst>(i)) {
@@ -207,17 +208,24 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       // add condition to worklist
       if (ibb != vbb && never_visited) {
         Instruction *term = ibb->getTerminator();
-        if(!isa<BranchInst>(term))
+        if(!isa<BranchInst>(term)) {
+          debug() << "found non branch terminator " << *term << ", skipping\n";
           return nullopt;
+        }
         BranchInst *bi = cast<BranchInst>(term);
         if (bi->isConditional()) {
           if (Instruction *c = dyn_cast<Instruction>(bi->getCondition())) {
             BasicBlock *cbb = cast<Instruction>(c)->getParent();
-            auto pds = predecessors(ibb);
-            if (cbb != ibb && find(pds.begin(), pds.end(), cbb) == pds.end())
-              bb_deps[ibb].insert(cbb);
+            bb_deps[ibb].insert(cbb);
             worklist.push({c, depth + 1});
           }
+        }
+      }
+
+      if (PHINode *phi = dyn_cast<PHINode>(i)) {
+        for (auto income : phi->blocks()) {
+          blocks.insert(income);
+          bb_deps[ibb].insert(income);
         }
       }
 
@@ -225,10 +233,8 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
         if (!isa<Instruction>(op))
           continue;
 
-        auto preds = predecessors(i->getParent());
-        BasicBlock *bb_i = cast<Instruction>(op)->getParent();
-        if (find(preds.begin(), preds.end(), bb_i) == preds.end())
-          bb_deps[i->getParent()].insert(bb_i);
+        BasicBlock *opbb = cast<Instruction>(op)->getParent();
+        bb_deps[ibb].insert(opbb);
         worklist.push({op, depth + 1});
       }
     } else {
@@ -260,7 +266,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   // TODO: better object management.
   auto search = [](auto self,
                    BasicBlock* current,
-                   unordered_set<BasicBlock*> target,
+                   BasicBlock* target,
                    unordered_set<BasicBlock*>& visited,
                    vector<BasicBlock*>& currentPath,
                    unordered_set<BasicBlock*>& result) -> void {
@@ -269,18 +275,18 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     currentPath.push_back(current);
 
     // If we reach the target block, add all blocks in currentPath to the result
-    if (target.count(current)) {
+    if (target == current) {
         result.insert(currentPath.begin(), currentPath.end());
     } else {
-        // Otherwise, visit successors
-        for (BasicBlock* pred : predecessors(current)) {
-            if (visited.find(pred) == visited.end()) {
-                visited.insert(pred);
-                self(self, pred, target, visited, currentPath, result);
-                visited.erase(pred);  // Backtrack
-            }
-        }
+      for (BasicBlock* pred : predecessors(current)) {
+          if (visited.find(pred) == visited.end()) {
+              visited.insert(pred);
+              self(self, pred, target, visited, currentPath, result);
+              visited.erase(pred);  // Backtrack
+          }
+      }
     }
+
     // Remove the current block from the path (backtrack)
     currentPath.pop_back();
   };
@@ -288,7 +294,9 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   for (auto &[bb, deps] : bb_deps) {
     unordered_set<BasicBlock*> visited;
     vector<BasicBlock*> currentPath;
-    search(search, bb, deps, visited, currentPath, blocks);
+    for (auto *dep : deps) {
+      search(search, bb, dep, visited, currentPath, blocks);
+    }
   }
 
   // FIXME: Do not handle switch for now
@@ -455,7 +463,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
   BasicBlock *entry = nullptr;
   if (block_without_preds.size() == 0) {
-    report_fatal_error("[ERROR] no entry block found");
+    report_fatal_error("[slicer] no entry block found, terminating\n");
   } if (block_without_preds.size() == 1) {
     entry = *block_without_preds.begin();
     entry->insertInto(F);
@@ -483,14 +491,17 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     }
   }
 
+/*
   for (auto bb : blocks) {
     if (bmap[bb] == entry)
       continue;
     for(BasicBlock *pred : predecessors(bb)) {
-      if (!blocks.count(pred))
-        return nullopt;
+      if (!blocks.count(pred)) {
+        report_fatal_error("[slicer] dangling basicblock\n");
+      }
     }
   }
+  */
   sinkbb->insertInto(F);
 
   DominatorTree FDT = DominatorTree();
@@ -500,7 +511,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
   // make sure sliced function is loop free.
   if (!FLI->empty())
-    report_fatal_error("[slicer] a loop is generated");
+    report_fatal_error("[slicer] a loop is generated, terminating\n");
 
   eliminate_dead_code(*F);
   // validate the created function
