@@ -138,8 +138,13 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
       // filter unknown operation by instruction
       if (CallInst *call = dyn_cast<CallInst>(i)) {
         auto callee = call->getCalledFunction();
-        if (!callee || !callee->isIntrinsic()) {
-          debug() << "[slicer] unknown callee: " << callee->getName() << "\n";
+        if (!callee) {
+          debug() << "[slicer] unknown callee \n";
+          continue;
+        }
+        if (!callee->isIntrinsic()) {
+          debug() << "[slicer] non-intrinsic call: "
+                  << callee->getName() << "\n";
           continue;
         }
 
