@@ -35,8 +35,8 @@ using namespace std;
 
 static llvm::cl::OptionCategory minotaur_cs("minotaur-cs options");
 
-static llvm::cl::opt<string>
-opt_file(llvm::cl::Positional, llvm::cl::desc("bitcode_file"),
+static llvm::cl::opt<string> opt_file(
+    llvm::cl::Positional, llvm::cl::desc("bitcode_file"),
     llvm::cl::Required, llvm::cl::value_desc("filename"),
     llvm::cl::cat(minotaur_cs));
 
@@ -44,13 +44,13 @@ static llvm::cl::opt<bool> opt_debug(
     "dbg", llvm::cl::desc("Alive: print debugging info"),
     llvm::cl::cat(minotaur_cs), llvm::cl::init(false));
 
-// static llvm::cl::opt<bool> opt_disable_undef("disable-undef-input",
-//     llvm::cl::init(false), llvm::cl::cat(minotaur_cs),
-//     llvm::cl::desc("Alive: Assume inputs are not undef (default=false)"));
+static llvm::cl::opt<bool> opt_disable_undef("disable-undef-input",
+    llvm::cl::init(true), llvm::cl::cat(minotaur_cs),
+    llvm::cl::desc("Alive: Assume inputs are not undef (default=true)"));
 
-// static llvm::cl::opt<bool> opt_disable_poison("disable-poison-input",
-//     llvm::cl::init(false), llvm::cl::cat(minotaur_cs),
-//     llvm::cl::desc("Alive: Assume inputs are not poison (default=false)"));
+static llvm::cl::opt<bool> opt_disable_poison("disable-poison-input",
+    llvm::cl::init(true), llvm::cl::cat(minotaur_cs),
+    llvm::cl::desc("Alive: Assume inputs are not poison (default=true)"));
 
 static llvm::cl::opt<bool> opt_smt_verbose(
     "smt-verbose", llvm::cl::desc("Alive: SMT verbose mode"),
@@ -59,6 +59,11 @@ static llvm::cl::opt<bool> opt_smt_verbose(
 static llvm::cl::opt<bool> opt_smt_stats(
     "smt-stats", llvm::cl::desc("Alive: show SMT statistics"),
     llvm::cl::cat(minotaur_cs), llvm::cl::init(false));
+
+static llvm::cl::opt<unsigned> opt_smt_to(
+    "smt-to", llvm::cl::desc("Timeout for SMT queries (default=10000)"),
+    llvm::cl::cat(minotaur_cs),
+    llvm::cl::init(10000), llvm::cl::value_desc("ms"));
 
 static llvm::ExitOnError ExitOnErr;
 
@@ -101,17 +106,17 @@ int main(int argc, char **argv) {
   llvm::cl::ParseCommandLineOptions(argc, argv,
                                     "Minotaur stand-alone Constant Synthesizer\n");
 
-  //smt::solver_print_queries(opt_smt_verbose);
-  config::disable_undef_input = true;
-  config::disable_poison_input = true;
-
+  smt::set_query_timeout(to_string(opt_smt_to));
+  smt::solver_print_queries(opt_smt_verbose);
+  config::disable_undef_input = opt_disable_undef;
+  config::disable_poison_input = opt_disable_poison;
   config::debug = opt_debug;
+
   auto M = openInputFile(Context, opt_file);
   if (!M.get())
     llvm::report_fatal_error(
       llvm::Twine("Could not read bitcode from '" + opt_file + "'"));
 
-  //auto &DL = M1.get()->getDataLayout();
   auto targetTriple = llvm::Triple(M.get()->getTargetTriple());
   llvm::TargetLibraryInfoWrapperPass TLI(targetTriple);
 
