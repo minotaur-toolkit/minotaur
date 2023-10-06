@@ -14,6 +14,7 @@
 #include "util/symexec.h"
 #include "util/errors.h"
 #include "llvm_util/llvm2alive.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Bitcode/BitcodeReader.h"
@@ -33,59 +34,58 @@ using namespace tools;
 using namespace util;
 using namespace std;
 
-static llvm::cl::OptionCategory minotaur_cs("minotaur-cs options");
+using namespace llvm;
 
-static llvm::cl::opt<string> opt_file(
-    llvm::cl::Positional, llvm::cl::desc("bitcode_file"),
-    llvm::cl::Required, llvm::cl::value_desc("filename"),
-    llvm::cl::cat(minotaur_cs));
+static cl::OptionCategory minotaur_cs("minotaur-cs options");
 
-static llvm::cl::opt<bool> opt_debug(
-    "dbg", llvm::cl::desc("Alive: print debugging info"),
-    llvm::cl::cat(minotaur_cs), llvm::cl::init(false));
+static cl::opt<string> opt_file(
+    cl::Positional, cl::desc("bitcode_file"), cl::Required,
+    cl::value_desc("filename"), cl::cat(minotaur_cs));
 
-static llvm::cl::opt<bool> opt_disable_undef("disable-undef-input",
-    llvm::cl::init(true), llvm::cl::cat(minotaur_cs),
-    llvm::cl::desc("Alive: Assume inputs are not undef (default=true)"));
+static cl::opt<bool> opt_debug(
+    "dbg", cl::desc("Alive: print debugging info"),
+    cl::cat(minotaur_cs), cl::init(false));
 
-static llvm::cl::opt<bool> opt_disable_poison("disable-poison-input",
-    llvm::cl::init(true), llvm::cl::cat(minotaur_cs),
-    llvm::cl::desc("Alive: Assume inputs are not poison (default=true)"));
+static cl::opt<bool> opt_disable_undef("disable-undef-input",
+    cl::init(true), cl::cat(minotaur_cs),
+    cl::desc("Alive: Assume inputs are not undef (default=true)"));
 
-static llvm::cl::opt<bool> opt_smt_verbose(
-    "smt-verbose", llvm::cl::desc("Alive: SMT verbose mode"),
-    llvm::cl::cat(minotaur_cs), llvm::cl::init(false));
+static cl::opt<bool> opt_disable_poison("disable-poison-input",
+    cl::init(true), cl::cat(minotaur_cs),
+    cl::desc("Alive: Assume inputs are not poison (default=true)"));
 
-static llvm::cl::opt<bool> opt_smt_stats(
-    "smt-stats", llvm::cl::desc("Alive: show SMT statistics"),
-    llvm::cl::cat(minotaur_cs), llvm::cl::init(false));
+static cl::opt<bool> opt_smt_verbose(
+    "smt-verbose", cl::desc("Alive: SMT verbose mode"),
+    cl::cat(minotaur_cs), cl::init(false));
 
-static llvm::cl::opt<unsigned> opt_smt_to(
-    "smt-to", llvm::cl::desc("Timeout for SMT queries (default=10000)"),
-    llvm::cl::cat(minotaur_cs),
-    llvm::cl::init(10000), llvm::cl::value_desc("ms"));
+static cl::opt<bool> opt_smt_stats(
+    "smt-stats", cl::desc("Alive: show SMT statistics"),
+    cl::cat(minotaur_cs), cl::init(false));
 
-static llvm::ExitOnError ExitOnErr;
+static cl::opt<unsigned> opt_smt_to(
+    "smt-to", cl::desc("Timeout for SMT queries (default=10000)"),
+    cl::cat(minotaur_cs),
+    cl::init(10000), cl::value_desc("ms"));
+
+static ExitOnError ExitOnErr;
 
 // adapted from llvm-dis.cpp
-static std::unique_ptr<llvm::Module> openInputFile(llvm::LLVMContext &Context,
+static std::unique_ptr<Module> openInputFile(LLVMContext &Context,
                                                    string InputFilename) {
   auto MB =
-    ExitOnErr(errorOrToExpected(llvm::MemoryBuffer::getFile(InputFilename)));
-  llvm::SMDiagnostic Diag;
+    ExitOnErr(errorOrToExpected(MemoryBuffer::getFile(InputFilename)));
+  SMDiagnostic Diag;
   auto M = getLazyIRModule(std::move(MB), Diag, Context,
                            /*ShouldLazyLoadMetadata=*/true);
   if (!M) {
-    Diag.print("", llvm::errs(), false);
+    Diag.print("", errs(), false);
     return 0;
   }
   ExitOnErr(M->materializeAll());
   return M;
 }
 
-void calculateAndInitConstants(Transform &t);
-
-static llvm::Function *findFunction(llvm::Module &M, const string &FName) {
+static Function *findFunction(Module &M, const string &FName) {
   for (auto &F : M) {
     if (F.isDeclaration())
       continue;
@@ -93,17 +93,17 @@ static llvm::Function *findFunction(llvm::Module &M, const string &FName) {
       continue;
     return &F;
   }
-  return 0;
+  return nullptr;
 }
 
 int main(int argc, char **argv) {
-  llvm::sys::PrintStackTraceOnErrorSignal(argv[0]);
-  llvm::PrettyStackTraceProgram X(argc, argv);
-  llvm::EnableDebugBuffering = true;
-  llvm::llvm_shutdown_obj llvm_shutdown;  // Call llvm_shutdown() on exit.
-  llvm::LLVMContext Context;
+  sys::PrintStackTraceOnErrorSignal(argv[0]);
+  PrettyStackTraceProgram X(argc, argv);
+  EnableDebugBuffering = true;
+  llvm_shutdown_obj llvm_shutdown;  // Call llvm_shutdown() on exit.
+  LLVMContext Context;
 
-  llvm::cl::ParseCommandLineOptions(argc, argv,
+  cl::ParseCommandLineOptions(argc, argv,
                                     "Minotaur stand-alone Constant Synthesizer\n");
 
   smt::set_query_timeout(to_string(opt_smt_to));
@@ -114,17 +114,30 @@ int main(int argc, char **argv) {
 
   auto M = openInputFile(Context, opt_file);
   if (!M.get())
-    llvm::report_fatal_error(
-      llvm::Twine("Could not read bitcode from '" + opt_file + "'"));
+    report_fatal_error(
+      Twine("could not read bitcode from '" + opt_file + "'"));
 
-  auto targetTriple = llvm::Triple(M.get()->getTargetTriple());
-  llvm::TargetLibraryInfoWrapperPass TLI(targetTriple);
+  auto targetTriple = Triple(M.get()->getTargetTriple());
+  TargetLibraryInfoWrapperPass TLI(targetTriple);
 
   auto SRC = findFunction(*M, "src");
+  if (!SRC)
+    report_fatal_error("could not find function in src");
+
   auto TGT = findFunction(*M, "tgt");
+  if (!TGT)
+    report_fatal_error("could not find function in tgt");
+
+  auto check_name = [](Argument &A) {
+    return A.getName().startswith("_reservedc");
+  };
+  if (!any_of(SRC->args(), check_name))
+    report_fatal_error("could not find reservedconst argument in src");
+  if (!any_of(TGT->args(), check_name))
+    report_fatal_error("could not find reservedconst argument in tgt");
 
   minotaur::config::debug_tv = true;
-  unordered_map<const llvm::Argument*, llvm::Constant*> constMap;
+  unordered_map<const Argument*, Constant*> constMap;
   minotaur::AliveEngine AE(TLI);
   try {
     AE.constantSynthesis(*SRC, *TGT, constMap);
