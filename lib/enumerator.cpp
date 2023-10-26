@@ -423,7 +423,7 @@ optional<Rewrite> Enumerator::synthesize(llvm::Function &F) {
 
   AliveEngine AE(TLI);
 
-  unsigned machinecost = get_machine_cost(&F);
+  unsigned machinecost = get_machine_cost(&F) + 1;
 
   for (auto &BB : F) {
     auto T = BB.getTerminator();
@@ -531,7 +531,7 @@ optional<Rewrite> Enumerator::synthesize(llvm::Function &F) {
 
       llvm::Instruction *PrevI = llvm::cast<llvm::Instruction>(VMap[&*I]);
       ConstMap _consts;
-      Rewrite R{*Src, G, _consts};
+      Rewrite R{*Tgt, G, _consts};
       llvm::Value *V =
          LLVMGen(PrevI, IntrinsicDecls).codeGen(R, VMap);
       V = llvm::IRBuilder<>(PrevI).CreateBitCast(V, PrevI->getType());

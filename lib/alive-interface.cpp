@@ -101,25 +101,29 @@ AliveEngine::find_model(Transform &t,
 
   Errors errs;
 
-  for (auto &[var, val] : src_state.getValues()) {
-    if (!dynamic_cast<const Input*>(var))
+  for (auto &i : src_state.getFn().getInputs()) {
+    if (!dynamic_cast<const Input*>(&i))
       continue;
 
-    if (var->getName().rfind("%_reservedc") == 0) {
+    auto *val = src_state.at(i);
+    if (!val)
+      continue;
+
+    if (i.getName().rfind("%_reservedc") == 0) {
       continue;
     }
 
-    auto &ty = var->getType();
+    auto &ty = i.getType();
 
     if (ty.isIntType()) {
-      qvars.insert(val.val.value);
+      qvars.insert(val->val.value);
       continue;
     }
 
     if (ty.isVectorType() && ty.getAsAggregateType()->getChild(0).isIntType()) {
       auto aty = ty.getAsAggregateType();
       for (unsigned I = 0; I < aty->numElementsConst(); ++I) {
-        qvars.insert(aty->extract(val.val, I, false).value);
+        qvars.insert(aty->extract(val->val, I, false).value);
       }
       continue;
     }
@@ -187,16 +191,20 @@ AliveEngine::find_model(Transform &t,
   stringstream s;
   auto &m = r.getModel();
   s << ";result\n";
-  for (auto &[var, val] : tgt_state.getValues()) {
-    if (!dynamic_cast<const Input*>(var) &&
-        !dynamic_cast<const ConstantInput*>(var))
+  for (auto &i : src_state.getFn().getInputs()) {
+    if (!dynamic_cast<const Input*>(&i) &&
+        !dynamic_cast<const ConstantInput*>(&i))
         continue;
 
-    if (var->getName().rfind("%_reservedc", 0) == 0) {
-      auto In = static_cast<const Input *>(var);
-      result[In] = m.eval(val.val.value, true);
-      s << *var << " = ";
-      tools::print_model_val(s, src_state, m, var, var->getType(), val.val);
+    auto *val = src_state.at(i);
+    if (!val)
+      continue;
+
+    if (i.getName().rfind("%_reservedc", 0) == 0) {
+      auto In = dynamic_cast<const Input*>(&i);
+      result[In] = m.eval(val->val.value, true);
+      s << i << " = ";
+      tools::print_model_val(s, src_state, m, &i, i.getType(), val->val);
       s << '\n';
     }
   }

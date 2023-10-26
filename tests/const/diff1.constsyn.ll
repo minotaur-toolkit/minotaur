@@ -19,3 +19,4 @@ sink:                                             ; No predecessors!
 }
 
 declare <8 x i32> @llvm.x86.avx2.pmadd.wd(<16 x i16>, <16 x i16>)
+
