@@ -72,21 +72,15 @@ Enumerator::findInputs(llvm::Function &F,
                        llvm::DominatorTree &DT) {
   // breadth-first search
   for (auto &A : F.args()) {
-    if (A.getType()->isIntOrIntVectorTy()) {
       auto T = make_unique<Var>(&A);
       values.insert(T.get());
       exprs.emplace_back(std::move(T));
-    }
   }
   for (auto &BB : F) {
     for (auto &I : BB) {
       if (&I == root)
         continue;
       if (!DT.dominates(&I, root))
-        continue;
-
-      auto ty = I.getType();
-      if (!ty->isIntOrIntVectorTy())
         continue;
 
       auto T = make_unique<Var>(&I);
@@ -597,7 +591,7 @@ push:
         if (!HaveC) {
           Good = AE.compareFunctions(*Src, *Tgt);
         } else {
-          Good = AE.constantSynthesis(*Src, *Tgt, ConstantResults);
+          //Good = AE.constantSynthesis(*Src, *Tgt, ConstantResults);
         }
       } catch (AliveException E) {
         debug() << E.msg << "\n";
