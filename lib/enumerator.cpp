@@ -80,6 +80,11 @@ Enumerator::findInputs(llvm::Function &F,
     for (auto &I : BB) {
       if (&I == root)
         continue;
+
+      auto ty = I.getType();
+      if (!ty->isIntOrIntVectorTy() && !ty->isFPOrFPVectorTy())
+        continue;
+
       if (!DT.dominates(&I, root))
         continue;
 
@@ -459,7 +464,10 @@ optional<Rewrite> Enumerator::synthesize(llvm::Function &F) {
         exprs.emplace_back(std::move(VA));
       }
     }
+        cerr<<"fwaeff"<<endl;
+
     getSketches(&*I, Sketches);
+
 
     debug() << "[enumerator] listing sketches\n";
     for (auto &Sketch : Sketches) {
