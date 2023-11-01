@@ -434,7 +434,9 @@ optional<Rewrite> Enumerator::synthesize(llvm::Function &F) {
     llvm::Instruction *I = cast<llvm::Instruction>(S);
 
     unsigned Width = I->getType()->getScalarSizeInBits();
-    llvm::KnownBits KnownI = computeKnownBits(I, DL);
+    llvm::KnownBits KnownI(Width);
+    if (I->getType()->isIntOrIntVectorTy())
+      computeKnownBits(I, KnownI, DL);
 
     findInputs(F, I, DT);
 
@@ -557,12 +559,14 @@ optional<Rewrite> Enumerator::synthesize(llvm::Function &F) {
         goto push;
       }
 
-      computeKnownBits(V, KnownV, DL);
+      if (I->getType()->isIntOrIntVectorTy()) {
+        computeKnownBits(V, KnownV, DL);
 
-      if ((KnownV.Zero & KnownI.One) != 0 || (KnownV.One & KnownI.Zero) != 0) {
-        skip = true;
-        ++PRUNED;
-        goto push;
+        if ((KnownV.Zero & KnownI.One) != 0 || (KnownV.One & KnownI.Zero) != 0) {
+          skip = true;
+          ++PRUNED;
+          goto push;
+        }
       }
 
       // check cost
