@@ -17,7 +17,7 @@ using namespace llvm;
 namespace minotaur {
 
 type::type(llvm::Type *t) {
-  if (t->isIntegerTy()) {
+  if (t->isIntegerTy() || t->isFloatingPointTy()) {
     lane = 1;
     bits = t->getPrimitiveSizeInBits();
     fp = t->isFloatingPointTy();
