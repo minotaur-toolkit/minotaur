@@ -192,7 +192,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
           break;
         }
         auto op_ty = op->getType();
-        if (op_ty->isStructTy()  || op_ty->isPointerTy()) {
+        if (op_ty->isStructTy()  || op_ty->isPtrOrPtrVectorTy()) {
           debug() << "[slicer] found instruction with operands with type "
                   << *op_ty <<"\n";
           haveUnknownOperand = true;
