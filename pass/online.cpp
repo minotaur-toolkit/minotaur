@@ -92,6 +92,11 @@ llvm::cl::opt<unsigned> redis_port(
     llvm::cl::desc("redis port number"),
     llvm::cl::init(6379));
 
+llvm::cl::opt<bool> dryrun(
+    "minotaur-dryrun",
+    llvm::cl::desc("minotaur: dryrun, do not change source"),
+    llvm::cl::init(true));
+
 static bool dom_check(llvm::Value *V, DominatorTree &DT, llvm::Use &U) {
   if (auto I = dyn_cast<Instruction> (V)) {
     for (auto &op : I->operands()) {
@@ -172,14 +177,6 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
           hSetNoSolution(bytecode.c_str(), bytecode.size(), ctx, F.getName());
         continue;
       }
-      unordered_set<llvm::Function *> IntrinDecls;
-      Instruction *insertpt = I.getNextNode();
-      while(isa<PHINode>(insertpt)) {
-        insertpt = insertpt->getNextNode();
-      }
-
-      auto *V = LLVMGen(insertpt, IntrinDecls).codeGen(*R, S.getValueMap());
-      V = llvm::IRBuilder<>(insertpt).CreateBitCast(V, I.getType());
 
       if (enable_caching) {
         string optimized;
@@ -196,6 +193,19 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
                     optimized.c_str(), optimized.size(),
                     rs.str(), ctx, R->CostBefore, R->CostAfter, F.getName());
       }
+
+      if (dryrun)
+        continue;
+
+      unordered_set<llvm::Function *> IntrinDecls;
+      Instruction *insertpt = I.getNextNode();
+      while(isa<PHINode>(insertpt)) {
+        insertpt = insertpt->getNextNode();
+      }
+
+      auto *V = LLVMGen(insertpt, IntrinDecls).codeGen(*R, S.getValueMap());
+      V = llvm::IRBuilder<>(insertpt).CreateBitCast(V, I.getType());
+
 
       I.replaceUsesWithIf(V, [&changed, &V, &DT](Use &U) {
         if(dom_check(V, DT, U)) {

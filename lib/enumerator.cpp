@@ -72,9 +72,9 @@ Enumerator::findInputs(llvm::Function &F,
                        llvm::DominatorTree &DT) {
   // breadth-first search
   for (auto &A : F.args()) {
-      auto T = make_unique<Var>(&A);
-      values.insert(T.get());
-      exprs.emplace_back(std::move(T));
+    auto T = make_unique<Var>(&A);
+    values.insert(T.get());
+    exprs.emplace_back(std::move(T));
   }
   for (auto &BB : F) {
     for (auto &I : BB) {
