@@ -76,7 +76,8 @@ namespace minotaur {
 optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   debug() << "[slicer] slicing value " << v << ">>>\n";
 
-  if (!v.getType()->isIntOrIntVectorTy() && !v.getType()->isFPOrFPVectorTy())
+  Type *vty = v.getType()->getScalarType();
+  if (!vty->isIntegerTy() && !vty->isIEEELikeFPTy())
     return nullopt;
 
   assert(isa<Instruction>(&v) && "Expr to be extracted must be a Instruction");

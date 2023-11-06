@@ -81,8 +81,8 @@ Enumerator::findInputs(llvm::Function &F,
       if (&I == root)
         continue;
 
-      auto ty = I.getType();
-      if (!ty->isIntOrIntVectorTy() && !ty->isFPOrFPVectorTy())
+      auto ty = I.getType()->getScalarType();
+      if (!ty->isIntegerTy() && !ty->isIEEELikeFPTy())
         continue;
 
       if (!DT.dominates(&I, root))
@@ -188,8 +188,8 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
           set<ReservedConst*> RCs;
 
           // (op rc, var)
-          if (dynamic_cast<ReservedConst *>(*Op0)) {
-            if (auto R = dynamic_cast<Var *>(*Op1)) {
+          if (dynamic_cast<ReservedConst*>(*Op0)) {
+            if (auto R = dynamic_cast<Var*>(*Op1)) {
               if (R->getWidth() != expected)
                 continue;
               auto T = make_unique<ReservedConst>(workty);
