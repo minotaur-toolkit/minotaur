@@ -293,7 +293,6 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
       FixedVectorType *vty = cast<FixedVectorType>(ty);
       auto ety = vty->getElementType();
       unsigned bits = vty->getScalarSizeInBits();
-      auto &childty = I.first->getType().getAsAggregateType()->getChild(0);
       SmallVector<llvm::Constant*> v;
       for (int i = vty->getElementCount().getKnownMinValue()-1; i >= 0; i --) {
         auto elem = flat.extract((i + 1) * bits - 1, i * bits);
@@ -304,7 +303,7 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
           IntegerType *ety = cast<IntegerType>(vty->getElementType());
           v.push_back(ConstantInt::get(ety, elem.numeral_string(), 10));
         } else if (ety->isIEEELikeFPTy()) {
-          APInt integer(bits, result[I.first].numeral_string(), 10);
+          APInt integer(bits, elem.numeral_string(), 10);
           APFloat fp(getFloatSemantics(bits), integer);
           v.push_back(ConstantFP::get(ety, fp));
         } else {
