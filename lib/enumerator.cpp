@@ -600,7 +600,7 @@ push:
         if (!HaveC) {
           Good = AE.compareFunctions(*Src, *Tgt);
         } else {
-          //Good = AE.constantSynthesis(*Src, *Tgt, ConstantResults);
+          Good = AE.constantSynthesis(*Src, *Tgt, ConstantResults);
         }
       } catch (AliveException E) {
         debug() << E.msg << "\n";
