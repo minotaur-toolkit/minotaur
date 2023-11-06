@@ -13,6 +13,7 @@
 #include "util/symexec.h"
 #include "tools/transform.h"
 #include "llvm_util/compare.h"
+#include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -212,6 +213,22 @@ AliveEngine::find_model(Transform &t,
   return errs;
 }
 
+static const llvm::fltSemantics &getFloatSemantics(unsigned BitWidth) {
+  switch (BitWidth) {
+  default:
+    llvm_unreachable("Unsupported floating-point semantics!");
+    break;
+  case 16:
+    return llvm::APFloat::IEEEhalf();
+  case 32:
+    return llvm::APFloat::IEEEsingle();
+  case 64:
+    return llvm::APFloat::IEEEdouble();
+  case 128:
+    return llvm::APFloat::IEEEquad();
+  }
+}
+
 // call constant synthesizer and fill in constMap if synthesis suceeeds
 bool
 AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
@@ -266,9 +283,11 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
       ConstMap[I.second] =
         ConstantInt::get(ity, result[I.first].numeral_string(), 10);
     } else if (ty->isIEEELikeFPTy()) {
-      expr fp = I.first->getType().getAsFloatType()->getFloat(result[I.first]);
-      ConstMap[I.second] =
-        ConstantFP::get(ty, fp.numeral_string());
+      unsigned bits = ty->getPrimitiveSizeInBits();
+      APInt integer(bits, result[I.first].numeral_string(), 10);
+      APFloat fp(getFloatSemantics(bits), integer);
+
+      ConstMap[I.second] = ConstantFP::get(ty, fp);
     } else if (ty->isVectorTy()) {
       auto flat = result[I.first];
       FixedVectorType *vty = cast<FixedVectorType>(ty);
@@ -285,8 +304,9 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
           IntegerType *ety = cast<IntegerType>(vty->getElementType());
           v.push_back(ConstantInt::get(ety, elem.numeral_string(), 10));
         } else if (ety->isIEEELikeFPTy()) {
-          expr fp = childty.getAsFloatType()->getFloat(elem);
-          v.push_back(ConstantFP::get(ety, fp.numeral_string()));
+          APInt integer(bits, result[I.first].numeral_string(), 10);
+          APFloat fp(getFloatSemantics(bits), integer);
+          v.push_back(ConstantFP::get(ety, fp));
         } else {
           UNREACHABLE();
         }
