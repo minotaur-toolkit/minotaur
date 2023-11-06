@@ -264,6 +264,9 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
       IntegerType *ity = cast<IntegerType>(ty);
       ConstMap[I.second] =
         ConstantInt::get(ity, result[I.first].numeral_string(), 10);
+    } else if (ty->isIEEELikeFPTy()) {
+       ConstMap[I.second] =
+          ConstantFP::get(ty, result[I.first].numeral_string());
     } else if (ty->isVectorTy()) {
       auto flat = result[I.first];
       FixedVectorType *vty = cast<FixedVectorType>(ty);

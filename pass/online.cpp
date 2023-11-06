@@ -123,7 +123,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
                   TargetLibraryInfoWrapperPass &TLI) {
 
   config::ignore_machine_cost = ignore_mca;
-  config::debug_enumerator = true;
+  config::debug_enumerator = debug_enumerator;
   config::debug_tv = debug_tv;
   config::debug_slicer = debug_slicer;
   smt::solver_print_queries(smt_verbose);
