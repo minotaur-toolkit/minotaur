@@ -101,11 +101,11 @@ AliveEngine::find_model(Transform &t,
 
   Errors errs;
 
-  for (auto &i : src_state.getFn().getInputs()) {
+  for (auto &i : tgt_state.getFn().getInputs()) {
     if (!dynamic_cast<const Input*>(&i))
       continue;
 
-    auto *val = src_state.at(i);
+    auto *val = tgt_state.at(i);
     if (!val)
       continue;
 
@@ -115,13 +115,13 @@ AliveEngine::find_model(Transform &t,
 
     auto &ty = i.getType();
 
-    if (ty.isIntType()) {
+    if (ty.isIntType() || ty.isFloatType()) {
       qvars.insert(val->val.value);
       continue;
     }
 
-    if (ty.isVectorType() && ty.getAsAggregateType()->getChild(0).isIntType()) {
-      auto aty = ty.getAsAggregateType();
+    auto aty = ty.getAsAggregateType();
+    if (ty.isVectorType() && (aty->getChild(0).isIntType() || aty->getChild(0).isFloatType())) {
       for (unsigned I = 0; I < aty->numElementsConst(); ++I) {
         qvars.insert(aty->extract(val->val, I, false).value);
       }
@@ -191,12 +191,12 @@ AliveEngine::find_model(Transform &t,
   stringstream s;
   auto &m = r.getModel();
   s << ";result\n";
-  for (auto &i : src_state.getFn().getInputs()) {
+  for (auto &i : tgt_state.getFn().getInputs()) {
     if (!dynamic_cast<const Input*>(&i) &&
         !dynamic_cast<const ConstantInput*>(&i))
         continue;
 
-    auto *val = src_state.at(i);
+    auto *val = tgt_state.at(i);
     if (!val)
       continue;
 
@@ -204,7 +204,7 @@ AliveEngine::find_model(Transform &t,
       auto In = dynamic_cast<const Input*>(&i);
       result[In] = m.eval(val->val.value, true);
       s << i << " = ";
-      tools::print_model_val(s, src_state, m, &i, i.getType(), val->val);
+      tools::print_model_val(s, tgt_state, m, &i, i.getType(), val->val);
       s << '\n';
     }
   }
@@ -243,8 +243,9 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
   for (auto &&I : t.tgt.getInputs()) {
     string InputName = I.getName();
 
-    if (InputName.starts_with("%_reservedc"))
+    if (InputName.starts_with("%_reservedc")) {
       Inputs[&I] = Arguments[InputName];
+    }
   }
 
   // assume type verifies
@@ -265,20 +266,30 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
       ConstMap[I.second] =
         ConstantInt::get(ity, result[I.first].numeral_string(), 10);
     } else if (ty->isIEEELikeFPTy()) {
-       ConstMap[I.second] =
-          ConstantFP::get(ty, result[I.first].numeral_string());
+      expr fp = I.first->getType().getAsFloatType()->getFloat(result[I.first]);
+      ConstMap[I.second] =
+        ConstantFP::get(ty, fp.numeral_string());
     } else if (ty->isVectorTy()) {
       auto flat = result[I.first];
       FixedVectorType *vty = cast<FixedVectorType>(ty);
-      IntegerType *ety = cast<IntegerType>(vty->getElementType());
-
+      auto ety = vty->getElementType();
+      unsigned bits = vty->getScalarSizeInBits();
+      auto &childty = I.first->getType().getAsAggregateType()->getChild(0);
       SmallVector<llvm::Constant*> v;
       for (int i = vty->getElementCount().getKnownMinValue()-1; i >= 0; i --) {
-        unsigned bits = ety->getBitWidth();
         auto elem = flat.extract((i + 1) * bits - 1, i * bits);
         if (!elem.isConst())
           return false;
-        v.push_back(ConstantInt::get(ety, elem.numeral_string(), 10));
+
+        if (ety->isIntegerTy()) {
+          IntegerType *ety = cast<IntegerType>(vty->getElementType());
+          v.push_back(ConstantInt::get(ety, elem.numeral_string(), 10));
+        } else if (ety->isIEEELikeFPTy()) {
+          expr fp = childty.getAsFloatType()->getFloat(elem);
+          v.push_back(ConstantFP::get(ety, fp.numeral_string()));
+        } else {
+          UNREACHABLE();
+        }
       }
       ConstMap[I.second] = ConstantVector::get(v);
     }
