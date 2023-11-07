@@ -14,6 +14,20 @@
 using namespace std;
 using namespace llvm;
 
+static Type* getFloatingPointType(LLVMContext &C, unsigned bits) {
+  switch (bits) {
+  case 16:
+    return Type::getHalfTy(C);
+  case 32:
+    return Type::getFloatTy(C);
+  case 64:
+    return Type::getDoubleTy(C);
+  case 128:
+    return Type::getFP128Ty(C);
+  }
+  UNREACHABLE();
+}
+
 namespace minotaur {
 
 type::type(llvm::Type *t) {
@@ -47,20 +61,6 @@ bool type::operator==(const type &rhs) const {
 
 bool type::same_width(const type &rhs) const {
   return lane * bits == rhs.lane * rhs.bits;
-}
-
-static Type* getFloatingPointType(LLVMContext &C, unsigned bits) {
-  switch (bits) {
-  case 16:
-    return Type::getHalfTy(C);
-  case 32:
-    return Type::getFloatTy(C);
-  case 64:
-    return Type::getDoubleTy(C);
-  case 128:
-    return Type::getFP128Ty(C);
-  }
-  UNREACHABLE();
 }
 
 Type* type::toLLVM(LLVMContext &C) const {
