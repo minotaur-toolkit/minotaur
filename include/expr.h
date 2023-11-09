@@ -46,7 +46,7 @@ public:
     v->printAsOperand(ss, false);
     ss.flush();
   }
-  Var(std::string &n, unsigned width) : Value(width), name(n), v(nullptr) {}
+//  Var(std::string &n, unsigned width) : Value(width), name(n), v(nullptr) {}
   auto& getName() const { return name; }
   void setValue(llvm::Value *vv) { v = vv; }
   void print(std::ostream &os) const override;
@@ -56,9 +56,8 @@ public:
 
 class ReservedConst final : public Value {
   llvm::Argument *A;
-  type ty;
 public:
-  ReservedConst(type t) : Value(t.getWidth()), A(nullptr), ty(t) {}
+  ReservedConst(type t) : Value(t), A(nullptr) {}
   ReservedConst(type t, llvm::Constant *C);
   type getType() { return ty; }
   llvm::Argument *getA () const { return A; }
@@ -71,7 +70,7 @@ class CopyInst final : public Value {
 private:
   ReservedConst *rc;
 public:
-  CopyInst(ReservedConst &rc) : Value(rc.getWidth()), rc(&rc) {}
+  CopyInst(ReservedConst &rc) : Value(rc.getType()), rc(&rc) {}
   void print(std::ostream &os) const override;
   ReservedConst *Op0() { return rc; }
 };
@@ -85,7 +84,7 @@ private:
   type workty;
 public:
   UnaryInst(Op op, Value &V, type &workty)
-  : Value(workty.getWidth()), op(op), V(&V), workty(workty) {}
+  : Value(workty), op(op), V(&V), workty(workty) {}
   void print(std::ostream &os) const override;
   type getWorkTy() { return workty; }
   Op K() { return op; }
@@ -106,7 +105,7 @@ public:
     return op == band || op == bor || op == bxor;
   }
   BinaryInst(Op op, Value &lhs, Value &rhs, type &workty)
-  : Value(workty.getWidth()), op(op), lhs(&lhs), rhs(&rhs), workty(workty) {}
+  : Value(workty), op(op), lhs(&lhs), rhs(&rhs), workty(workty) {}
   void print(std::ostream &os) const override;
   Value *L() { return lhs; }
   Value *R() { return rhs; }
@@ -129,7 +128,7 @@ private:
   Value *rhs;
 public:
   ICmpInst(Cond cond, Value &lhs, Value &rhs, unsigned width)
-  : Value(width) , cond(cond), lhs(&lhs), rhs(&rhs) {}
+  : Value(type(width, 1, false)) , cond(cond), lhs(&lhs), rhs(&rhs) {}
   void print(std::ostream &os) const override;
   Value *L() { return lhs; }
   Value *R() { return rhs; }
@@ -143,7 +142,7 @@ class SIMDBinOpInst final : public Value {
   Value *rhs;
 public:
   SIMDBinOpInst(IR::X86IntrinBinOp::Op op, Value &lhs, Value &rhs)
-  : Value(IR::X86IntrinBinOp::getRetWidth(op)), op(op), lhs(&lhs), rhs(&rhs) {}
+  : Value(type(getIntrinsicRetTy(op))), op(op), lhs(&lhs), rhs(&rhs) {}
   void print(std::ostream &os) const override;
   Value *L() { return lhs; }
   Value *R() { return rhs; }
@@ -211,7 +210,7 @@ class FakeShuffleInst final : public Value {
   type expectty;
 public:
   FakeShuffleInst(Value &lhs, Value *rhs, ReservedConst &mask, type &ety)
-    : Value(ety.getWidth()), lhs(&lhs), rhs(rhs), mask(&mask), expectty(ety) {}
+    : Value(ety), lhs(&lhs), rhs(rhs), mask(&mask), expectty(ety) {}
   void print(std::ostream &os) const override;
   Value *L() { return lhs; }
   Value *R() { return rhs; }

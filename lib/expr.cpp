@@ -21,7 +21,7 @@ ostream& operator<<(ostream &os, const Inst &val) {
 }
 
 void Var::print(ostream &os) const {
-  os << "(var b" << width << " " << name <<")";
+  os << "(var b" << ty.getWidth() << " " << name <<")";
 }
 
 void ReservedConst::print(ostream &os) const {
@@ -109,7 +109,7 @@ void ICmpInst::print(ostream &os) const {
   lhs->print(os);
   os << " ";
   rhs->print(os);
-  os << " b" << width;
+  os << " b" << ty.getWidth();
   //rhs->print(os);
   os << ")";
 }

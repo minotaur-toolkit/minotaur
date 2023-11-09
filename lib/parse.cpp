@@ -126,15 +126,21 @@ static type parse_type() {
 }
 
 static Var* parse_var(vector<unique_ptr<minotaur::Inst>>&exprs) {
+  /*
   tokenizer.ensure(BITS);
   unsigned width = yylval.num;
   tokenizer.ensure(REGISTER);
   string id(yylval.str);
   tokenizer.ensure(RPAREN);
-  auto V = make_unique<Var>(id, width);
+
+  auto V = make_unique<Var>(id, type);
   Var *T = V.get();
   exprs.emplace_back(std::move(V));
   return T;
+  */
+
+  // TODO: fix me
+  return nullptr;
 }
 
 unsigned parse_number() {
