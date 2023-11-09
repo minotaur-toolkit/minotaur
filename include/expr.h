@@ -29,11 +29,11 @@ public:
 
 class Value : public Inst {
 protected:
-  unsigned width;
+  type ty;
 public:
-  unsigned getWidth() { return width; }
+  unsigned getWidth() { return ty.getWidth(); }
   virtual void print(std::ostream &os) const = 0;
-  Value(unsigned width) : width (width) {}
+  Value(type ty) : ty (ty) {}
 };
 
 
@@ -41,7 +41,7 @@ class Var final : public Value {
   std::string name;
   llvm::Value *v;
 public:
-  Var(llvm::Value *v) : Value(v->getType()->getPrimitiveSizeInBits()), v(v) {
+  Var(llvm::Value *v) : Value(type(v->getType())), v(v) {
     llvm::raw_string_ostream ss(name);
     v->printAsOperand(ss, false);
     ss.flush();
@@ -233,7 +233,8 @@ private:
   unsigned lane, prev_bits, new_bits;
 public:
   ConversionInst(Op op, Value &v, unsigned l, unsigned pb, unsigned nb)
-    : Value(l * nb), k(op), v(&v), lane(l), prev_bits(pb), new_bits(nb) {}
+    : Value(type(l, nb, false)), k(op), v(&v), lane(l),
+      prev_bits(pb), new_bits(nb) {}
   void print(std::ostream &os) const override;
   Value *V() { return v; }
   Op K() { return k; }

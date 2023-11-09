@@ -14,6 +14,41 @@
 using namespace std;
 using namespace llvm;
 
+namespace minotaur {
+
+type::type(llvm::Type *t) {
+  if (t->isIntegerTy() || t->isFloatingPointTy()) {
+    lane = 1;
+    bits = t->getPrimitiveSizeInBits();
+    fp = t->isFloatingPointTy();
+  } else if (t->isVectorTy()) {
+    if (isa<llvm::ScalableVectorType>(t))
+      report_fatal_error("scalable vector type not yet supported");
+
+    FixedVectorType *fty = cast<FixedVectorType>(t);
+    Type *elemty = fty->getElementType();
+    lane = fty->getNumElements();
+    bits = elemty->getPrimitiveSizeInBits();
+    if (elemty->isIntegerTy()) {
+      fp = false;
+    } else if (elemty->isFloatingPointTy()) {
+      fp = true;
+    } else {
+      report_fatal_error("non-trivial vectors are not supported\n");
+    }
+  } else {
+    report_fatal_error("[expr] unrecognized type");
+  }
+}
+
+bool type::operator==(const type &rhs) const {
+  return lane == rhs.lane && bits == rhs.bits && fp == rhs.fp;
+}
+
+bool type::same_width(const type &rhs) const {
+  return lane * bits == rhs.lane * rhs.bits;
+}
+
 static Type* getFloatingPointType(LLVMContext &C, unsigned bits) {
   switch (bits) {
   case 16:
@@ -26,41 +61,6 @@ static Type* getFloatingPointType(LLVMContext &C, unsigned bits) {
     return Type::getFP128Ty(C);
   }
   UNREACHABLE();
-}
-
-namespace minotaur {
-
-type::type(llvm::Type *t) {
-  if (t->isIntegerTy() || t->isFloatingPointTy()) {
-    lane = 1;
-    bits = t->getPrimitiveSizeInBits();
-    fp = t->isFloatingPointTy();
-  } else if (t->isVectorTy()) {
-    if (llvm::isa<llvm::ScalableVectorType>(t))
-      llvm::report_fatal_error("scalable vector type not yet supported");
-
-    llvm::FixedVectorType *fty = cast<llvm::FixedVectorType>(t);
-    Type *elemty = fty->getElementType();
-    lane = fty->getNumElements();
-    bits = elemty->getPrimitiveSizeInBits();
-    if (elemty->isIntegerTy()) {
-      fp = false;
-    } else if (elemty->isFloatingPointTy()) {
-      fp = true;
-    } else {
-      llvm::report_fatal_error("non-trivial vectors are not supported\n");
-    }
-  } else {
-    llvm::report_fatal_error("[expr] unrecognized type");
-  }
-}
-
-bool type::operator==(const type &rhs) const {
-  return lane == rhs.lane && bits == rhs.bits && fp == rhs.fp;
-}
-
-bool type::same_width(const type &rhs) const {
-  return lane * bits == rhs.lane * rhs.bits;
 }
 
 Type* type::toLLVM(LLVMContext &C) const {
