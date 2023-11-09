@@ -17,10 +17,10 @@ using namespace llvm;
 namespace minotaur {
 
 type::type(llvm::Type *t) {
-  if (t->isIntegerTy() || t->isFloatingPointTy()) {
+  if (t->isIntegerTy() || t->isIEEELikeFPTy()) {
     lane = 1;
     bits = t->getPrimitiveSizeInBits();
-    fp = t->isFloatingPointTy();
+    fp = t->isIEEELikeFPTy();
   } else if (t->isVectorTy()) {
     if (isa<llvm::ScalableVectorType>(t))
       report_fatal_error("scalable vector type not yet supported");
@@ -31,7 +31,7 @@ type::type(llvm::Type *t) {
     bits = elemty->getPrimitiveSizeInBits();
     if (elemty->isIntegerTy()) {
       fp = false;
-    } else if (elemty->isFloatingPointTy()) {
+    } else if (elemty->isIEEELikeFPTy()) {
       fp = true;
     } else {
       report_fatal_error("non-trivial vectors are not supported\n");
