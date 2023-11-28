@@ -26,17 +26,17 @@ public:
   virtual ~Inst() {}
 };
 
-
+// SSA Definations
 class Value : public Inst {
 protected:
   type ty;
 public:
-  unsigned getWidth() { return ty.getWidth(); }
+  type getType() { return ty; }
   virtual void print(std::ostream &os) const = 0;
   Value(type ty) : ty (ty) {}
 };
 
-
+// SSA values from LHS
 class Var final : public Value {
   std::string name;
   llvm::Value *v;
@@ -46,14 +46,13 @@ public:
     v->printAsOperand(ss, false);
     ss.flush();
   }
-//  Var(std::string &n, unsigned width) : Value(width), name(n), v(nullptr) {}
   auto& getName() const { return name; }
   void setValue(llvm::Value *vv) { v = vv; }
   void print(std::ostream &os) const override;
   llvm::Value *V () { return v; }
 };
 
-
+// literal constants to be synthesized
 class ReservedConst final : public Value {
   llvm::Argument *A;
 public:
@@ -65,17 +64,18 @@ public:
   void print(std::ostream &os) const override;
 };
 
-
-class CopyInst final : public Value {
+// No-op
+class CopyOp final : public Value {
 private:
   ReservedConst *rc;
 public:
-  CopyInst(ReservedConst &rc) : Value(rc.getType()), rc(&rc) {}
+  CopyOp(ReservedConst &rc) : Value(rc.getType()), rc(&rc) {}
   void print(std::ostream &os) const override;
   ReservedConst *Op0() { return rc; }
 };
 
-class UnaryInst final : public Value {
+
+class UnaryOp final : public Value {
 public:
   enum Op { bitreverse, bswap, ctpop, ctlz, cttz };
 private:
@@ -83,8 +83,8 @@ private:
   Value *V;
   type workty;
 public:
-  UnaryInst(Op op, Value &V, type &workty)
-  : Value(workty), op(op), V(&V), workty(workty) {}
+  UnaryOp(Op op, Value &V, type &workty)
+  : Value(V.getType()), op(op), V(&V), workty(workty) {}
   void print(std::ostream &os) const override;
   type getWorkTy() { return workty; }
   Op K() { return op; }
@@ -92,33 +92,74 @@ public:
 };
 
 
-class BinaryInst final : public Value {
-public:
-  enum Op { band, bor, bxor, add, sub, mul, sdiv, udiv, lshr, ashr, shl };
-private:
-  Op op;
+class BinaryOp : public Value {
   Value *lhs;
   Value *rhs;
-  type workty;
 public:
-  static bool isLaneIndependent(Op op) {
-    return op == band || op == bor || op == bxor;
-  }
-  BinaryInst(Op op, Value &lhs, Value &rhs, type &workty)
-  : Value(workty), op(op), lhs(&lhs), rhs(&rhs), workty(workty) {}
-  void print(std::ostream &os) const override;
+  BinaryOp(Value &lhs, Value &rhs)
+  : Value(lhs.getType()), lhs(&lhs), rhs(&rhs) {}
+  virtual void print(std::ostream &os) const;
+  virtual bool isCommutative() const;
   Value *L() { return lhs; }
   Value *R() { return rhs; }
-  type getWorkTy() { return workty; }
-  Op K() { return op; }
-  static bool isCommutative (Op k) {
-    return k == Op::band || k == Op::bor || k == Op::bxor ||
-           k == Op::add || k == Op::mul;
-  }
 };
 
 
-class ICmpInst final : public Value {
+class LogicOp final : public BinaryOp {
+public:
+  enum Op { band, bor, bxor, lshr, ashr, shl};
+private:
+  Op op;
+  type workty;
+  static bool isLaneIndependent(Op op) {
+    return op == band || op == bor || op == bxor;
+  }
+public:
+  LogicOp(Op op, Value &lhs, Value &rhs, type &workty)
+  : BinaryOp(lhs, rhs), op(op), workty(workty) {}
+  void print(std::ostream &os) const override;
+  bool isCommutative() const override {
+    return op == band || op == bor || op == bxor;
+  }
+  type getWorkTy() { return workty; }
+  Op K() { return op; }
+};
+
+
+class IntegerArithOp final : public BinaryOp {
+public:
+  enum Op { add, sub, mul, sdiv, udiv };
+private:
+  Op op;
+  type workty;
+public:
+  IntegerArithOp(Op op, Value &lhs, Value &rhs, type &workty)
+  : BinaryOp(lhs, rhs), op(op), workty(workty) {}
+  void print(std::ostream &os) const override;
+  bool isCommutative() const override {
+    return op == add || op == mul;
+  }
+  type getWorkTy() { return workty; }
+  Op K() { return op; }
+};
+
+class FloatingPointArithOp final : public BinaryOp {
+public:
+  enum Op { fadd, fsub, fmul, fdiv, frem };
+private:
+  Op op;
+public:
+  FloatingPointArithOp(Op op, Value &lhs, Value &rhs)
+  : BinaryOp(lhs, rhs), op(op) {}
+  void print(std::ostream &os) const override;
+  bool isCommutative() const override {
+    return op == fadd || op == fmul;
+  }
+  Op K() { return op; }
+};
+
+
+class ICmp final : public Value {
 public:
   // syntactic pruning: less than/less equal only
   enum Cond { eq, ne, ult, ule, slt, sle};
@@ -127,7 +168,7 @@ private:
   Value *lhs;
   Value *rhs;
 public:
-  ICmpInst(Cond cond, Value &lhs, Value &rhs, unsigned width)
+  ICmp(Cond cond, Value &lhs, Value &rhs, unsigned width)
   : Value(type(width, 1, false)) , cond(cond), lhs(&lhs), rhs(&rhs) {}
   void print(std::ostream &os) const override;
   Value *L() { return lhs; }
@@ -217,9 +258,7 @@ public:
   ReservedConst *M() { return mask; }
   unsigned getElementBits() { return expectty.getBits(); }
   type getRetTy() { return expectty; }
-  type getInputTy() {
-    return type(lhs->getWidth() / getElementBits(), getElementBits(), false);
-  }
+  type getInputTy() { return lhs->getType(); }
 };
 
 
@@ -232,8 +271,8 @@ private:
   unsigned lane, prev_bits, new_bits;
 public:
   ConversionInst(Op op, Value &v, unsigned l, unsigned pb, unsigned nb)
-    : Value(type(l, nb, false)), k(op), v(&v), lane(l),
-      prev_bits(pb), new_bits(nb) {}
+  : Value(type(l, nb, false)), k(op), v(&v), lane(l),
+    prev_bits(pb), new_bits(nb) {}
   void print(std::ostream &os) const override;
   Value *V() { return v; }
   Op K() { return k; }
