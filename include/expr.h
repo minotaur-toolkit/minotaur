@@ -65,11 +65,11 @@ public:
 };
 
 // No-op
-class CopyOp final : public Value {
+class Copy final : public Value {
 private:
   ReservedConst *rc;
 public:
-  CopyOp(ReservedConst &rc) : Value(rc.getType()), rc(&rc) {}
+  Copy(ReservedConst &rc) : Value(rc.getType()), rc(&rc) {}
   void print(std::ostream &os) const override;
   ReservedConst *Op0() { return rc; }
 };
@@ -80,15 +80,15 @@ public:
   enum Op { bitreverse, bswap, ctpop, ctlz, cttz };
 private:
   Op op;
-  Value *V;
+  Value *v;
   type workty;
 public:
   UnaryOp(Op op, Value &V, type &workty)
-  : Value(V.getType()), op(op), V(&V), workty(workty) {}
+  : Value(V.getType()), op(op), v(&V), workty(workty) {}
   void print(std::ostream &os) const override;
-  type getWorkTy() { return workty; }
   Op K() { return op; }
-  Value *Op0() { return V; }
+  Value *V() { return v; }
+  type getWorkTy() { return workty; }
 };
 
 
@@ -98,21 +98,28 @@ public:
             add, sub, mul, sdiv, udiv,
             fadd, fsub, fmul, fdiv, frem };
 private:
+  Op op;
   Value *lhs;
   Value *rhs;
-  Op op;
   type workty;
 public:
   BinaryOp(Value &lhs, Value &rhs, type &workty)
   : Value(lhs.getType()), lhs(&lhs), rhs(&rhs), workty(workty) {}
-  void print(std::ostream &os) const = 0;
-  static bool isCommutative(Op op) { return
-    op == band || op == bor || op == bxor ||
-    op == add || op == mul || op == fadd || op == fmul;
-  }
+  void print(std::ostream &os) const;
   Value *L() { return lhs; }
   Value *R() { return rhs; }
   Op K() { return op; }
+  type getWorkTy() { return workty; }
+
+  static bool isCommutative(Op op) {
+    return op == band || op == bor || op == bxor ||
+           op == add || op == mul ||
+           op == fadd || op == fmul;
+  }
+
+  static bool isLaneIndependent(Op op) {
+    return op == band || op == bor || op == bxor;
+  }
 };
 
 
@@ -219,7 +226,7 @@ public:
 };
 
 
-class ConversionInst final : public Value {
+class ConversionOp final : public Value {
 public:
   enum Op { sext, zext, trunc };
 private:
@@ -227,7 +234,7 @@ private:
   Value *v;
   unsigned lane, prev_bits, new_bits;
 public:
-  ConversionInst(Op op, Value &v, unsigned l, unsigned pb, unsigned nb)
+  ConversionOp(Op op, Value &v, unsigned l, unsigned pb, unsigned nb)
   : Value(type(l, nb, false)), k(op), v(&v), lane(l),
     prev_bits(pb), new_bits(nb) {}
   void print(std::ostream &os) const override;
@@ -246,5 +253,9 @@ struct Rewrite {
   unsigned CostBefore;
   unsigned CostAfter;
 };
+
+std::vector<type> getBinaryOpWorkTypes(type expected, BinaryOp::Op op);
+std::vector<type> getUnaryOpWorkTypes(type expected, UnaryOp::Op op);
+std::vector<type> getConversionOpWorkTypes(type to, type from);
 
 }

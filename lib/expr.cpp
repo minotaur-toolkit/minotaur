@@ -2,11 +2,14 @@
 // Distributed under the MIT license that can be found in the LICENSE file.
 #include "expr.h"
 #include "ir/instr.h"
+#include "type.h"
 #include "util/compiler.h"
 
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
 
+#include <algorithm>
 #include <string>
 #include <iostream>
 
@@ -53,13 +56,13 @@ void ReservedConst::print(ostream &os) const {
   // }
 }
 
-void CopyInst::print(ostream &os) const {
+void Copy::print(ostream &os) const {
   os << "(copy ";
   rc->print(os);
   os << ")";
 }
 
-void UnaryInst::print(ostream &os) const {
+void UnaryOp::print(ostream &os) const {
   const char *str = nullptr;
   switch (op) {
   case bitreverse: str = "bitreverse"; break;
@@ -69,11 +72,11 @@ void UnaryInst::print(ostream &os) const {
   case cttz:       str = "cttz";       break;
   }
   os << "(" << str << " " << workty << " ";
-  V->print(os);
+  v->print(os);
   os << ")";
 }
 
-void BinaryInst::print(ostream &os) const {
+void BinaryOp::print(ostream &os) const {
   const char *str = nullptr;
   switch (op) {
   case band:       str = "and";  break;
@@ -87,6 +90,11 @@ void BinaryInst::print(ostream &os) const {
   case lshr:       str = "lshr"; break;
   case ashr:       str = "ashr"; break;
   case shl:        str = "shl" ; break;
+  case fadd:       str = "fadd"; break;
+  case fmul:       str = "fmul"; break;
+  case fsub:       str = "fsub"; break;
+  case fdiv:       str = "fdiv"; break;
+  case frem:       str = "frem"; break;
   }
   os << "(" << str << " " << workty << " ";
   lhs->print(os);
@@ -95,7 +103,7 @@ void BinaryInst::print(ostream &os) const {
   os << ")";
 }
 
-void ICmpInst::print(ostream &os) const {
+void ICmp::print(ostream &os) const {
   const char *str = nullptr;
   switch (cond) {
   case eq:       str = "eq";  break;
@@ -140,7 +148,7 @@ void FakeShuffleInst::print(ostream &os) const {
 }
 
 
-void ConversionInst::print(ostream &os) const {
+void ConversionOp::print(ostream &os) const {
   const char *str = nullptr;
   switch (k) {
   case sext:  str = "sext"; break;
@@ -155,4 +163,25 @@ void ConversionInst::print(ostream &os) const {
   os << ")";
 }
 
-};
+vector<type> getUnaryOpWorkTypes(type ty, UnaryOp::Op op) {
+  if (ty.isFP()) {
+    return {};
+  } else {
+    return getIntegerVectorTypes(ty.getWidth());
+  }
+}
+
+vector<type> getBinaryOpWorkTypes(type ty, BinaryOp::Op op) {
+  if (BinaryOp::isLaneIndependent(op)) {
+    return {ty};
+  }
+
+  if (ty.isFP()) {
+    //TOOD
+    UNREACHABLE();
+  } else {
+    return getIntegerVectorTypes(ty.getWidth());
+  }
+}
+
+}

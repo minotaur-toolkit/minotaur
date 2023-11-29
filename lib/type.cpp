@@ -107,21 +107,4 @@ type getIntrinsicRetTy(IR::X86IntrinBinOp::Op op) {
               IR::X86IntrinBinOp::shape_ret[op].second, false);
 }
 
-
-std::vector<type> getBinaryInstWorkTypes(unsigned width) {
-  std::vector<unsigned> bits = {64, 32, 16, 8};
-  std::vector<type> types;
-  if (width % 8 != 0) {
-    types.push_back(type(1, width, false));
-    return types;
-  }
-
-  for (unsigned i = 0 ; i < bits.size() ; ++ i) {
-    if (width % bits[i] == 0) {
-      types.push_back(type(width/bits[i], bits[i], false));
-    }
-  }
-  return types;
-}
-
 } // namespace minotaur

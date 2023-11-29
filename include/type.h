@@ -15,6 +15,7 @@ class type {
 
 public:
   type(unsigned l, unsigned b, bool f) : lane(l), bits(b), fp(f) {};
+  type() : lane(0), bits(0), fp(false) {};
   type(const type &t)
   : lane(t.getLane()), bits(t.getBits()), fp(t.isFP()) {}
   type(llvm::Type *t);
@@ -33,24 +34,25 @@ public:
   unsigned getLane() const { return lane; }
   unsigned getBits() const  { return bits; }
   bool isFP() const { return fp; }
-
-  static std::vector<type> getVectorTypes(unsigned width) {
-    std::vector<unsigned> bits = {64, 32, 16, 8};
-    std::vector<type> types;
-
-    for (unsigned i = 0 ; i < bits.size() ; ++ i) {
-      if (width % bits[i] == 0 && width > bits[i]) {
-        types.push_back(type(width/bits[i], bits[i], false));
-      }
-    }
-    return types;
-  }
 };
 
 type getIntrinsicRetTy(IR::X86IntrinBinOp::Op);
 type getIntrinsicOp0Ty(IR::X86IntrinBinOp::Op);
 type getIntrinsicOp1Ty(IR::X86IntrinBinOp::Op);
 
-std::vector<type> getBinaryInstWorkTypes(unsigned width);
+std::vector<type> getIntegerVectorTypes(unsigned width) {
+  std::vector<unsigned> bits = {64, 32, 16, 8};
+  std::vector<type> types;
+  if (width % 8 != 0) {
+    types.push_back(type(1, width, false));
+    return types;
+  }
+  for (unsigned i = 0 ; i < bits.size() ; ++ i) {
+    if (width % bits[i] == 0 && width > bits[i]) {
+      types.push_back(type(width/bits[i], bits[i], false));
+    }
+  }
+  return types;
+}
 
 }
