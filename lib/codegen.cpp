@@ -1,4 +1,3 @@
-
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
 #include "codegen.h"
@@ -72,23 +71,23 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap, ConstMap &CMap) {
     } else {
       return RC->getA();
     }
-  } else if (auto U = dynamic_cast<UnaryInst*>(I)) {
+  } else if (auto U = dynamic_cast<UnaryOp*>(I)) {
     type workty = U->getWorkTy();
-    auto op0 = codeGenImpl(U->Op0(), VMap, CMap);
-    if(U->Op0()->getWidth() != workty.getWidth())
+    auto op0 = codeGenImpl(U->V(), VMap, CMap);
+    if(!U->V()->getType().same_width(workty))
       report_fatal_error("operand width mismatch");
     op0 = bitcastTo(op0, workty.toLLVM(C));
     Intrinsic::ID iid = 0;
     auto K = U->K();
     switch (K) {
-    case UnaryInst::bitreverse: iid = Intrinsic::bitreverse; break;
-    case UnaryInst::bswap:      iid = Intrinsic::bswap;      break;
-    case UnaryInst::ctpop:      iid = Intrinsic::ctpop;      break;
-    case UnaryInst::ctlz:       iid = Intrinsic::ctlz;       break;
-    case UnaryInst::cttz:       iid = Intrinsic::cttz;       break;
+    case UnaryOp::bitreverse: iid = Intrinsic::bitreverse; break;
+    case UnaryOp::bswap:      iid = Intrinsic::bswap;      break;
+    case UnaryOp::ctpop:      iid = Intrinsic::ctpop;      break;
+    case UnaryOp::ctlz:       iid = Intrinsic::ctlz;       break;
+    case UnaryOp::cttz:       iid = Intrinsic::cttz;       break;
     }
 
-    if (K == UnaryInst::ctlz || K == UnaryInst::cttz) {
+    if (K == UnaryOp::ctlz || K == UnaryOp::cttz) {
       llvm::Function *F = Intrinsic::getDeclaration(M, iid, {workty.toLLVM(C), Type::getInt1Ty(C)});
       IntrinsicDecls.insert(F);
       return b.CreateCall(F, { op0, ConstantInt::getFalse(C) });
@@ -97,103 +96,103 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap, ConstMap &CMap) {
       IntrinsicDecls.insert(F);
       return b.CreateCall(F, op0);
     }
-  } else if (auto U = dynamic_cast<CopyInst*>(I)) {
-    auto op0 = codeGenImpl(U->Op0(), VMap, CMap);
+  } else if (auto U = dynamic_cast<Copy*>(I)) {
+    auto op0 = codeGenImpl(U->V(), VMap, CMap);
     return op0;
-  } else if (auto CI = dynamic_cast<ConversionInst*>(I)) {
+  } else if (auto CI = dynamic_cast<ConversionOp*>(I)) {
     auto op0 = codeGenImpl(CI->V(), VMap, CMap);
     op0 = bitcastTo(op0, CI->getPrevTy().toLLVM(C));
     Type *new_type = CI->getNewTy().toLLVM(C);
     llvm::Value *r = nullptr;
     switch (CI->K()) {
-    case ConversionInst::sext:
+    case ConversionOp::sext:
       r = b.CreateSExt(op0, new_type);
       break;
-    case ConversionInst::zext:
+    case ConversionOp::zext:
       r = b.CreateZExt(op0, new_type);
       break;
-    case ConversionInst::trunc:
+    case ConversionOp::trunc:
       r = b.CreateTrunc(op0, new_type);
       break;
     }
     return r;
-  } else if (auto B = dynamic_cast<BinaryInst*>(I)) {
+  } else if (auto B = dynamic_cast<BinaryOp*>(I)) {
     type workty = B->getWorkTy();
     auto op0 = codeGenImpl(B->L(), VMap, CMap);
-    if(B->L()->getWidth() != workty.getWidth())
+    if(!workty.same_width(B->L()->getType()))
       report_fatal_error("left operand width mismatch");
     op0 = bitcastTo(op0, workty.toLLVM(C));
 
     auto op1 = codeGenImpl(B->R(), VMap, CMap);
-    if(B->R()->getWidth() != workty.getWidth())
+    if(!workty.same_width(B->R()->getType()))
       report_fatal_error("left operand width mismatch");
     op1 = bitcastTo(op1, workty.toLLVM(C));
 
     llvm::Value *r = nullptr;
     switch (B->K()) {
-    case BinaryInst::band:
+    case BinaryOp::band:
       r = b.CreateAnd(op0, op1, "and");
       break;
-    case BinaryInst::bor:
+    case BinaryOp::bor:
       r = b.CreateOr(op0, op1, "or");
       break;
-    case BinaryInst::bxor:
+    case BinaryOp::bxor:
       r = b.CreateXor(op0, op1, "xor");
       break;
-    case BinaryInst::add:
+    case BinaryOp::add:
       r = b.CreateAdd(op0, op1, "add");
       break;
-    case BinaryInst::sub:
+    case BinaryOp::sub:
       r = b.CreateSub(op0, op1, "sub");
       break;
-    case BinaryInst::mul:
+    case BinaryOp::mul:
       r = b.CreateMul(op0, op1, "mul");
       break;
-    case BinaryInst::sdiv:
+    case BinaryOp::sdiv:
       r = b.CreateSDiv(op0, op1, "sdiv");
       break;
-    case BinaryInst::udiv:
+    case BinaryOp::udiv:
       r = b.CreateUDiv(op0, op1, "udiv");
       break;
-    case BinaryInst::lshr:
+    case BinaryOp::lshr:
       r = b.CreateLShr(op0, op1, "lshr");
       break;
-    case BinaryInst::ashr:
+    case BinaryOp::ashr:
       r = b.CreateAShr(op0, op1, "ashr");
       break;
-    case BinaryInst::shl:
+    case BinaryOp::shl:
       r = b.CreateShl(op0, op1, "shl");
       break;
     default:
       UNREACHABLE();
     }
     return r;
-  } else if (auto IC = dynamic_cast<ICmpInst*>(I)) {
+  } else if (auto IC = dynamic_cast<ICmp*>(I)) {
     auto op0 = codeGenImpl(IC->L(), VMap, CMap);
-    auto workty = type(IC->getWidth(), IC->L()->getWidth()/IC->getWidth(),
-                       false);
+    auto IC_ty = IC->getType();
+    auto workty = type(IC_ty.getLane(), IC->getBits(), false);
     op0 = bitcastTo(op0, workty.toLLVM(C));
 
     auto op1 = codeGenImpl(IC->R(), VMap, CMap);
     op1 = bitcastTo(op1, workty.toLLVM(C));
     llvm::Value *r = nullptr;
     switch (IC->K()) {
-    case ICmpInst::eq:
+    case ICmp::eq:
       r = b.CreateICmp(CmpInst::ICMP_EQ, op0, op1, "ieq");
       break;
-    case ICmpInst::ne:
+    case ICmp::ne:
       r = b.CreateICmp(CmpInst::ICMP_NE, op0, op1, "ine");
       break;
-    case ICmpInst::ult:
+    case ICmp::ult:
       r = b.CreateICmp(CmpInst::ICMP_ULT, op0, op1, "iult");
       break;
-    case ICmpInst::ule:
+    case ICmp::ule:
       r = b.CreateICmp(CmpInst::ICMP_ULE, op0, op1, "iule");
       break;
-    case ICmpInst::slt:
+    case ICmp::slt:
       r = b.CreateICmp(CmpInst::ICMP_SLT, op0, op1, "islt");
       break;
-    case ICmpInst::sle:
+    case ICmp::sle:
       r = b.CreateICmp(CmpInst::ICMP_SLE, op0, op1, "isle");
       break;
     }
@@ -203,19 +202,20 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap, ConstMap &CMap) {
     type op0_ty = getIntrinsicOp0Ty(B->K());
     type op1_ty = getIntrinsicOp1Ty(B->K());
     auto op0 = codeGenImpl(B->L(), VMap, CMap);
-    if(B->L()->getWidth() != op0_ty.getWidth())
+    if(!op0_ty.same_width(B->L()->getType()))
       report_fatal_error("left operand width mismatch");
     op0 = bitcastTo(op0, op0_ty.toLLVM(C));
 
     auto op1 = codeGenImpl(B->R(), VMap, CMap);
-    if(B->R()->getWidth() != op1_ty.getWidth())
+    if(!op1_ty.same_width(B->R()->getType()))
       report_fatal_error("right operand width mismatch");
     op1 = bitcastTo(op1, op1_ty.toLLVM(C));
 
     llvm::Function *decl = Intrinsic::getDeclaration(M, getIntrinsicID(B->K()));
     IntrinsicDecls.insert(decl);
 
-    llvm::Value *CI = CallInst::Create(decl, ArrayRef<llvm::Value *>({op0, op1}),
+    llvm::Value *CI = CallInst::Create(decl,
+                                       ArrayRef<llvm::Value *>({op0, op1}),
                                        "intr",
                                        cast<Instruction>(b.GetInsertPoint()));
     return CI;
@@ -239,7 +239,7 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap, ConstMap &CMap) {
       SV = b.CreateShuffleVector(op0, op1, zm, "sv");
     } else {
       unsigned elem_bits = FSV->getElementBits();
-      auto op_ty = type(FSV->L()->getWidth()/elem_bits, elem_bits, false);
+      auto op_ty = type(FSV->L()->getType().getWidth()/elem_bits, elem_bits, false);
       std::vector<llvm::Type*> Args(2, op_ty.toLLVM(C));
       Args.push_back(FSV->M()->getType().toLLVM(C));
       FunctionType *FT = FunctionType::get(FSV->getRetTy().toLLVM(C), Args, false);

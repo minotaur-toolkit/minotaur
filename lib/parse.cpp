@@ -185,25 +185,25 @@ Value* parse_copy(vector<unique_ptr<minotaur::Inst>>&exprs) {
   auto a = parse_const(exprs);
   tokenizer.ensure(RPAREN);
 
-  auto CI = make_unique<CopyInst>(*a);
+  auto CI = make_unique<Copy>(*a);
   Value *T = CI.get();
   exprs.emplace_back(std::move(CI));
   return T;
 }
 
 Value* parse_unary(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
-  UnaryInst::Op op;
+  UnaryOp::Op op;
   switch (op_token) {
   case BITREVERSE:
-    op = UnaryInst::bitreverse; break;
+    op = UnaryOp::bitreverse; break;
   case BSWAP:
-    op = UnaryInst::bswap; break;
+    op = UnaryOp::bswap; break;
   case CTPOP:
-    op = UnaryInst::ctpop; break;
+    op = UnaryOp::ctpop; break;
   case CTLZ:
-    op = UnaryInst::ctlz; break;
+    op = UnaryOp::ctlz; break;
   case CTTZ:
-    op = UnaryInst::cttz; break;
+    op = UnaryOp::cttz; break;
   // TODO: add
   default:
     UNREACHABLE();
@@ -212,37 +212,37 @@ Value* parse_unary(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
   auto a = parse_expr(exprs);
 
   tokenizer.ensure(RPAREN);
-  auto UI = make_unique<UnaryInst>(op, *a, workty);
+  auto UI = make_unique<UnaryOp>(op, *a, workty);
   Value *T = UI.get();
   exprs.emplace_back(std::move(UI));
   return T;
 }
 
 Value* parse_binary(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
-  BinaryInst::Op op;
+  BinaryOp::Op op;
   switch (op_token) {
   case BAND:
-    op = BinaryInst::band; break;
+    op = BinaryOp::band; break;
   case BOR:
-    op = BinaryInst::bor; break;
+    op = BinaryOp::bor; break;
   case BXOR:
-    op = BinaryInst::bxor; break;
+    op = BinaryOp::bxor; break;
   case ADD:
-    op = BinaryInst::add; break;
+    op = BinaryOp::add; break;
   case SUB:
-    op = BinaryInst::sub; break;
+    op = BinaryOp::sub; break;
   case MUL:
-    op = BinaryInst::mul; break;
+    op = BinaryOp::mul; break;
   case SDIV:
-    op = BinaryInst::sdiv; break;
+    op = BinaryOp::sdiv; break;
   case UDIV:
-    op = BinaryInst::udiv; break;
+    op = BinaryOp::udiv; break;
   case LSHR:
-    op = BinaryInst::lshr; break;
+    op = BinaryOp::lshr; break;
   case ASHR:
-    op = BinaryInst::ashr; break;
+    op = BinaryOp::ashr; break;
   case SHL:
-    op = BinaryInst::shl; break;
+    op = BinaryOp::shl; break;
   // TODO: add
   default:
     UNREACHABLE();
@@ -252,27 +252,27 @@ Value* parse_binary(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
   auto b = parse_expr(exprs);
 
   tokenizer.ensure(RPAREN);
-  auto BI = make_unique<BinaryInst>(op, *a, *b, workty);
+  auto BI = make_unique<BinaryOp>(op, *a, *b, workty);
   Value *T = BI.get();
   exprs.emplace_back(std::move(BI));
   return T;
 }
 
 Value* parse_icmp(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
-  ICmpInst::Cond op;
+  ICmp::Cond op;
   switch (op_token) {
   case EQ:
-    op = ICmpInst::eq; break;
+    op = ICmp::eq; break;
   case NE:
-    op = ICmpInst::ne; break;
+    op = ICmp::ne; break;
   case ULT:
-    op = ICmpInst::ult; break;
+    op = ICmp::ult; break;
   case ULE:
-    op = ICmpInst::ule; break;
+    op = ICmp::ule; break;
   case SLT:
-    op = ICmpInst::slt; break;
+    op = ICmp::slt; break;
   case SLE:
-    op = ICmpInst::sle; break;
+    op = ICmp::sle; break;
   // TODO: add
   default:
     UNREACHABLE();
@@ -283,7 +283,7 @@ Value* parse_icmp(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
   unsigned width = parse_number();
 
   tokenizer.ensure(RPAREN);
-  auto II = make_unique<ICmpInst>(op, *a, *b, width);
+  auto II = make_unique<ICmp>(op, *a, *b, width);
   Value *T = II.get();
   exprs.emplace_back(std::move(II));
   return T;
@@ -304,14 +304,14 @@ Value* parse_shuffle(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
 }
 
 Value* parse_conv(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
-  ConversionInst::Op op;
+  ConversionOp::Op op;
   switch (op_token) {
   case CONV_ZEXT:
-    op = ConversionInst::zext; break;
+    op = ConversionOp::zext; break;
   case CONV_SEXT:
-    op = ConversionInst::sext; break;
+    op = ConversionOp::sext; break;
   case CONV_TRUNC:
-    op = ConversionInst::trunc; break;
+    op = ConversionOp::trunc; break;
   default:
     UNREACHABLE();
   }
@@ -320,7 +320,7 @@ Value* parse_conv(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
   auto to   = parse_vector_type();
 
   tokenizer.ensure(RPAREN);
-  auto CI = make_unique<ConversionInst>(op, *a, from.getLane(), from.getBits(), to.getBits());
+  auto CI = make_unique<ConversionOp>(op, *a, from.getLane(), from.getBits(), to.getBits());
   Value *T = CI.get();
   exprs.emplace_back(std::move(CI));
   return T;

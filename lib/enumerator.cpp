@@ -109,39 +109,42 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
   for (auto Comp = Comps.begin(); Comp != Comps.end(); ++Comp) {
     auto Op = dynamic_cast<Var*>(*Comp);
     if (!Op) continue;
-    vector<type> tys;
-    tys = getConversionOpWorkTypes(expected, op->getType());
+    unsigned op_w = Op->getType().getWidth();
+    if (Op->getType().same_width(expected))
+      continue;
+
+    vector<type> tys = getIntegerVectorTypes(Op->getType().getWidth());
     for (auto workty : tys) {
       unsigned op_bits = workty.getBits();
       unsigned lane = workty.getLane();
 
-      if (expected % lane != 0)
+      if (expected.getWidth() % lane != 0)
         continue;
 
-      if (expected > op_w) {
-        if (expected % op_w)
+      if (expected.getWidth() > op_w) {
+        if (expected.getWidth() % op_w)
           continue;
-        unsigned nb = (expected / op_w) * op_bits;
+        unsigned nb = (expected.getWidth() / op_w) * op_bits;
         set<ReservedConst*> RCs1;
-        auto SI = make_unique<ConversionInst>(ConversionInst::sext, *Op, lane,
-                                              op_bits, nb);
+        auto SI = make_unique<ConversionOp>(ConversionOp::sext, *Op, lane,
+                                            op_bits, nb);
         sketches.push_back(make_pair(SI.get(), std::move(RCs1)));
         exprs.emplace_back(std::move(SI));
         set<ReservedConst*> RCs2;
-        auto ZI = make_unique<ConversionInst>(ConversionInst::zext, *Op, lane,
-                                              op_bits, nb);
+        auto ZI = make_unique<ConversionOp>(ConversionOp::zext, *Op, lane,
+                                            op_bits, nb);
         sketches.push_back(make_pair(ZI.get(), std::move(RCs2)));
         exprs.emplace_back(std::move(ZI));
-      } else if (expected < op_w){
-        if (op_w % expected != 0)
+      } else if (expected.getWidth() < op_w){
+        if (expected.getWidth() % op_w != 0)
           continue;
 
-        unsigned nb = expected * op_bits / op_w;
+        unsigned nb = expected.getWidth() * op_bits / op_w;
         if (nb == 0)
           continue;
         set<ReservedConst*> RCs1;
-        auto SI = make_unique<ConversionInst>(ConversionInst::trunc, *Op, lane,
-                                              op_bits, nb);
+        auto SI = make_unique<ConversionOp>(ConversionOp::trunc, *Op, lane,
+                                            op_bits, nb);
         sketches.push_back(make_pair(SI.get(), std::move(RCs1)));
         exprs.emplace_back(std::move(SI));
       }
@@ -150,20 +153,20 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
 
   // unop
   for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
-    if ((*Op0)->getWidth() != expected)
+    if (!expected.same_width((*Op0)->getType()))
       continue;
     if (dynamic_cast<ReservedConst *>(*Op0))
       continue;
-    for (unsigned K = UnaryInst::bitreverse; K <= UnaryInst::ctpop; ++K) {
-      UnaryInst::Op Op = static_cast<UnaryInst::Op>(K);
-      vector<type> tys = getBinaryInstWorkTypes(expected);
+    for (unsigned K = UnaryOp::bitreverse; K <= UnaryOp::ctpop; ++K) {
+      UnaryOp::Op Op = static_cast<UnaryOp::Op>(K);
+      vector<type> tys = getUnaryOpWorkTypes(expected, Op);
 
       for (auto workty : tys) {
         unsigned bits = workty.getBits();
-        if (K == UnaryInst::Op::bswap && (bits < 16 || bits % 8))
+        if (K == UnaryOp::Op::bswap && (bits < 16 || bits % 8))
           continue;
         set<ReservedConst*> RCs;
-        auto U = make_unique<UnaryInst>(Op, **Op0, workty);
+        auto U = make_unique<UnaryOp>(Op, **Op0, workty);
         sketches.push_back(make_pair(U.get(), std::move(RCs)));
         exprs.emplace_back(std::move(U));
       }
@@ -185,14 +188,14 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
           // (op rc, var)
           if (dynamic_cast<ReservedConst*>(*Op0)) {
             if (auto R = dynamic_cast<Var*>(*Op1)) {
-              if (R->getWidth() != expected)
+              if (!expected.same_width(R->getType()))
                 continue;
               auto T = make_unique<ReservedConst>(workty);
               I = T.get();
               RCs.insert(T.get());
               exprs.emplace_back(std::move(T));
               J = R;
-              if (BinaryInst::isCommutative(Op)) {
+              if (BinaryOp::isCommutative(Op)) {
                 swap(I, J);
               }
             } else continue;
@@ -201,9 +204,9 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
           else if (dynamic_cast<ReservedConst *>(*Op1)) {
             if (auto L = dynamic_cast<Var *>(*Op0)) {
               // do not generate (- x 3) which can be represented as (+ x -3)
-              if (Op == BinaryInst::Op::sub)
+              if (Op == BinaryOp::Op::sub)
                 continue;
-              if (L->getWidth() != expected)
+              if (!expected.same_width(L->getType()))
                 continue;
               I = L;
               auto T = make_unique<ReservedConst>(workty);
@@ -216,14 +219,15 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
           else {
             if (auto L = dynamic_cast<Var *>(*Op0)) {
               if (auto R = dynamic_cast<Var *>(*Op1)) {
-                if (L->getWidth() != expected || R->getWidth() != expected)
+                if (!expected.same_width(L->getType()) ||
+                    !expected.same_width(R->getType()))
                   continue;
               };
             };
             I = *Op0;
             J = *Op1;
           }
-          auto BO = make_unique<BinaryInst>(Op, *I, *J, workty);
+          auto BO = make_unique<BinaryOp>(Op, *I, *J, workty);
           sketches.push_back(make_pair(BO.get(), std::move(RCs)));
           exprs.emplace_back(std::move(BO));
         }
@@ -232,7 +236,8 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
   }
 
   //icmps
-  if (expected <= 64) {
+  if (expected.getWidth() <= 64) {
+    unsigned lanes = expected.getWidth();
     for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
       for (auto Op1 = Comps.begin(); Op1 != Comps.end(); ++Op1) {
         // skip (icmp rc, rc)
@@ -242,38 +247,38 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
         // skip (icmp rc, var)
         if (dynamic_cast<ReservedConst*>(*Op0) && dynamic_cast<Var*>(*Op1))
           continue;
-        for (unsigned C = ICmpInst::Cond::eq; C <= ICmpInst::Cond::sle; ++C) {
-          ICmpInst::Cond Cond = static_cast<ICmpInst::Cond>(C);
+        for (unsigned C = ICmp::Cond::eq; C <= ICmp::Cond::sle; ++C) {
+          ICmp::Cond Cond = static_cast<ICmp::Cond>(C);
           set<ReservedConst*> RCs;
           Value *I = nullptr, *J = nullptr;
 
           if (auto L = dynamic_cast<Var*>(*Op0)) {
-            if (L->getWidth() % expected)
+            if (L->getType().getWidth() % expected.getWidth())
               continue;
 
-            unsigned elem_bits = L->getWidth() / expected;
+            unsigned elem_bits = L->getType().getWidth() / lanes;
             if (elem_bits != 8 && elem_bits != 16 &&
                 elem_bits != 32 && elem_bits != 64)
               continue;
             // (icmp var, rc)
             if (dynamic_cast<ReservedConst*>(*Op1)) {
-              if (Cond == ICmpInst::sle || Cond == ICmpInst::ule)
+              if (Cond == ICmp::sle || Cond == ICmp::ule)
                 continue;
               I = L;
-              auto jty = type(expected, elem_bits, false);
+              auto jty = type(lanes, elem_bits, false);
               auto T = make_unique<ReservedConst>(jty);
               J = T.get();
               RCs.insert(T.get());
               exprs.emplace_back(std::move(T));
             // (icmp var, var)
             } else if (auto R = dynamic_cast<Var*>(*Op1)) {
-              if (L->getWidth() != R->getWidth())
+              if (L->getType().getWidth() != R->getType().getWidth())
                 continue;
               I = *Op0;
               J = *Op1;
             } else UNREACHABLE();
           } else UNREACHABLE();
-          auto BO = make_unique<ICmpInst>(Cond, *I, *J, expected);
+          auto BO = make_unique<ICmp>(Cond, *I, *J, lanes);
           sketches.push_back(make_pair(BO.get(), std::move(RCs)));
           exprs.emplace_back(std::move(BO));
         }
@@ -291,7 +296,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
     type op0_ty = getIntrinsicOp0Ty(op);
     type op1_ty = getIntrinsicOp1Ty(op);
 
-    if (ret_ty.getWidth() != expected)
+    if (!ret_ty.same_width(expected))
       continue;
 
     for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
@@ -305,7 +310,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
 
         if (auto L = dynamic_cast<Var *> (*Op0)) {
           // typecheck for op0
-          if (L->getWidth() != op0_ty.getWidth())
+          if (!L->getType().same_width(op0_ty))
             continue;
           I = L;
         } else if (dynamic_cast<ReservedConst *>(*Op0)) {
@@ -317,7 +322,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
         Value *J = nullptr;
         if (auto R = dynamic_cast<Var *>(*Op1)) {
           // typecheck for op1
-          if (R->getWidth() != op1_ty.getWidth())
+          if (!R->getType().same_width(op1_ty))
             continue;
           J = R;
         } else if (dynamic_cast<ReservedConst *>(*Op1)) {
@@ -338,16 +343,19 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
     if (dynamic_cast<ReservedConst *>(*Op0))
       continue;
 
-    auto tys = type::getVectorTypes(expected);
+    type op_ty = (*Op0)->getType();
+
+    auto tys = getIntegerVectorTypes(expected.getWidth());
     for (auto ty : tys) {
-      if ((*Op0)->getWidth() % ty.getBits())
+      type mask_ty = type(ty.getLane(), 8, false);
+      if (op_ty.getWidth() % ty.getBits())
         continue;
-      if ((*Op0)->getWidth() == ty.getBits())
+      if (op_ty.getWidth() == ty.getBits())
         continue;
       // (sv var, poison, mask)
       {
         set<ReservedConst*> RCs;
-        auto m = make_unique<ReservedConst>(type(ty.getLane(), 8, false));
+        auto m = make_unique<ReservedConst>(mask_ty);
         RCs.insert(m.get());
         auto sv = make_unique<FakeShuffleInst>(**Op0, nullptr, *m.get(), ty);
         exprs.emplace_back(std::move(m));
@@ -360,18 +368,18 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
         Value *J = nullptr;
         if (auto R = dynamic_cast<Var *>(*Op1)) {
           // typecheck for op1
-          if (R->getWidth() != (*Op0)->getWidth())
+          if (!op_ty.same_width(R->getType()))
             continue;
           J = R;
         } else if (dynamic_cast<ReservedConst *>(*Op1)) {
           type op_ty =
-            type((*Op0)->getWidth() / ty.getBits(), ty.getBits(), false);
+            type((*Op0)->getType().getWidth() / ty.getBits(), ty.getBits(), false);
           auto T = make_unique<ReservedConst>(op_ty);
           J = T.get();
           RCs.insert(T.get());
           exprs.emplace_back(std::move(T));
         }
-        auto m = make_unique<ReservedConst>(type(ty.getLane(), 8, false));
+        auto m = make_unique<ReservedConst>(mask_ty);
         RCs.insert(m.get());
         auto sv2 = make_unique<FakeShuffleInst>(**Op0, J, *m.get(), ty);
         exprs.emplace_back(std::move(m));
@@ -441,7 +449,7 @@ optional<Rewrite> Enumerator::synthesize(llvm::Function &F) {
     {
       set<ReservedConst*> RCs;
       auto RC = make_unique<ReservedConst>(type(I->getType()));
-      auto CI = make_unique<CopyInst>(*RC.get());
+      auto CI = make_unique<Copy>(*RC.get());
       RCs.insert(RC.get());
       Sketches.push_back(make_pair(CI.get(), std::move(RCs)));
       exprs.emplace_back(std::move(CI));
@@ -453,7 +461,7 @@ optional<Rewrite> Enumerator::synthesize(llvm::Function &F) {
         auto vty = V->V()->getType();
         if (vty->isPointerTy())
           continue;
-        if (V->getWidth() != I->getType()->getPrimitiveSizeInBits())
+        if (V->getType().getWidth() != I->getType()->getPrimitiveSizeInBits())
           continue;
         set<ReservedConst*> RCs;
         auto VA = make_unique<Var>(V->V());

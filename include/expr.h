@@ -71,7 +71,7 @@ private:
 public:
   Copy(ReservedConst &rc) : Value(rc.getType()), rc(&rc) {}
   void print(std::ostream &os) const override;
-  ReservedConst *Op0() { return rc; }
+  ReservedConst *V() { return rc; }
 };
 
 
@@ -103,8 +103,8 @@ private:
   Value *rhs;
   type workty;
 public:
-  BinaryOp(Value &lhs, Value &rhs, type &workty)
-  : Value(lhs.getType()), lhs(&lhs), rhs(&rhs), workty(workty) {}
+  BinaryOp(Op op, Value &lhs, Value &rhs, type &workty)
+  : Value(lhs.getType()), op(op), lhs(&lhs), rhs(&rhs), workty(workty) {}
   void print(std::ostream &os) const;
   Value *L() { return lhs; }
   Value *R() { return rhs; }
@@ -132,12 +132,14 @@ private:
   Value *lhs;
   Value *rhs;
 public:
-  ICmp(Cond cond, Value &lhs, Value &rhs, unsigned width)
-  : Value(type(width, 1, false)) , cond(cond), lhs(&lhs), rhs(&rhs) {}
+  ICmp(Cond cond, Value &lhs, Value &rhs, unsigned lanes)
+  : Value(type(lanes, 1, false)) , cond(cond), lhs(&lhs), rhs(&rhs) {}
   void print(std::ostream &os) const override;
   Value *L() { return lhs; }
   Value *R() { return rhs; }
   Cond K() { return cond; }
+  unsigned getLanes() { return getType().getLane(); }
+  unsigned getBits() { return lhs->getType().getWidth() / getType().getLane(); }
 };
 
 

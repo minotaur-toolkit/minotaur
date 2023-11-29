@@ -40,19 +40,6 @@ type getIntrinsicRetTy(IR::X86IntrinBinOp::Op);
 type getIntrinsicOp0Ty(IR::X86IntrinBinOp::Op);
 type getIntrinsicOp1Ty(IR::X86IntrinBinOp::Op);
 
-std::vector<type> getIntegerVectorTypes(unsigned width) {
-  std::vector<unsigned> bits = {64, 32, 16, 8};
-  std::vector<type> types;
-  if (width % 8 != 0) {
-    types.push_back(type(1, width, false));
-    return types;
-  }
-  for (unsigned i = 0 ; i < bits.size() ; ++ i) {
-    if (width % bits[i] == 0 && width > bits[i]) {
-      types.push_back(type(width/bits[i], bits[i], false));
-    }
-  }
-  return types;
-}
+std::vector<type> getIntegerVectorTypes(unsigned width);
 
-}
+} // namespace minotaur

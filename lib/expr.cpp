@@ -184,4 +184,9 @@ vector<type> getBinaryOpWorkTypes(type ty, BinaryOp::Op op) {
   }
 }
 
+vector<type> getConversionOpWorkTypes(type to, type from) {
+  vector<type> tys = getIntegerVectorTypes(to.getWidth());
+  return tys;
+}
+
 }

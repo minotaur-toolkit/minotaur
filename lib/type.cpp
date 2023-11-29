@@ -46,7 +46,7 @@ bool type::operator==(const type &rhs) const {
 }
 
 bool type::same_width(const type &rhs) const {
-  return lane * bits == rhs.lane * rhs.bits;
+  return getWidth() == rhs.getWidth();
 }
 
 static Type* getFloatingPointType(LLVMContext &C, unsigned bits) {
@@ -105,6 +105,21 @@ type getIntrinsicOp1Ty(IR::X86IntrinBinOp::Op op) {
 type getIntrinsicRetTy(IR::X86IntrinBinOp::Op op) {
   return type(IR::X86IntrinBinOp::shape_ret[op].first,
               IR::X86IntrinBinOp::shape_ret[op].second, false);
+}
+
+vector<type> getIntegerVectorTypes(unsigned width) {
+  vector<unsigned> bits = {64, 32, 16, 8};
+  vector<type> types;
+  if (width % 8 != 0) {
+    types.push_back(type(1, width, false));
+    return types;
+  }
+  for (unsigned i = 0 ; i < bits.size() ; ++ i) {
+    if (width % bits[i] == 0 && width > bits[i]) {
+      types.push_back(type(width/bits[i], bits[i], false));
+    }
+  }
+  return types;
 }
 
 } // namespace minotaur
