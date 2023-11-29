@@ -92,69 +92,26 @@ public:
 };
 
 
-class BinaryOp : public Value {
+class BinaryOp final : public Value {
+public:
+  enum Op { band, bor, bxor, lshr, ashr, shl,
+            add, sub, mul, sdiv, udiv,
+            fadd, fsub, fmul, fdiv, frem };
+private:
   Value *lhs;
   Value *rhs;
+  Op op;
+  type workty;
 public:
-  BinaryOp(Value &lhs, Value &rhs)
-  : Value(lhs.getType()), lhs(&lhs), rhs(&rhs) {}
-  virtual void print(std::ostream &os) const;
-  virtual bool isCommutative() const;
+  BinaryOp(Value &lhs, Value &rhs, type &workty)
+  : Value(lhs.getType()), lhs(&lhs), rhs(&rhs), workty(workty) {}
+  void print(std::ostream &os) const = 0;
+  static bool isCommutative(Op op) { return
+    op == band || op == bor || op == bxor ||
+    op == add || op == mul || op == fadd || op == fmul;
+  }
   Value *L() { return lhs; }
   Value *R() { return rhs; }
-};
-
-
-class LogicOp final : public BinaryOp {
-public:
-  enum Op { band, bor, bxor, lshr, ashr, shl};
-private:
-  Op op;
-  type workty;
-  static bool isLaneIndependent(Op op) {
-    return op == band || op == bor || op == bxor;
-  }
-public:
-  LogicOp(Op op, Value &lhs, Value &rhs, type &workty)
-  : BinaryOp(lhs, rhs), op(op), workty(workty) {}
-  void print(std::ostream &os) const override;
-  bool isCommutative() const override {
-    return op == band || op == bor || op == bxor;
-  }
-  type getWorkTy() { return workty; }
-  Op K() { return op; }
-};
-
-
-class IntegerArithOp final : public BinaryOp {
-public:
-  enum Op { add, sub, mul, sdiv, udiv };
-private:
-  Op op;
-  type workty;
-public:
-  IntegerArithOp(Op op, Value &lhs, Value &rhs, type &workty)
-  : BinaryOp(lhs, rhs), op(op), workty(workty) {}
-  void print(std::ostream &os) const override;
-  bool isCommutative() const override {
-    return op == add || op == mul;
-  }
-  type getWorkTy() { return workty; }
-  Op K() { return op; }
-};
-
-class FloatingPointArithOp final : public BinaryOp {
-public:
-  enum Op { fadd, fsub, fmul, fdiv, frem };
-private:
-  Op op;
-public:
-  FloatingPointArithOp(Op op, Value &lhs, Value &rhs)
-  : BinaryOp(lhs, rhs), op(op) {}
-  void print(std::ostream &os) const override;
-  bool isCommutative() const override {
-    return op == fadd || op == fmul;
-  }
   Op K() { return op; }
 };
 

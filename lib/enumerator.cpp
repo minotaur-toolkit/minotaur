@@ -172,10 +172,10 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
   }
 
   // binop
-  for (unsigned K = BinaryInst::band; K <= BinaryInst::shl; ++K) {
-    BinaryInst::Op Op = static_cast<BinaryInst::Op>(K);
+  for (unsigned K = LogicOp::band; K <= LogicOp::shl; ++K) {
+    LogicOp::Op Op = static_cast<LogicOp::Op>(K);
     for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
-      auto Op1 = BinaryInst::isCommutative(Op) ? Op0 : Comps.begin();
+      auto Op1 = LogicOp::isCommutative(Op) ? Op0 : Comps.begin();
       for (; Op1 != Comps.end(); ++Op1) {
         vector<type> tys;
         if (BinaryInst::isLaneIndependent(Op)) {
