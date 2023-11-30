@@ -111,6 +111,10 @@ public:
   Op K() { return op; }
   type getWorkTy() { return workty; }
 
+  static bool isFloatingPoint(Op op) {
+    return op == fadd || op == fsub || op == fmul || op == fdiv || op == frem;
+  }
+
   static bool isCommutative(Op op) {
     return op == band || op == bor || op == bxor ||
            op == add || op == mul ||

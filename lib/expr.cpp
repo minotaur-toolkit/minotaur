@@ -172,13 +172,16 @@ vector<type> getUnaryOpWorkTypes(type ty, UnaryOp::Op op) {
 }
 
 vector<type> getBinaryOpWorkTypes(type ty, BinaryOp::Op op) {
-  if (BinaryOp::isLaneIndependent(op)) {
-    return {ty};
+  if (ty.isFP()) {
+    return {};
   }
 
-  if (ty.isFP()) {
-    //TOOD
-    UNREACHABLE();
+  if (BinaryOp::isFloatingPoint(op)) {
+    return {};
+  }
+
+  if (BinaryOp::isLaneIndependent(op)) {
+    return {ty};
   } else {
     return getIntegerVectorTypes(ty.getWidth());
   }

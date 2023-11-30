@@ -104,7 +104,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
   auto RC1 = make_unique<ReservedConst>(type(-1, -1, false));
   Comps.emplace_back(RC1.get());
 
-  type expected = V->getType();
+  type expected{V->getType()};
 
   for (auto Comp = Comps.begin(); Comp != Comps.end(); ++Comp) {
     auto Op = dynamic_cast<Var*>(*Comp);
@@ -179,9 +179,8 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
     for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
       auto Op1 = BinaryOp::isCommutative(Op) ? Op0 : Comps.begin();
       for (; Op1 != Comps.end(); ++Op1) {
-        vector<type> tys = getBinaryOpWorkTypes(expected, Op);
 
-        for (auto workty : tys) {
+        for (auto workty : getBinaryOpWorkTypes(expected, Op)) {
           Value *I = nullptr, *J = nullptr;
           set<ReservedConst*> RCs;
 
