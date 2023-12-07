@@ -122,6 +122,33 @@ void ICmp::print(ostream &os) const {
   os << ")";
 }
 
+void FCmp::print(ostream &os) const {
+  const char *str = nullptr;
+  switch (cond) {
+  case oeq:      str = "oeq"; break;
+  case ogt:      str = "ogt"; break;
+  case oge:      str = "oge"; break;
+  case olt:      str = "olt"; break;
+  case ole:      str = "ole"; break;
+  case one:      str = "one"; break;
+  case ord:      str = "ord"; break;
+  case ueq:      str = "ueq"; break;
+  case ugt:      str = "ugt"; break;
+  case uge:      str = "uge"; break;
+  case ult:      str = "ult"; break;
+  case ule:      str = "ule"; break;
+  case une:      str = "une"; break;
+  case uno:      str = "uno"; break;
+  }
+  os << "(fcmp_" << str << " ";
+  lhs->print(os);
+  os << " ";
+  rhs->print(os);
+  os << " b" << ty.getWidth();
+  //rhs->print(os);
+  os << ")";
+}
+
 void SIMDBinOpInst::print(ostream &os) const {
   os << "(" << IR::X86IntrinBinOp::getOpName(op) << " ";
   lhs->print(os);

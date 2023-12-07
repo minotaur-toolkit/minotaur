@@ -41,6 +41,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <memory>
 #include <queue>
 #include <vector>
 #include <set>
@@ -234,7 +235,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
     }
   }
 
-  //icmps
+  //cmps
   if (expected.getWidth() <= 64) {
     unsigned lanes = expected.getWidth();
     for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
@@ -246,6 +247,8 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
         // skip (icmp rc, var)
         if (dynamic_cast<ReservedConst*>(*Op0) && dynamic_cast<Var*>(*Op1))
           continue;
+
+        //icmps
         for (unsigned C = ICmp::Cond::eq; C <= ICmp::Cond::sle; ++C) {
           ICmp::Cond Cond = static_cast<ICmp::Cond>(C);
           set<ReservedConst*> RCs;
@@ -278,6 +281,56 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
             } else UNREACHABLE();
           } else UNREACHABLE();
           auto BO = make_unique<ICmp>(Cond, *I, *J, lanes);
+          sketches.push_back(make_pair(BO.get(), std::move(RCs)));
+          exprs.emplace_back(std::move(BO));
+        }
+      }
+    }
+  }
+
+  // fcmps
+  if (expected.getWidth() <= 64) {
+    unsigned lanes = expected.getWidth();
+    for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
+      for (auto Op1 = Comps.begin(); Op1 != Comps.end(); ++Op1) {
+
+        // skip (fcmp rc, rc)
+        if (dynamic_cast<ReservedConst*>(*Op0) &&
+            dynamic_cast<ReservedConst*>(*Op1))
+          continue;
+        // skip (fcmp rc, var)
+        if (dynamic_cast<ReservedConst*>(*Op0) && dynamic_cast<Var*>(*Op1))
+          continue;
+
+        //fcmps
+        Value *I = dynamic_cast<Var*>(*Op0);
+        if (!I)
+          continue;
+
+        if (I->getType().getLane() != expected.getWidth())
+          continue;
+
+        if (auto V = dynamic_cast<Var*>(*Op1)) {
+          if (I->getType() != V->getType())
+            continue;
+        }
+
+        for (unsigned C = FCmp::Cond::f; C <= FCmp::Cond::t; ++C) {
+          FCmp::Cond Cond = static_cast<FCmp::Cond>(C);
+          set<ReservedConst*> RCs;
+
+          Value *J = nullptr;
+
+          if (dynamic_cast<Var*>(*Op1)) {
+            J = *Op1;
+          } else if (dynamic_cast<ReservedConst*>(*Op1)) {
+            auto T = make_unique<ReservedConst>(I->getType());
+            J = T.get();
+            RCs.insert(T.get());
+            exprs.emplace_back(std::move(T));
+          } else UNREACHABLE();
+
+          auto BO = make_unique<FCmp>(Cond, *I, *J, lanes);
           sketches.push_back(make_pair(BO.get(), std::move(RCs)));
           exprs.emplace_back(std::move(BO));
         }

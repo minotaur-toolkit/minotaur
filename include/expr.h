@@ -147,6 +147,25 @@ public:
 };
 
 
+class FCmp final : public Value {
+public:
+  enum Cond { f, oeq, ogt, oge, olt, ole, one, ord, ueq, ugt, uge, ult, ule, une, uno, t};
+private:
+  Cond cond;
+  Value *lhs;
+  Value *rhs;
+public:
+  FCmp(Cond cond, Value &lhs, Value &rhs, unsigned lanes)
+  : Value(type(lanes, 1, false)) , cond(cond), lhs(&lhs), rhs(&rhs) {}
+  void print(std::ostream &os) const override;
+  Value *L() { return lhs; }
+  Value *R() { return rhs; }
+  Cond K() { return cond; }
+  unsigned getLanes() { return getType().getLane(); }
+  unsigned getBits() { return lhs->getType().getWidth() / getType().getLane(); }
+};
+
+
 class SIMDBinOpInst final : public Value {
   IR::X86IntrinBinOp::Op op;
   Value *lhs;
