@@ -125,6 +125,7 @@ void ICmp::print(ostream &os) const {
 void FCmp::print(ostream &os) const {
   const char *str = nullptr;
   switch (cond) {
+  case f:   str = "false"; break;
   case oeq:      str = "oeq"; break;
   case ogt:      str = "ogt"; break;
   case oge:      str = "oge"; break;
@@ -139,6 +140,7 @@ void FCmp::print(ostream &os) const {
   case ule:      str = "ule"; break;
   case une:      str = "une"; break;
   case uno:      str = "uno"; break;
+  case t:        str = "true"; break;
   }
   os << "(fcmp_" << str << " ";
   lhs->print(os);
