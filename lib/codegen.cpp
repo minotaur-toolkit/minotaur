@@ -201,11 +201,13 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap, ConstMap &CMap) {
   } else if (auto FC = dynamic_cast<FCmp*>(I)) {
     auto op0 = codeGenImpl(FC->L(), VMap, CMap);
     auto op1 = codeGenImpl(FC->R(), VMap, CMap);
-
     llvm::Value *r = nullptr;
+
     switch (FC->K()) {
     case FCmp::f:
       r = ConstantInt::getFalse(C);
+      if (FC->getLanes() > 1)
+        r = b.CreateVectorSplat(FC->getLanes(), r);
       break;
     case FCmp::ord:
       r = b.CreateFCmpORD(op0, op1, "ord");
@@ -251,6 +253,8 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap, ConstMap &CMap) {
       break;
     case FCmp::t:
       r = ConstantInt::getTrue(C);
+      if (FC->getLanes() > 1)
+        r = b.CreateVectorSplat(FC->getLanes(), r);
       break;
     }
     return r;
