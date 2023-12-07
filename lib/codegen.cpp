@@ -198,6 +198,62 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap, ConstMap &CMap) {
     }
     return r;
 
+  } else if (auto FC = dynamic_cast<FCmp*>(I)) {
+    auto op0 = codeGenImpl(FC->L(), VMap, CMap);
+    auto op1 = codeGenImpl(FC->R(), VMap, CMap);
+
+    llvm::Value *r = nullptr;
+    switch (FC->K()) {
+    case FCmp::f:
+      r = ConstantInt::getFalse(C);
+      break;
+    case FCmp::ord:
+      r = b.CreateFCmpORD(op0, op1, "ord");
+      break;
+    case FCmp::oeq:
+      r = b.CreateFCmpOEQ(op0, op1, "oeq");
+      break;
+    case FCmp::ogt:
+      r = b.CreateFCmpOGT(op0, op1, "ogt");
+      break;
+    case FCmp::oge:
+      r = b.CreateFCmpOGE(op0, op1, "oge");
+      break;
+    case FCmp::olt:
+      r = b.CreateFCmpOLT(op0, op1, "olt");
+      break;
+    case FCmp::ole:
+      r = b.CreateFCmpOLE(op0, op1, "ole");
+      break;
+    case FCmp::one:
+      r = b.CreateFCmpONE(op0, op1, "one");
+      break;
+    case FCmp::ueq:
+      r = b.CreateFCmpUEQ(op0, op1, "ueq");
+      break;
+    case FCmp::ugt:
+      r = b.CreateFCmpUGT(op0, op1, "ugt");
+      break;
+    case FCmp::uge:
+      r = b.CreateFCmpUGE(op0, op1, "uge");
+      break;
+    case FCmp::ult:
+      r = b.CreateFCmpULT(op0, op1, "ult");
+      break;
+    case FCmp::ule:
+      r = b.CreateFCmpULE(op0, op1, "ule");
+      break;
+    case FCmp::une:
+      r = b.CreateFCmpUNE(op0, op1, "une");
+      break;
+    case FCmp::uno:
+      r = b.CreateFCmpUNO(op0, op1, "uno");
+      break;
+    case FCmp::t:
+      r = ConstantInt::getTrue(C);
+      break;
+    }
+    return r;
   } else if (auto B = dynamic_cast<SIMDBinOpInst*>(I)) {
     type op0_ty = getIntrinsicOp0Ty(B->K());
     type op1_ty = getIntrinsicOp1Ty(B->K());
