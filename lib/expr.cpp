@@ -24,7 +24,7 @@ ostream& operator<<(ostream &os, const Inst &val) {
 }
 
 void Var::print(ostream &os) const {
-  os << "(var b" << ty.getWidth() << " " << name <<")";
+  os << "(var " << ty << " " << name <<")";
 }
 
 void ReservedConst::print(ostream &os) const {

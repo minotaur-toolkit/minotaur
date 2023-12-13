@@ -394,13 +394,17 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
 
   // shufflevector
   for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
-    if (expected.isFP())
-      continue;
-    // skip (sv rc, *, mask)
     if (dynamic_cast<ReservedConst *>(*Op0))
       continue;
 
     type op_ty = (*Op0)->getType();
+    cout << "op_ty: " << op_ty << "\n";
+    cout << "expected: " << expected << "\n";
+    if (( expected.isFP() && !op_ty.isFP()) ||
+        (!expected.isFP() &&  op_ty.isFP()))
+      continue;
+    // skip (sv rc, *, mask)
+
 
     auto tys = getIntegerVectorTypes(expected.getWidth());
     for (auto ty : tys) {
@@ -593,9 +597,13 @@ optional<Rewrite> Enumerator::synthesize(llvm::Function &F) {
       llvm::Instruction *PrevI = llvm::cast<llvm::Instruction>(VMap[&*I]);
       ConstMap _consts;
       Rewrite R{*Tgt, G, _consts};
+      PrevI->dump();
+      cout<<*G<<"\n";
       llvm::Value *V =
          LLVMGen(PrevI, IntrinsicDecls).codeGen(R, VMap);
       V = llvm::IRBuilder<>(PrevI).CreateBitCast(V, PrevI->getType());
+      V->dump();
+      PrevI->dump();
       PrevI->replaceAllUsesWith(V);
 
       eliminate_dead_code(*Tgt);
