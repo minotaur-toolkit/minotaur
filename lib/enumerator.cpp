@@ -340,6 +340,8 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
 
   // BinaryIntrinsics
   for (unsigned K = 0; K < X86IntrinBinOp::numOfX86Intrinsics; ++K) {
+    if (expected.isFP())
+      continue;
     // typecheck for return val
     X86IntrinBinOp::Op op = static_cast<X86IntrinBinOp::Op>(K);
     if (config::disable_avx512 && SIMDBinOpInst::is512(op))
@@ -389,8 +391,11 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
       }
     }
   }
+
   // shufflevector
   for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
+    if (expected.isFP())
+      continue;
     // skip (sv rc, *, mask)
     if (dynamic_cast<ReservedConst *>(*Op0))
       continue;
