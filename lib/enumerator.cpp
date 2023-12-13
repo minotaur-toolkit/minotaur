@@ -406,7 +406,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
     // skip (sv rc, *, mask)
 
 
-    auto tys = getIntegerVectorTypes(expected.getWidth());
+    auto tys = getShuffleWorkTypes(expected);
     for (auto ty : tys) {
       type mask_ty = type(ty.getLane(), 8, false);
       if (op_ty.getWidth() % ty.getBits())

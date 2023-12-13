@@ -281,6 +281,7 @@ struct Rewrite {
 
 std::vector<type> getBinaryOpWorkTypes(type expected, BinaryOp::Op op);
 std::vector<type> getUnaryOpWorkTypes(type expected, UnaryOp::Op op);
+std::vector<type> getShuffleWorkTypes(type expected);
 std::vector<type> getConversionOpWorkTypes(type to, type from);
 
 }

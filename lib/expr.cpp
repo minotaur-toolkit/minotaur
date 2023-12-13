@@ -216,6 +216,14 @@ vector<type> getBinaryOpWorkTypes(type ty, BinaryOp::Op op) {
   }
 }
 
+vector<type> getShuffleWorkTypes(type ty) {
+  if (ty.isFP()) {
+    return {};
+  } else {
+    return getIntegerVectorTypes(ty.getWidth());
+  }
+}
+
 vector<type> getConversionOpWorkTypes(type to, type from) {
   vector<type> tys = getIntegerVectorTypes(to.getWidth());
   return tys;
