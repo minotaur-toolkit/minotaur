@@ -283,7 +283,6 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap, ConstMap &CMap) {
     return CI;
   // TODO: handle terop
   } else if (auto FSV = dynamic_cast<FakeShuffleInst*>(I)) {
-    unsigned elem_bits = FSV->getElementBits();
     auto op0 = codeGenImpl(FSV->L(), VMap, CMap);
     llvm::Type *op_ty = FSV->getInputTy().toLLVM(C);
     op0 = bitcastTo(op0, op_ty);
@@ -307,11 +306,6 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap, ConstMap &CMap) {
       llvm::Function *F =
         llvm::Function::Create(FT, llvm::Function::ExternalLinkage, "__fksv", M);
       IntrinsicDecls.insert(F);
-      F->dump();
-      op0->dump();
-      op0->getType()->dump();
-      op1->dump();
-
       SV = b.CreateCall(F, { op0, op1, mask }, "sv");
     }
 

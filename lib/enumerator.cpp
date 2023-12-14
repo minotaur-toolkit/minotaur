@@ -400,6 +400,9 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
     if (dynamic_cast<ReservedConst *>(*Op0))
       continue;
 
+    if (expected.isScalar())
+      continue;
+
     type op_ty = (*Op0)->getType();
     cout << "op_ty: " << op_ty << "\n";
     cout << "expected: " << expected << "\n";
@@ -600,13 +603,9 @@ optional<Rewrite> Enumerator::synthesize(llvm::Function &F) {
       llvm::Instruction *PrevI = llvm::cast<llvm::Instruction>(VMap[&*I]);
       ConstMap _consts;
       Rewrite R{*Tgt, G, _consts};
-      PrevI->dump();
-      cout<<*G<<"\n";
       llvm::Value *V =
          LLVMGen(PrevI, IntrinsicDecls).codeGen(R, VMap);
       V = llvm::IRBuilder<>(PrevI).CreateBitCast(V, PrevI->getType());
-      V->dump();
-      PrevI->dump();
       PrevI->replaceAllUsesWith(V);
 
       eliminate_dead_code(*Tgt);
