@@ -235,7 +235,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
     }
   }
 
-  //cmps
+  //icmps
   if (expected.getWidth() <= 64) {
     unsigned lanes = expected.getWidth();
     for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
@@ -305,6 +305,9 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
         //fcmps
         Value *I = dynamic_cast<Var*>(*Op0);
         if (!I)
+          continue;
+
+        if (!I->getType().isFP())
           continue;
 
         if (I->getType().getLane() != expected.getWidth())
