@@ -49,8 +49,6 @@ llvm::Value *LLVMGen::bitcastTo(llvm::Value *V, llvm::Type *to) {
   if (auto BC = dyn_cast<BitCastInst>(V)) {
     V = BC->getOperand(0);
   }
-  V->dump();
-  to->dump();
   return b.CreateBitCast(V, to);
 }
 
