@@ -176,6 +176,16 @@ void FakeShuffleInst::print(ostream &os) const {
   os << ")";
 }
 
+type FakeShuffleInst::getRetTy() {
+  return expectty;
+}
+
+type FakeShuffleInst::getInputTy() {
+  type lhs_ty = lhs->getType();
+  unsigned lane = lhs_ty.getWidth()/getElementBits();
+  return type(lane, getElementBits(), lhs_ty.isFP());
+}
+
 
 void ConversionOp::print(ostream &os) const {
   const char *str = nullptr;

@@ -49,6 +49,8 @@ llvm::Value *LLVMGen::bitcastTo(llvm::Value *V, llvm::Type *to) {
   if (auto BC = dyn_cast<BitCastInst>(V)) {
     V = BC->getOperand(0);
   }
+  V->dump();
+  to->dump();
   return b.CreateBitCast(V, to);
 }
 
@@ -281,15 +283,16 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap, ConstMap &CMap) {
     return CI;
   // TODO: handle terop
   } else if (auto FSV = dynamic_cast<FakeShuffleInst*>(I)) {
+    unsigned elem_bits = FSV->getElementBits();
     auto op0 = codeGenImpl(FSV->L(), VMap, CMap);
-    op0 = bitcastTo(op0, FSV->getInputTy().toLLVM(C));
+    llvm::Type *op_ty = FSV->getInputTy().toLLVM(C);
+    op0 = bitcastTo(op0, op_ty);
     llvm::Value *op1 = nullptr;
     if (FSV->R()) {
-      op1 = bitcastTo(codeGenImpl(FSV->R(), VMap, CMap), op0->getType());
+      op1 = bitcastTo(codeGenImpl(FSV->R(), VMap, CMap), op_ty);
     } else {
-      op1 = llvm::PoisonValue::get(op0->getType());
+      op1 = llvm::PoisonValue::get(op_ty);
     }
-
     auto mask = codeGenImpl(FSV->M(), VMap, CMap);
     llvm::Value *SV = nullptr;
     if (isa<Constant>(mask)) {
@@ -298,14 +301,17 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap, ConstMap &CMap) {
         FixedVectorType::get(b.getInt32Ty(), CV->getType()->getNumElements()));
       SV = b.CreateShuffleVector(op0, op1, zm, "sv");
     } else {
-      unsigned elem_bits = FSV->getElementBits();
-      auto op_ty = type(FSV->L()->getType().getWidth()/elem_bits, elem_bits, false);
-      std::vector<llvm::Type*> Args(2, op_ty.toLLVM(C));
+      std::vector<llvm::Type*> Args(2, op_ty);
       Args.push_back(FSV->M()->getType().toLLVM(C));
       FunctionType *FT = FunctionType::get(FSV->getRetTy().toLLVM(C), Args, false);
       llvm::Function *F =
         llvm::Function::Create(FT, llvm::Function::ExternalLinkage, "__fksv", M);
       IntrinsicDecls.insert(F);
+      F->dump();
+      op0->dump();
+      op0->getType()->dump();
+      op1->dump();
+
       SV = b.CreateCall(F, { op0, op1, mask }, "sv");
     }
 

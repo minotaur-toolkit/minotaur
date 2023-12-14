@@ -246,8 +246,8 @@ public:
   Value *R() { return rhs; }
   ReservedConst *M() { return mask; }
   unsigned getElementBits() { return expectty.getBits(); }
-  type getRetTy() { return expectty; }
-  type getInputTy() { return lhs->getType(); }
+  type getRetTy();
+  type getInputTy();
 };
 
 
