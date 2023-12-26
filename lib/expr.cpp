@@ -228,7 +228,7 @@ vector<type> getBinaryOpWorkTypes(type ty, BinaryOp::Op op) {
 
 vector<type> getShuffleWorkTypes(type ty) {
   if (ty.isFP()) {
-    return {};
+    return {ty};
   } else {
     return getIntegerVectorTypes(ty.getWidth());
   }

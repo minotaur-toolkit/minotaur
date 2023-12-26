@@ -496,17 +496,6 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
     }
   }
 
-/*
-  for (auto bb : blocks) {
-    if (bmap[bb] == entry)
-      continue;
-    for(BasicBlock *pred : predecessors(bb)) {
-      if (!blocks.count(pred)) {
-        report_fatal_error("[slicer] dangling basicblock\n");
-      }
-    }
-  }
-  */
   sinkbb->insertInto(F);
 
   DominatorTree FDT = DominatorTree();
@@ -524,7 +513,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   raw_string_ostream err_stream(err);
   bool illformed = verifyFunction(*F, &err_stream);
   if (illformed) {
-    debug() << err << "\n" << *F;
+    llvm::errs() << err << "\n" << *F;
     report_fatal_error("[slicer] illformed function generated, terminating\n");
   }
 

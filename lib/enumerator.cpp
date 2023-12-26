@@ -397,28 +397,28 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
 
   // shufflevector
   for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
+    // skip (sv rc, *, mask)
     if (dynamic_cast<ReservedConst *>(*Op0))
       continue;
 
-    if (expected.isScalar())
-      continue;
-
     type op_ty = (*Op0)->getType();
-    cout << "op_ty: " << op_ty << "\n";
-    cout << "expected: " << expected << "\n";
-    if (( expected.isFP() && !op_ty.isFP()) ||
-        (!expected.isFP() &&  op_ty.isFP()))
-      continue;
-    // skip (sv rc, *, mask)
 
+    //skip if expected and op_ty are not both fp or int
+    if (!( expected.isFP() &&  op_ty.isFP()) ||
+         (!expected.isFP() && !op_ty.isFP()))
+      continue;
 
     auto tys = getShuffleWorkTypes(expected);
     for (auto ty : tys) {
       type mask_ty = type(ty.getLane(), 8, false);
+      if (mask_ty.isScalar())
+        continue;
+
       if (op_ty.getWidth() % ty.getBits())
         continue;
       if (op_ty.getWidth() == ty.getBits())
         continue;
+
       // (sv var, poison, mask)
       {
         set<ReservedConst*> RCs;
