@@ -16,4 +16,3 @@ entry:
 
 declare <8 x i32> @llvm.x86.avx2.pmadd.wd(<16 x i16>, <16 x i16>)
 declare <8 x i32> @llvm.x86.avx2.psrai.d(<8 x i32>, i32)
-
