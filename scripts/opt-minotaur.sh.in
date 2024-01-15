@@ -10,10 +10,12 @@ set -ex
 #  MINOTAUR_SHAREDLIB=@CACHE_EXPRS_PASS.so
 #fi
 
+TV_REPORT_DIR=-minotaur-report-dir=@CMAKE_BINARY_DIR@/logs
+TV_SMT_TO=-minotaur-query-to=20000
 
-@LLVM_BINARY_DIR@/bin/opt -load-pass-plugin=@ONLINE_PASS@ \
+@LLVM_BINARY_DIR@/bin/opt -load-pass-plugin=@ONLINE_PASS@ $@ \
   -passes="minotaur-online" \
   -minotaur-enable-caching=false \
   -minotaur-ignore-machine-cost=true \
   -minotaur-debug-enumerator=true \
-   "$@" -S -o -
+  $TV_REPORT_DIR

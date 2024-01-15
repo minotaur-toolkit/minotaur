@@ -5,6 +5,7 @@
 #include "codegen.h"
 #include "slice.h"
 #include "removal-slice.h"
+#include "util/random.h"
 #include "utils.h"
 
 #include "ir/instr.h"
@@ -39,6 +40,7 @@
 
 #include "hiredis.h"
 
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <random>
@@ -49,6 +51,8 @@
 using namespace std;
 using namespace llvm;
 using namespace minotaur;
+
+namespace fs = std::filesystem;
 
 namespace {
 
@@ -97,6 +101,9 @@ llvm::cl::opt<bool> dryrun(
     llvm::cl::desc("minotaur: dryrun, do not change source"),
     llvm::cl::init(false));
 
+llvm::cl::opt<string> report_dir("minotaur-report-dir",
+  llvm::cl::desc("Save report to disk"), llvm::cl::value_desc("directory"));
+
 static bool dom_check(llvm::Value *V, DominatorTree &DT, llvm::Use &U) {
   if (auto I = dyn_cast<Instruction> (V)) {
     for (auto &op : I->operands()) {
@@ -113,7 +120,7 @@ struct debug {
   debug &operator<<(const T &s)
   {
     if (debug_enumerator || debug_slicer || debug_tv)
-      llvm::errs()<<s;
+      config::dbg()<<s;
     return *this;
   }
 };
@@ -121,7 +128,37 @@ struct debug {
 static bool
 optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
                   TargetLibraryInfoWrapperPass &TLI) {
+  // set up debug output
+  if (!report_dir.empty()) {
+    try {
+      fs::create_directories(report_dir.getValue());
+    } catch (...) {
+      cerr << "Alive2: Couldn't create report directory!" << endl;
+      exit(1);
+    }
 
+    fs::path fname = "minotaur.txt";
+    fs::path path = fs::path(report_dir.getValue()) / fname.filename();
+
+    do {
+      auto newname = fname.stem();
+      if (newname.compare("-") == 0 || newname.compare("<stdin>") == 0)
+        newname = "in";
+      newname += "_" + util::get_random_str(8) + ".txt";
+      path.replace_filename(newname);
+    } while (fs::exists(path));
+
+    ofstream out_file;
+
+    out_file.open(path);
+    config::set_debug(out_file);
+    if (!out_file.is_open()) {
+      cerr << "Alive2: Couldn't open report file!" << endl;
+      exit(1);
+    }
+  }
+
+  // set alive2 options
   config::ignore_machine_cost = ignore_mca;
   config::debug_enumerator = debug_enumerator;
   config::debug_tv = debug_tv;
