@@ -268,8 +268,9 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
 
   debug() << "[online] minotaur completed optimization\n";
 
-  out_file.flush();
+  out_file->flush();
   delete out_file;
+
   return changed;
 }
 
