@@ -20,6 +20,7 @@ bool ignore_machine_cost = false;
 bool smt_verbose = false;
 bool disable_avx512 = true;
 bool show_stats = false;
+bool return_first_solution = false;
 
 unsigned slicer_max_depth = 2;
 

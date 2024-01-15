@@ -696,7 +696,7 @@ push:
       iter = Fns.erase(iter);
 
       unsigned Duration = ( std::clock() - start ) / CLOCKS_PER_SEC;
-      if (Good || Duration > 120) {
+      if ((config::return_first_solution && Good) || Duration > 120) {
         break;
       }
     }
