@@ -95,7 +95,7 @@ llvm::cl::opt<unsigned> redis_port(
 llvm::cl::opt<bool> dryrun(
     "minotaur-dryrun",
     llvm::cl::desc("minotaur: dryrun, do not change source"),
-    llvm::cl::init(true));
+    llvm::cl::init(false));
 
 static bool dom_check(llvm::Value *V, DominatorTree &DT, llvm::Use &U) {
   if (auto I = dyn_cast<Instruction> (V)) {
