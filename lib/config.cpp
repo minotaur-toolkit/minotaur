@@ -2,11 +2,12 @@
 // Distributed under the MIT license that can be found in the LICENSE file.
 #include "util/config.h"
 #include "llvm_util/utils.h"
+#include "llvm/Support/raw_ostream.h"
 #include <iostream>
 
 using namespace std;
 
-static ostream *debug_os = &cerr;
+static llvm::raw_ostream *debug_os = &llvm::nulls();
 
 namespace minotaur{
 namespace config {
@@ -24,11 +25,11 @@ bool return_first_solution = false;
 
 unsigned slicer_max_depth = 2;
 
-ostream &dbg() {
+llvm::raw_ostream &dbg() {
   return *debug_os;
 }
 
-void set_debug(ostream &os) {
+void set_debug(llvm::raw_ostream &os) {
   debug_os = &os;
 }
 

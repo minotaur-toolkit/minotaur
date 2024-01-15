@@ -3,6 +3,7 @@
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
 
+#include "llvm/Support/raw_ostream.h"
 #include <string>
 #include <ostream>
 
@@ -22,8 +23,8 @@ extern bool return_first_solution;
 
 extern unsigned slicer_max_depth;
 
-std::ostream &dbg();
-void set_debug(std::ostream &os);
+llvm::raw_ostream &dbg();
+void set_debug(llvm::raw_ostream &os);
 
 }
 }
