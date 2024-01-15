@@ -493,7 +493,7 @@ vector<Rewrite> Enumerator::synthesize(llvm::Function &F) {
 
   AliveEngine AE(TLI);
 
-  unsigned machinecost = get_machine_cost(&F) + 1;
+  unsigned costBefore = get_machine_cost(&F);
 
   for (auto &BB : F) {
     auto T = BB.getTerminator();
@@ -603,9 +603,8 @@ vector<Rewrite> Enumerator::synthesize(llvm::Function &F) {
 
       llvm::Instruction *PrevI = llvm::cast<llvm::Instruction>(VMap[&*I]);
       ConstMap _consts;
-      Rewrite R{*Tgt, G, _consts};
       llvm::Value *V =
-         LLVMGen(PrevI, IntrinsicDecls).codeGen(R, VMap);
+         LLVMGen(PrevI, IntrinsicDecls).codeGen(G, _consts, VMap);
       V = llvm::IRBuilder<>(PrevI).CreateBitCast(V, PrevI->getType());
       PrevI->replaceAllUsesWith(V);
 
@@ -713,30 +712,33 @@ push:
 
     // replace
     if (success) {
-      debug() << "[enumerator] original ir (uops=" <<machinecost<<")\n"
+      debug() << "[enumerator] original ir (uops=" <<costBefore<<")\n"
               << F << "\n";
 
       llvm::ValueToValueMapTy VMap;
-      Rewrite r = {F, R, Consts};
-      llvm::Value *V = LLVMGen(&*I, IntrinsicDecls).codeGen(r, VMap);
+      llvm::Value *V = LLVMGen(&*I, IntrinsicDecls).codeGen(R, Consts, VMap);
       V = llvm::IRBuilder<>(I).CreateBitCast(V, I->getType());
       I->replaceAllUsesWith(V);
-      unsigned newcost = get_machine_cost(&F);
+      unsigned costAfter = get_machine_cost(&F);
 
-      debug() << "[enumerator] optimized ir (uops=" << newcost << ")\n"
+      debug() << "[enumerator] optimized ir (uops=" << costAfter << ")\n"
               << F << "\n";
 
       if (config::ignore_machine_cost ||
-          !machinecost || !newcost || newcost <= machinecost) {
+          !costBefore || !costAfter || costAfter <= costBefore) {
         removeUnusedDecls(IntrinsicDecls);
         debug () << "[enumerator] successfully synthesized rhs\n";
-        ret.emplace_back(F, R, Consts, machinecost, newcost);
+        ret.emplace_back(R, Consts, costAfter, costBefore);
       } else {
         debug() <<  "[enumerator] RHS is more expensive than LHS\n";
       }
     }
   }
-  return {};
+
+  // std::sort (ret.begin(), ret.end(), [](const Rewrite *a, const Rewrite *b) {
+  //   return a->CostAfter < b->CostAfter;
+  // });
+  return ret;
 }
 
 };

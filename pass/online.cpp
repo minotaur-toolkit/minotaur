@@ -170,13 +170,15 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
       Enumerator EN;
       debug() << "[online] working on Function:\n" << (*NewF).get();
 
-      auto R = EN.synthesize(*NewF);
+      auto RHSs = EN.synthesize(*NewF);
 
-      if (!R.has_value()) {
+      if (RHSs.empty()) {
         if (enable_caching)
           hSetNoSolution(bytecode.c_str(), bytecode.size(), ctx, F.getName());
         continue;
       }
+
+      auto R = RHSs[0];
 
       if (enable_caching) {
         string optimized;
@@ -187,11 +189,11 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         WriteBitcodeToFile(*m, bs);
 
         stringstream rs;
-        R->I->print(rs);
+        R.I->print(rs);
         rs.flush();
         hSetRewrite(bytecode.c_str(), bytecode.size(),
                     optimized.c_str(), optimized.size(),
-                    rs.str(), ctx, R->CostBefore, R->CostAfter, F.getName());
+                    rs.str(), ctx, R.CostBefore, R.CostAfter, F.getName());
       }
 
       if (dryrun)
@@ -203,7 +205,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         insertpt = insertpt->getNextNode();
       }
 
-      auto *V = LLVMGen(insertpt, IntrinDecls).codeGen(*R, S.getValueMap());
+      auto *V = LLVMGen(insertpt, IntrinDecls).codeGen(R.I, R.Consts, S.getValueMap());
       V = llvm::IRBuilder<>(insertpt).CreateBitCast(V, I.getType());
 
 

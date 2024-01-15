@@ -312,8 +312,8 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap, ConstMap &CMap) {
   llvm::report_fatal_error("[ERROR] unknown instruction found in LLVMGen");
 }
 
-llvm::Value *LLVMGen::codeGen(Rewrite &R, ValueToValueMapTy &VMap) {
-  return codeGenImpl(R.I, VMap, R.Consts);
+llvm::Value *LLVMGen::codeGen(Inst *I, ConstMap &CM, ValueToValueMapTy &VMap) {
+  return codeGenImpl(I, VMap, CM);
 }
 
 }
