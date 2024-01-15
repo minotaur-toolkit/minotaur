@@ -149,8 +149,8 @@ configure_file(
   @ONLY
 )
 configure_file(
-  ${PROJECT_SOURCE_DIR}/scripts/opt-synthesis.sh.in
-  ${PROJECT_BINARY_DIR}/opt-synthesis-test.sh
+  ${PROJECT_SOURCE_DIR}/scripts/opt-minotaur.sh.in
+  ${PROJECT_BINARY_DIR}/opt-minotaur.sh
   @ONLY
 )
 configure_file(

@@ -70,8 +70,8 @@ class MinotaurTest(TestFormat):
 
     opt_tv = test.endswith('.syn.ll')
     if opt_tv:
-      cmd = ['./opt-synthesis-test.sh']
-      if not os.path.isfile('opt-synthesis-test.sh'):
+      cmd = ['./opt-minotaur.sh']
+      if not os.path.isfile('opt-minotaur.sh'):
         return lit.Test.UNSUPPORTED, ''
 
     input = readFile(test)
