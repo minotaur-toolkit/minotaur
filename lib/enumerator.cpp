@@ -466,9 +466,10 @@ static bool approx(const Candidate &f1, const Candidate &f2){
   return get_approx_cost(get<0>(f1)) < get_approx_cost(get<0>(f2));
 }
 
-optional<Rewrite> Enumerator::synthesize(llvm::Function &F) {
+vector<Rewrite> Enumerator::synthesize(llvm::Function &F) {
   unsigned REWRITES = 0;
   unsigned PRUNED = 0;
+  vector<Rewrite> ret;
 
   assert (!V->getType()->isPointerTy() && "pointer arith is not supported");
 
@@ -729,14 +730,13 @@ push:
           !machinecost || !newcost || newcost <= machinecost) {
         removeUnusedDecls(IntrinsicDecls);
         debug () << "[enumerator] successfully synthesized rhs\n";
-        return {{F, R, Consts, machinecost, newcost}};
+        ret.emplace_back(F, R, Consts, machinecost, newcost);
       } else {
-        debug() <<  "[enumerator] !!! discard !!!\n";
-        return nullopt;
+        debug() <<  "[enumerator] RHS is more expensive than LHS\n";
       }
     }
   }
-  return nullopt;
+  return {};
 }
 
 };
