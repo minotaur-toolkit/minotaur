@@ -36,6 +36,7 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include "hiredis.h"
@@ -129,6 +130,7 @@ static bool
 optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
                   TargetLibraryInfoWrapperPass &TLI) {
   // set up debug output
+  raw_ostream *out_file = &nulls();
   if (!report_dir.empty()) {
     try {
       fs::create_directories(report_dir.getValue());
@@ -148,14 +150,14 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
       path.replace_filename(newname);
     } while (fs::exists(path));
 
-    ofstream out_file;
+    std::error_code EC;
+    out_file = new raw_fd_ostream(path.string(), EC, llvm::sys::fs::OF_None);
 
-    out_file.open(path);
-    config::set_debug(out_file);
-    if (!out_file.is_open()) {
+    if (EC) {
       cerr << "Alive2: Couldn't open report file!" << endl;
       exit(1);
     }
+    config::set_debug(*out_file);
   }
 
   // set alive2 options
@@ -265,6 +267,9 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
   }
 
   debug() << "[online] minotaur completed optimization\n";
+
+  out_file.flush();
+  delete out_file;
   return changed;
 }
 
