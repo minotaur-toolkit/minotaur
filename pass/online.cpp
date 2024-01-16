@@ -122,13 +122,13 @@ static bool dom_check(llvm::Value *V, DominatorTree &DT, llvm::Use &U) {
 }
 
 struct debug {
-  template<class T>
-  debug &operator<<(const T &s)
-  {
-    if (debug_enumerator || debug_slicer || debug_tv || debug_codegen)
-      minotaur::config::dbg()<<s;
-    return *this;
-  }
+template<class T>
+debug &operator<<(const T &s)
+{
+  if (debug_enumerator || debug_slicer || debug_tv || debug_codegen)
+    minotaur::config::dbg()<<s;
+  return *this;
+}
 };
 
 static bool
@@ -165,6 +165,9 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
     config::set_debug(*out_file);
   }
 
+  debug()<< "minotaur: " << config::minotaur_version << "\n";
+  debug()<< "working on source: " << F.getParent()->getSourceFileName() << "\n";
+
   // set alive2 options
   config::ignore_machine_cost = ignore_mca;
   config::debug_enumerator = debug_enumerator;
@@ -172,8 +175,6 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
   config::debug_slicer = debug_slicer;
   config::debug_codegen = debug_codegen;
   smt::solver_print_queries(smt_verbose);
-
-  debug() << "[online] starting minotaur\n";
 
   smt::set_query_timeout(to_string(smt_to * 1000));
 

@@ -1,11 +1,13 @@
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
-#include "util/config.h"
+#include "config.h"
+#include "minotaur_gen.h"
 #include "llvm_util/utils.h"
 #include "llvm/Support/raw_ostream.h"
 #include <iostream>
 
-using namespace std;
+#define xstr(s) str(s)
+#define str(s) #s
 
 static llvm::raw_ostream *debug_os = &llvm::nulls();
 
@@ -33,6 +35,10 @@ llvm::raw_ostream &dbg() {
 void set_debug(llvm::raw_ostream &os) {
   debug_os = &os;
 }
+
+const char minotaur_version[] = {
+  xstr(MINOTAUR_VERSION_MACRO)
+};
 
 }
 }

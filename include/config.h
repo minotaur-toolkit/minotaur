@@ -27,5 +27,7 @@ extern unsigned slicer_max_depth;
 llvm::raw_ostream &dbg();
 void set_debug(llvm::raw_ostream &os);
 
+extern const char minotaur_version[];
+
 }
 }
