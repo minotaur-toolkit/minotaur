@@ -66,13 +66,13 @@ add_custom_target(
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 
+include_directories(include)
+include_directories(${PROJECT_BINARY_DIR})
+
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 find_package(Alive2)
 include_directories(${ALIVE2_SOURCE_DIR})
-
-include_directories(include)
-include_directories(${PROJECT_BINARY_DIR})
 
 set(SYNTHESIZER_SRC
   "lib/alive-interface.cpp"
@@ -99,7 +99,8 @@ include_directories(${HIREDIS_INCLUDE_DIR}/hiredis)
 llvm_map_components_to_libnames(LLVM_LIBS
   analysis core irreader passes scalaropts support transformutils targetparser)
 
-add_library(cost STATIC "lib/cost.cpp")
+add_library(cost STATIC "lib/cost.cpp"
+                        "${PROJECT_BINARY_DIR}/cost-command.h")
 target_link_libraries(cost PRIVATE ${LLVM_LIBS})
 
 add_library(utils STATIC "lib/utils.cpp")
