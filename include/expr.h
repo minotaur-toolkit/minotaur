@@ -21,8 +21,8 @@ namespace minotaur {
 class Inst {
 public:
   Inst() {}
-  virtual void print(std::ostream &os) const = 0;
-  friend std::ostream& operator<<(std::ostream &os, const Inst &val);
+  virtual void print(llvm::raw_ostream &os) const = 0;
+  friend llvm::raw_ostream &operator<<(llvm::raw_ostream &os, const Inst &val);
   virtual ~Inst() {}
 };
 
@@ -32,7 +32,7 @@ protected:
   type ty;
 public:
   type getType() { return ty; }
-  virtual void print(std::ostream &os) const = 0;
+  virtual void print(llvm::raw_ostream &os) const = 0;
   Value(type ty) : ty (ty) {}
 };
 
@@ -48,7 +48,7 @@ public:
   }
   auto& getName() const { return name; }
   void setValue(llvm::Value *vv) { v = vv; }
-  void print(std::ostream &os) const override;
+  void print(llvm::raw_ostream &os) const override;
   llvm::Value *V () { return v; }
 };
 
@@ -61,7 +61,7 @@ public:
   type getType() { return ty; }
   llvm::Argument *getA () const { return A; }
   void setA (llvm::Argument *Arg) { A = Arg; }
-  void print(std::ostream &os) const override;
+  void print(llvm::raw_ostream &os) const override;
 };
 
 // No-op
@@ -70,7 +70,7 @@ private:
   ReservedConst *rc;
 public:
   Copy(ReservedConst &rc) : Value(rc.getType()), rc(&rc) {}
-  void print(std::ostream &os) const override;
+  void print(llvm::raw_ostream &os) const override;
   ReservedConst *V() { return rc; }
 };
 
@@ -85,7 +85,7 @@ private:
 public:
   UnaryOp(Op op, Value &V, type &workty)
   : Value(V.getType()), op(op), v(&V), workty(workty) {}
-  void print(std::ostream &os) const override;
+  void print(llvm::raw_ostream &os) const override;
   Op K() { return op; }
   Value *V() { return v; }
   type getWorkTy() { return workty; }
@@ -105,7 +105,7 @@ private:
 public:
   BinaryOp(Op op, Value &lhs, Value &rhs, type &workty)
   : Value(lhs.getType()), op(op), lhs(&lhs), rhs(&rhs), workty(workty) {}
-  void print(std::ostream &os) const;
+  void print(llvm::raw_ostream &os) const;
   Value *L() { return lhs; }
   Value *R() { return rhs; }
   Op K() { return op; }
@@ -138,7 +138,7 @@ private:
 public:
   ICmp(Cond cond, Value &lhs, Value &rhs, unsigned lanes)
   : Value(type(lanes, 1, false)) , cond(cond), lhs(&lhs), rhs(&rhs) {}
-  void print(std::ostream &os) const override;
+  void print(llvm::raw_ostream &os) const override;
   Value *L() { return lhs; }
   Value *R() { return rhs; }
   Cond K() { return cond; }
@@ -157,7 +157,7 @@ private:
 public:
   FCmp(Cond cond, Value &lhs, Value &rhs, unsigned lanes)
   : Value(type(lanes, 1, false)) , cond(cond), lhs(&lhs), rhs(&rhs) {}
-  void print(std::ostream &os) const override;
+  void print(llvm::raw_ostream &os) const override;
   Value *L() { return lhs; }
   Value *R() { return rhs; }
   Cond K() { return cond; }
@@ -173,7 +173,7 @@ class SIMDBinOpInst final : public Value {
 public:
   SIMDBinOpInst(IR::X86IntrinBinOp::Op op, Value &lhs, Value &rhs)
   : Value(type(getIntrinsicRetTy(op))), op(op), lhs(&lhs), rhs(&rhs) {}
-  void print(std::ostream &os) const override;
+  void print(llvm::raw_ostream &os) const override;
   Value *L() { return lhs; }
   Value *R() { return rhs; }
   IR::X86IntrinBinOp::Op K() { return op; }
@@ -241,7 +241,7 @@ class FakeShuffleInst final : public Value {
 public:
   FakeShuffleInst(Value &lhs, Value *rhs, ReservedConst &mask, type &ety)
     : Value(ety), lhs(&lhs), rhs(rhs), mask(&mask), expectty(ety) {}
-  void print(std::ostream &os) const override;
+  void print(llvm::raw_ostream &os) const override;
   Value *L() { return lhs; }
   Value *R() { return rhs; }
   ReservedConst *M() { return mask; }
@@ -262,7 +262,7 @@ public:
   ConversionOp(Op op, Value &v, unsigned l, unsigned pb, unsigned nb)
   : Value(type(l, nb, false)), k(op), v(&v), lane(l),
     prev_bits(pb), new_bits(nb) {}
-  void print(std::ostream &os) const override;
+  void print(llvm::raw_ostream &os) const override;
   Value *V() { return v; }
   Op K() { return k; }
   type getPrevTy () const { return type(lane, prev_bits, false); }

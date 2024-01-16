@@ -121,7 +121,7 @@ struct debug {
   debug &operator<<(const T &s)
   {
     if (debug_enumerator || debug_slicer || debug_tv)
-      config::dbg()<<s;
+      minotaur::config::dbg()<<s;
     return *this;
   }
 };
@@ -227,12 +227,13 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         }
         WriteBitcodeToFile(*m, bs);
 
-        stringstream rs;
+        string rewrite;
+        raw_string_ostream rs(rewrite);
         R.I->print(rs);
         rs.flush();
         hSetRewrite(bytecode.c_str(), bytecode.size(),
                     optimized.c_str(), optimized.size(),
-                    rs.str(), ctx, R.CostBefore, R.CostAfter, F.getName());
+                    rewrite, ctx, R.CostBefore, R.CostAfter, F.getName());
       }
 
       if (dryrun)

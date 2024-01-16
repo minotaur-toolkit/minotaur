@@ -58,7 +58,7 @@ template<class T>
 debug &operator<<(const T &s)
 {
   if (minotaur::config::debug_enumerator)
-    llvm::errs() << s;
+    minotaur::config::dbg() << s;
   return *this;
 }
 };
@@ -541,7 +541,7 @@ vector<Rewrite> Enumerator::synthesize(llvm::Function &F) {
     getSketches(&*I, Sketches);
     debug() << "[enumerator] listing sketches\n";
     for (auto &Sketch : Sketches) {
-      if(config::debug_enumerator) cerr << *Sketch.first << "\n";
+      config::dbg() << *Sketch.first << "\n";
     }
 
     unsigned CI = 0;

@@ -18,16 +18,16 @@ using namespace llvm;
 
 namespace minotaur {
 
-ostream& operator<<(ostream &os, const Inst &val) {
+raw_ostream& operator<<(raw_ostream &os, const Inst &val) {
   val.print(os);
   return os;
 }
 
-void Var::print(ostream &os) const {
+void Var::print(raw_ostream &os) const {
   os << "(var " << ty << " " << name <<")";
 }
 
-void ReservedConst::print(ostream &os) const {
+void ReservedConst::print(raw_ostream &os) const {
 // TODO : print literals
   // if (!Values.empty()) {
   //   string str;
@@ -56,13 +56,13 @@ void ReservedConst::print(ostream &os) const {
   // }
 }
 
-void Copy::print(ostream &os) const {
+void Copy::print(raw_ostream &os) const {
   os << "(copy ";
   rc->print(os);
   os << ")";
 }
 
-void UnaryOp::print(ostream &os) const {
+void UnaryOp::print(raw_ostream &os) const {
   const char *str = nullptr;
   switch (op) {
   case bitreverse: str = "bitreverse"; break;
@@ -76,7 +76,7 @@ void UnaryOp::print(ostream &os) const {
   os << ")";
 }
 
-void BinaryOp::print(ostream &os) const {
+void BinaryOp::print(raw_ostream &os) const {
   const char *str = nullptr;
   switch (op) {
   case band:       str = "and";  break;
@@ -103,7 +103,7 @@ void BinaryOp::print(ostream &os) const {
   os << ")";
 }
 
-void ICmp::print(ostream &os) const {
+void ICmp::print(raw_ostream &os) const {
   const char *str = nullptr;
   switch (cond) {
   case eq:       str = "eq";  break;
@@ -122,7 +122,7 @@ void ICmp::print(ostream &os) const {
   os << ")";
 }
 
-void FCmp::print(ostream &os) const {
+void FCmp::print(raw_ostream &os) const {
   const char *str = nullptr;
   switch (cond) {
   case f:   str = "false"; break;
@@ -151,7 +151,7 @@ void FCmp::print(ostream &os) const {
   os << ")";
 }
 
-void SIMDBinOpInst::print(ostream &os) const {
+void SIMDBinOpInst::print(raw_ostream &os) const {
   os << "(" << IR::X86IntrinBinOp::getOpName(op) << " ";
   lhs->print(os);
   os << " ";
@@ -159,7 +159,7 @@ void SIMDBinOpInst::print(ostream &os) const {
   os << ")";
 }
 
-void FakeShuffleInst::print(ostream &os) const {
+void FakeShuffleInst::print(raw_ostream &os) const {
   if (rhs)
     os << "(blend ";
   else
@@ -187,7 +187,7 @@ type FakeShuffleInst::getInputTy() {
 }
 
 
-void ConversionOp::print(ostream &os) const {
+void ConversionOp::print(raw_ostream &os) const {
   const char *str = nullptr;
   switch (k) {
   case sext:  str = "sext"; break;

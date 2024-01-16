@@ -26,7 +26,7 @@ public:
   bool operator==(const type &rhs) const;
   bool same_width(const type &rhs) const;
 
-  friend std::ostream& operator<<(std::ostream &os, const type &val);
+  friend llvm::raw_ostream& operator<<(llvm::raw_ostream &os, const type &val);
 
   llvm::Type *toLLVM(llvm::LLVMContext&) const;
 

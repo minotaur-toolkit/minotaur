@@ -36,7 +36,7 @@ struct debug {
   debug &operator<<(const T &s)
   {
     if (minotaur::config::debug_slicer)
-      llvm::errs()<<s;
+      minotaur::config::dbg()<<s;
     return *this;
   }
 };

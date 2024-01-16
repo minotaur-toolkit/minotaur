@@ -61,7 +61,7 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap, ConstMap &CMap) {
       if (VMap.count(V->V()))
         return VMap[V->V()];
       else {
-        cerr<<*V<<endl;
+        llvm::errs()<<*V<<"\n";
         llvm::report_fatal_error("Value is not found in VMap");
       }
     }

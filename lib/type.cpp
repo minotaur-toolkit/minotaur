@@ -83,7 +83,7 @@ Type* type::toLLVM(LLVMContext &C) const {
   return Ty;
 }
 
-ostream& operator<<(ostream &os, const type &val) {
+raw_ostream& operator<<(raw_ostream &os, const type &val) {
   if (val.fp) {
     os<<"<"<<val.lane<<" x f"<<val.bits<<">";
   } else {
