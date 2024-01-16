@@ -12,10 +12,12 @@ set -ex
 
 TV_REPORT_DIR=-minotaur-report-dir=@CMAKE_BINARY_DIR@/logs
 TV_SMT_TO=-minotaur-query-to=20000
+DEBUG=true
 
 @LLVM_BINARY_DIR@/bin/opt -load-pass-plugin=@ONLINE_PASS@ $@ \
   -passes="minotaur-online" \
-  -minotaur-enable-caching=false \
-  -minotaur-ignore-machine-cost=true \
-  -minotaur-debug-enumerator=true \
+  -minotaur-enable-caching=$DEBUG \
+  -minotaur-ignore-machine-cost=$DEBUG \
+  -minotaur-debug-enumerator=$DEBUG \
+  -minotaur-debug-codegen=$DEBUG \
   $TV_REPORT_DIR

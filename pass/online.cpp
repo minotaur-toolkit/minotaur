@@ -92,6 +92,11 @@ llvm::cl::opt<bool> debug_tv(
     llvm::cl::desc("minotaur: enable alive2 debug output"),
     llvm::cl::init(false));
 
+llvm::cl::opt<bool> debug_codegen(
+    "minotaur-debug-codegen",
+    llvm::cl::desc("minotaur: enable alive2 debug output"),
+    llvm::cl::init(false));
+
 llvm::cl::opt<unsigned> redis_port(
     "minotaur-redis-port",
     llvm::cl::desc("redis port number"),
@@ -120,7 +125,7 @@ struct debug {
   template<class T>
   debug &operator<<(const T &s)
   {
-    if (debug_enumerator || debug_slicer || debug_tv)
+    if (debug_enumerator || debug_slicer || debug_tv || debug_codegen)
       minotaur::config::dbg()<<s;
     return *this;
   }
@@ -165,6 +170,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
   config::debug_enumerator = debug_enumerator;
   config::debug_tv = debug_tv;
   config::debug_slicer = debug_slicer;
+  config::debug_codegen = debug_codegen;
   smt::solver_print_queries(smt_verbose);
 
   debug() << "[online] starting minotaur\n";
@@ -207,7 +213,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
       }
 
       Enumerator EN;
-      debug() << "[online] working on Function:\n" << (*NewF).get();
+      debug() << "[online] working on function:\n" << (*NewF).get();
 
       auto RHSs = EN.synthesize(*NewF);
 

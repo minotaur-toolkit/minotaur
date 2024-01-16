@@ -21,6 +21,18 @@
 using namespace std;
 using namespace llvm;
 
+namespace {
+struct debug {
+template<class T>
+debug &operator<<(const T &s)
+{
+  if (minotaur::config::debug_codegen)
+    minotaur::config::dbg() << s;
+  return *this;
+}
+};
+}
+
 namespace minotaur {
 
 static constexpr

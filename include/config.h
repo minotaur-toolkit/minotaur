@@ -15,6 +15,7 @@ extern bool disable_undef_input;
 extern bool debug_slicer;
 extern bool debug_enumerator;
 extern bool debug_tv;
+extern bool debug_codegen;
 extern bool ignore_machine_cost;
 extern bool smt_verbose;
 extern bool disable_avx512;

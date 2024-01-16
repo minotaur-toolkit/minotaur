@@ -17,6 +17,7 @@ bool disable_undef_input = true;
 bool debug_slicer = false;
 bool debug_enumerator = false;
 bool debug_tv = false;
+bool debug_codegen = false;
 bool ignore_machine_cost = false;
 bool smt_verbose = false;
 bool disable_avx512 = true;
