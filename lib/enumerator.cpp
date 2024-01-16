@@ -541,7 +541,7 @@ vector<Rewrite> Enumerator::synthesize(llvm::Function &F) {
     getSketches(&*I, Sketches);
     debug() << "[enumerator] listing sketches\n";
     for (auto &Sketch : Sketches) {
-      config::dbg() << *Sketch.first << "\n";
+      debug() << *Sketch.first << "\n";
     }
 
     unsigned CI = 0;
