@@ -637,7 +637,7 @@ vector<Rewrite> Enumerator::synthesize(llvm::Function &F) {
       }
 
       // check cost
-      if (tgt_cost >= src_cost) {
+      if (tgt_cost > src_cost) {
         skip = true;
         goto push;
       }
