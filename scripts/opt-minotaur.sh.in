@@ -18,16 +18,16 @@ SKIP=0
 
 for arg do
   shift
-  [ $arg==-passes* ] && continue
-  [ $arg==-O* ] && continue
+  [[ $arg = -passes* ]] && continue
+  [[ $arg = -O* ]] && continue
   set -- "$@" "$arg"
 done
 echo "foo$@"
 
 if [[ $SKIP == 0 ]]; then
 @LLVM_BINARY_DIR@/bin/opt -load-pass-plugin=@ONLINE_PASS@ \
-  -passes="minotaur-online" \
   $@ \
+  -passes="minotaur-online" \
   -minotaur-enable-caching=$DEBUG \
   -minotaur-ignore-machine-cost=$DEBUG \
   -minotaur-debug-enumerator=$DEBUG \

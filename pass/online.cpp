@@ -164,7 +164,6 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
     }
     config::set_debug(*out_file);
   }
-
   debug()<< "minotaur version " << config::minotaur_version << " "
          << "working on source: " << F.getParent()->getSourceFileName() << "\n";
 
@@ -339,7 +338,6 @@ struct SuperoptimizerPass : PassInfoMixin<SuperoptimizerPass> {
     LoopInfo &LI = FAM.getResult<llvm::LoopAnalysis>(F);
     DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
     // MemoryDependenceResults &MD = FAM.getResult<MemoryDependenceAnalysis>(F);
-
     TargetLibraryInfoWrapperPass TLI(Triple(F.getParent()->getTargetTriple()));
     optimize_function(F, LI, DT, TLI);
     return PA;
