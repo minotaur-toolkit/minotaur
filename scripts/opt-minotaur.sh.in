@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -ex
+set -e
 
 #if [[ "$OSTYPE" == "darwin"* ]]; then
 #  # Mac
@@ -22,7 +22,6 @@ for arg do
   [[ $arg = -O* ]] && continue
   set -- "$@" "$arg"
 done
-echo "foo$@"
 
 if [[ $SKIP == 0 ]]; then
 @LLVM_BINARY_DIR@/bin/opt -load-pass-plugin=@ONLINE_PASS@ \
