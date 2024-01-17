@@ -14,10 +14,22 @@ TV_REPORT_DIR=-minotaur-report-dir=@CMAKE_BINARY_DIR@/logs
 TV_SMT_TO=-minotaur-query-to=20000
 DEBUG=true
 
-@LLVM_BINARY_DIR@/bin/opt -load-pass-plugin=@ONLINE_PASS@ $@ \
+SKIP=0
+
+for arg do
+  shift
+  [ "$arg" = -passes* ] && continue
+  set -- "$@" "$arg"
+done
+
+if [[ $SKIP == 0 ]]; then
+@LLVM_BINARY_DIR@/bin/opt -load-pass-plugin=@ONLINE_PASS@ \
   -passes="minotaur-online" \
   -minotaur-enable-caching=$DEBUG \
   -minotaur-ignore-machine-cost=$DEBUG \
   -minotaur-debug-enumerator=$DEBUG \
   -minotaur-debug-codegen=$DEBUG \
   $TV_REPORT_DIR
+else
+@LLVM_BINARY_DIR@/bin/opt
+fi
