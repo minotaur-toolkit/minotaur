@@ -275,10 +275,10 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
     redisFree(ctx);
   }
 
+  debug() << "[online] minotaur completed\n";
+
   out_file->flush();
   delete out_file;
-
-  debug() << "[online] minotaur completed\n";
 
   return changed;
 }
