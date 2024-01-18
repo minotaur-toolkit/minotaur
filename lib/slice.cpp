@@ -79,6 +79,8 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   Type *vty = v.getType()->getScalarType();
   if (!vty->isIntegerTy() && !vty->isIEEELikeFPTy())
     return nullopt;
+  if (vty->isScalableTy())
+    return nullopt;
 
   assert(isa<Instruction>(&v) && "Expr to be extracted must be a Instruction");
   Instruction *vi = cast<Instruction>(&v);

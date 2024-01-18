@@ -725,7 +725,7 @@ push:
               << F << "\n";
 
       if (config::ignore_machine_cost ||
-          !costBefore || !costAfter || costAfter <= costBefore) {
+          !costBefore || !costAfter || costAfter < costBefore) {
         removeUnusedDecls(IntrinsicDecls);
         debug () << "[enumerator] successfully synthesized rhs\n";
         ret.emplace_back(R, Consts, costAfter, costBefore);

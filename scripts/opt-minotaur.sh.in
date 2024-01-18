@@ -27,8 +27,8 @@ if [[ $SKIP == 0 ]]; then
 @LLVM_BINARY_DIR@/bin/opt -load-pass-plugin=@ONLINE_PASS@ \
   $@ \
   -passes="minotaur-online" \
-  -minotaur-enable-caching=$DEBUG \
-  -minotaur-ignore-machine-cost=$DEBUG \
+  -minotaur-enable-caching=false \
+  -minotaur-ignore-machine-cost=false \
   -minotaur-debug-enumerator=$DEBUG \
   -minotaur-debug-codegen=$DEBUG \
   $TV_REPORT_DIR
