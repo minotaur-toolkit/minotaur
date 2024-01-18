@@ -735,9 +735,10 @@ push:
     }
   }
 
-  std::sort(ret.begin(), ret.end(), [](const Rewrite &a, const Rewrite &b) {
-    return a.CostAfter < b.CostAfter;
-  });
+  std::stable_sort(ret.begin(), ret.end(),
+    [](const Rewrite &a, const Rewrite &b) {
+      return a.CostAfter <= b.CostAfter;
+    });
   return ret;
 }
 
