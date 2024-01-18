@@ -724,8 +724,9 @@ push:
       debug() << "[enumerator] optimized ir (uops=" << costAfter << ")\n"
               << F << "\n";
 
-      if (config::ignore_machine_cost ||
-          !costBefore || !costAfter || costAfter < costBefore) {
+      if (!costAfter || !costBefore) {
+        debug() << "[enumerator] cost is zero, skip\n";
+      } if (config::ignore_machine_cost || costAfter < costBefore) {
         removeUnusedDecls(IntrinsicDecls);
         debug () << "[enumerator] successfully synthesized rhs\n";
         ret.emplace_back(R, Consts, costAfter, costBefore);
