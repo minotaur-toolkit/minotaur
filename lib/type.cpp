@@ -37,6 +37,7 @@ type::type(llvm::Type *t) {
       report_fatal_error("non-trivial vectors are not supported\n");
     }
   } else {
+    llvm::errs()<<"[expr] type: "<<*t<<"\n";
     report_fatal_error("[expr] unrecognized type");
   }
 }
