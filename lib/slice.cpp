@@ -69,9 +69,8 @@ static unsigned getInstructionIdx(const Instruction *I) {
   return idx;
 }
 
-static bool isSupportFloatingPointTy(llvm::Type *ty) {
-  return ty->isHalfTy() || ty->isFloatTy() ||
-         ty->isDoubleTy() || ty->isFP128Ty();
+static bool isUnsupportedFloatingPointTy(llvm::Type *ty) {
+  return ty->isFloatingPointTy() && !ty->isIEEELikeFPTy();
 }
 
 namespace minotaur {
@@ -82,7 +81,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
   debug() << "[slicer] slicing value " << v << ">>>\n";
 
   Type *vsty = v.getType()->getScalarType();
-  if (!isSupportFloatingPointTy(vsty))
+  if (isUnsupportedFloatingPointTy(vsty))
     return nullopt;
   if (v.getType()->isScalableTy())
     return nullopt;
@@ -201,8 +200,7 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
         }
         auto op_ty = op->getType();
         if (op_ty->isStructTy()  || op_ty->isPtrOrPtrVectorTy() ||
-            !isSupportFloatingPointTy(op_ty) ||
-            op_ty->isScalableTy()) {
+            isUnsupportedFloatingPointTy(op_ty) || op_ty->isScalableTy()) {
           debug() << "[slicer] found instruction with operands with type "
                   << *op_ty <<"\n";
           haveUnknownOperand = true;
