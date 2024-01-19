@@ -5,6 +5,7 @@
 #include "cost-command.h"
 
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Casting.h"
@@ -101,7 +102,11 @@ unsigned get_approx_cost(llvm::Function *F) {
   unsigned cost = 0;
   for (auto &BB : *F) {
     for (auto &I : BB) {
-      if (isa<BitCastInst>(&I)) {
+      if (isa<Argument>(&I)) {
+        cost += 0;
+        // reserved const
+      } else if (isa<BitCastInst>(&I)) {
+        // bitcast counts nothing
         cost += 0;
       } else if (CallInst *CI = dyn_cast<CallInst>(&I)) {
         auto CalledF = CI->getCalledFunction();
@@ -114,9 +119,20 @@ unsigned get_approx_cost(llvm::Function *F) {
         }
       } else if (isa<ShuffleVectorInst>(&I)) {
         cost += 1;
+      } else if (BinaryOperator *BO = dyn_cast<BinaryOperator>(&I)) {
+        auto opCode = BO->getOpcode();
+        if (opCode == Instruction::UDiv || opCode == Instruction::SDiv ||
+            opCode == Instruction::URem || opCode == Instruction::SRem) {
+          cost += 5;
+        } else if (opCode == Instruction::Mul) {
+          cost += 2;
+        } else {
+          cost += 1;
+        }
       } else {
         cost += 1;
       }
+
     }
   }
   return cost;
