@@ -615,21 +615,13 @@ vector<Rewrite> Enumerator::synthesize(llvm::Function &F) {
       bool illformed = llvm::verifyFunction(*Tgt, &err_stream);
       llvm::KnownBits KnownV(Width);
 
+
+      // TODO: add more pruning here
       if (illformed) {
         llvm::errs()<<"Error tgt found: "<<err<<"\n";
         Tgt->dump();
         skip = true;
         goto push;
-      }
-
-      if (I->getType()->isIntOrIntVectorTy()) {
-        computeKnownBits(V, KnownV, DL);
-
-        if ((KnownV.Zero & KnownI.One) != 0 || (KnownV.One & KnownI.Zero) != 0) {
-          skip = true;
-          ++PRUNED;
-          goto push;
-        }
       }
 
       // check cost
@@ -704,7 +696,8 @@ push:
       Tgt->eraseFromParent();
     }
 
-    debug() <<"[enumerator] rewrites,"<< REWRITES << ",pruned," << PRUNED << "\n";
+    debug() <<"[enumerator] rewrites,"<< REWRITES
+            << ",pruned," << PRUNED << "\n";
 
     // replace
     if (success) {
