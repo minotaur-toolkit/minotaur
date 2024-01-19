@@ -35,6 +35,7 @@
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
@@ -135,7 +136,7 @@ static bool
 optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
                   TargetLibraryInfoWrapperPass &TLI) {
   // set up debug output
-  raw_ostream *out_file = &nulls();
+  raw_ostream *out_file = &errs();
   if (!report_dir.empty()) {
     try {
       fs::create_directories(report_dir.getValue());
@@ -162,9 +163,10 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
       cerr << "Alive2: Couldn't open report file!" << endl;
       exit(1);
     }
-    config::set_debug(*out_file);
   }
-  debug()<< "minotaur version " << config::minotaur_version << " "
+  config::set_debug(*out_file);
+
+  debug()<< "[online] minotaur version " << config::minotaur_version << " "
          << "working on source: " << F.getParent()->getSourceFileName() << "\n";
 
   // set alive2 options
@@ -277,7 +279,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
   debug() << "[online] minotaur completed\n";
 
 
-  if (out_file != &nulls()) {
+  if (out_file != &errs()) {
     out_file->flush();
     delete out_file;
   }

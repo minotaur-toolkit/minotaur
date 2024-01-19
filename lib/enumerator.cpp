@@ -637,7 +637,7 @@ vector<Rewrite> Enumerator::synthesize(llvm::Function &F) {
       }
 
       // check cost
-      if (tgt_cost > src_cost) {
+      if (tgt_cost >= src_cost) {
         skip = true;
         goto push;
       }
@@ -717,6 +717,10 @@ push:
 
       llvm::ValueToValueMapTy VMap;
       llvm::Value *V = LLVMGen(&*I, IntrinsicDecls).codeGen(R, Consts, VMap);
+      // fill in dummy for reserved constants for cost calculation
+      if (isa<llvm::Argument>(V)) {
+        V = llvm::Constant::getAllOnesValue(V->getType());
+      }
       V = llvm::IRBuilder<>(I).CreateBitCast(V, I->getType());
       I->replaceAllUsesWith(V);
       unsigned costAfter = get_machine_cost(&F);
@@ -726,7 +730,7 @@ push:
 
       if (!costAfter || !costBefore) {
         debug() << "[enumerator] cost is zero, skip\n";
-      } if (config::ignore_machine_cost || costAfter < costBefore) {
+      } else if (config::ignore_machine_cost || costAfter <= costBefore) {
         removeUnusedDecls(IntrinsicDecls);
         debug () << "[enumerator] successfully synthesized rhs\n";
         ret.emplace_back(R, Consts, costAfter, costBefore);
