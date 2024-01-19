@@ -16,14 +16,11 @@
 
 #include <fstream>
 #include <map>
-#include <unistd.h>
 
 using namespace llvm;
 using namespace std;
 
 namespace minotaur {
-
-bool Init = false;
 
 unsigned get_machine_cost(Function *F) {
   llvm::Module M("", F->getContext());
@@ -97,7 +94,6 @@ unsigned get_machine_cost(Function *F) {
   return cycle;
 }
 
-// simply count lines of code without bitcast for now
 unsigned get_approx_cost(llvm::Function *F) {
   unsigned cost = 0;
   for (auto &BB : *F) {
@@ -111,14 +107,14 @@ unsigned get_approx_cost(llvm::Function *F) {
       } else if (CallInst *CI = dyn_cast<CallInst>(&I)) {
         auto CalledF = CI->getCalledFunction();
         if (CalledF && CalledF->getName().startswith("__fksv")) {
-          cost += 1;
+          cost += 3;
         } else if (CalledF && CalledF->isIntrinsic()) {
           cost += 1;
         } else {
-          cost += 1;
+          cost += 3;
         }
       } else if (isa<ShuffleVectorInst>(&I)) {
-        cost += 1;
+        cost += 5;
       } else if (BinaryOperator *BO = dyn_cast<BinaryOperator>(&I)) {
         auto opCode = BO->getOpcode();
         if (opCode == Instruction::UDiv || opCode == Instruction::SDiv ||

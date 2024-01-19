@@ -522,9 +522,6 @@ vector<Rewrite> Enumerator::synthesize(llvm::Function &F) {
     // nops
     {
       for (auto &V : values) {
-        auto vty = V->V()->getType();
-        if (vty->isPointerTy())
-          continue;
         if (V->getType().getWidth() != I->getType()->getPrimitiveSizeInBits())
           continue;
         set<ReservedConst*> RCs;
