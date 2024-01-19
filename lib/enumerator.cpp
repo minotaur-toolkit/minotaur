@@ -471,11 +471,7 @@ vector<Rewrite> Enumerator::synthesize(llvm::Function &F) {
   unsigned PRUNED = 0;
   vector<Rewrite> ret;
 
-  assert (!V->getType()->isPointerTy() && "pointer arith is not supported");
-
-
   debug() << "[enumerator] working on slice\n" << F << "\n";
-
 
   clock_t start = std::clock();
 
