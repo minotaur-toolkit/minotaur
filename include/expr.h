@@ -274,8 +274,8 @@ using ConstMap = std::map<ReservedConst*, llvm::Constant*>;
 struct Rewrite {
   Inst *I;
   ConstMap Consts;
-  unsigned CostBefore;
   unsigned CostAfter;
+  unsigned CostBefore;
 };
 
 std::vector<type> getBinaryOpWorkTypes(type expected, BinaryOp::Op op);

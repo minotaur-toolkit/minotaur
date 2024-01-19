@@ -99,8 +99,8 @@ sub parse ($) {
 my %toprint;
 my %ir;
 my %rewrite;
-my %oldcost;
-my %newcost;
+my %costafter;
+my %costbefore;
 my %costdiff;
 my %reduce;
 my %timestamp;
@@ -148,21 +148,21 @@ foreach my $opt (@all_keys) {
     if ($noopt{$opt}) {
         $noopt_count++;
     } else {
-        my $oc     = $h{"oldcost"};
-        my $nc     = $h{"newcost"};
+        my $ca     = $h{"costafter"};
+        my $cb     = $h{"costbefore"};
         my $obc    = $h{"optimizedbc"};
-        if ($oc == 0) {
-            $oc = 1;
+        if ($cb == 0) {
+            $cb = 1;
         }
-        if ($nc == 0) {
-            $nc = 1;
+        if ($ca == 0) {
+            $ca = 1;
         }
         $optbc{$opt} = parse($obc);
         $toprint{$opt} = 1;
-        $oldcost{$opt} = $oc;
-        $newcost{$opt} = $nc;
-        $costdiff{$opt} = $oc - $nc;
-        $reduce{$opt} = ($oc - $nc * 1.0) / $oc;
+        $costafter{$opt} = $ca;
+        $costbefore{$opt} = $cb;
+        $costdiff{$opt} = $cb - $ca;
+        $reduce{$opt} = ($cb - $ca * 1.0) / $cb;
         $rewrite{$opt} = $result;
     }
 }
@@ -188,11 +188,11 @@ foreach my $opt (sort $byx keys %toprint) {
     my $time = $timestamp{$opt};
     my $fn   = $fn_name{$opt};
     my $rewrite = $rewrite{$opt};
-    my $oc = $oldcost{$opt};
-    my $nc = $newcost{$opt};
+    my $ca = $costafter{$opt};
+    my $cb = $costbefore{$opt};
     my $obc = $optbc{$opt};
 
-    if ($TOFILES) {
+    if ($TOFILES) {c
         open(my $fh, ">", "dump_$count.src.ll");
         print $fh $ir, "\n";
         $fh->flush();
@@ -208,8 +208,8 @@ foreach my $opt (sort $byx keys %toprint) {
         print $obc, "\n";
         print "; stats -------------------------------------------------\n";
         print "; minotaur_rewrite: $rewrite \n";
-        print "; minotaur_cost-before: $oc\n";
-        print "; minotaur_cost-after: $nc\n";
+        print "; minotaur_cost-before: $cb\n";
+        print "; minotaur_cost-after: $ca\n";
         print "; minotaur_timestamp: $time\n";
         print "; minotaur_fn: $fn\n";
     }

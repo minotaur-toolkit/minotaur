@@ -48,11 +48,11 @@ void hSetRewrite(const char *k, unsigned sz_k,
                  const char *v, unsigned sz_v,
                  StringRef rewrite,
                  redisContext *c,
-                 unsigned oldcost, unsigned newcost, StringRef FnName) {
+                 unsigned costAfter, unsigned costBefore, StringRef FnName) {
   redisReply *reply = (redisReply *)redisCommand(c,
-    "HSET %b optimizedbc %b rewrite %s  oldcost %s newcost %s timestamp %s fn %s",
+    "HSET %b optimizedbc %b rewrite %s  costafter %s costbefore %s timestamp %s fn %s",
     k, sz_k, v, sz_v, rewrite.data(),
-    to_string(oldcost).c_str(), to_string(newcost).c_str(),
+    to_string(costAfter).c_str(), to_string(costBefore).c_str(),
     to_string((unsigned long)time(NULL)).c_str(), FnName.data());
   if (!reply || c->err)
     report_fatal_error((StringRef)"Redis error: " + c->errstr);

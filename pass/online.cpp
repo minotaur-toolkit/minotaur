@@ -239,7 +239,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         rs.flush();
         hSetRewrite(bytecode.c_str(), bytecode.size(),
                     optimized.c_str(), optimized.size(),
-                    rewrite, ctx, R.CostBefore, R.CostAfter, F.getName());
+                    rewrite, ctx, R.CostAfter, R.CostBefore, F.getName());
       }
 
       if (dryrun)

@@ -71,7 +71,7 @@ static unsigned getInstructionIdx(const Instruction *I) {
 
 static bool isUnsupportedTy(llvm::Type *ty) {
   Type *vsty = ty->getScalarType();
-  return vsty->isStructTy() || vsty->isPtrOrPtrVectorTy() ||
+  return ty->isStructTy() || vsty->isPointerTy() ||
          (vsty->isFloatingPointTy() && !vsty->isIEEELikeFPTy()) ||
          ty->isScalableTy();
 }
