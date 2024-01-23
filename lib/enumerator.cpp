@@ -491,6 +491,8 @@ vector<Rewrite> Enumerator::synthesize(llvm::Function &F) {
 
   unsigned costBefore = get_machine_cost(&F);
 
+  llvm::Instruction *I = nullptr;
+
   for (auto &BB : F) {
     auto T = BB.getTerminator();
     if(!llvm::isa<llvm::ReturnInst>(T))
@@ -498,231 +500,240 @@ vector<Rewrite> Enumerator::synthesize(llvm::Function &F) {
     llvm::Value *S = llvm::cast<llvm::ReturnInst>(T)->getReturnValue();
     if (!llvm::isa<llvm::Instruction>(S))
       continue;
-    llvm::Instruction *I = cast<llvm::Instruction>(S);
+    I = cast<llvm::Instruction>(S);
+    break;
+  }
 
-    unsigned Width = I->getType()->getScalarSizeInBits();
-    llvm::KnownBits KnownI(Width);
-    if (I->getType()->isIntOrIntVectorTy())
-      computeKnownBits(I, KnownI, DL);
+  if (!I) {
+    debug() << "[enumerator] no return inst found\n";
+    return ret;
+  }
 
-    findInputs(F, I, DT);
+  unsigned Width = I->getType()->getScalarSizeInBits();
+  llvm::KnownBits KnownI(Width);
+  if (I->getType()->isIntOrIntVectorTy())
+    computeKnownBits(I, KnownI, DL);
 
-    vector<Sketch> Sketches;
+  findInputs(F, I, DT);
 
-    // immediate constant synthesis
-    {
+  vector<Sketch> Sketches;
+
+  // immediate constant synthesis
+  {
+    set<ReservedConst*> RCs;
+    auto RC = make_unique<ReservedConst>(type(I->getType()));
+    auto CI = make_unique<Copy>(*RC.get());
+    RCs.insert(RC.get());
+    Sketches.push_back(make_pair(CI.get(), std::move(RCs)));
+    exprs.emplace_back(std::move(CI));
+    exprs.emplace_back(std::move(RC));
+  }
+  // nops
+  {
+    for (auto &V : values) {
+      if (V->getType().getWidth() != I->getType()->getPrimitiveSizeInBits())
+        continue;
       set<ReservedConst*> RCs;
-      auto RC = make_unique<ReservedConst>(type(I->getType()));
-      auto CI = make_unique<Copy>(*RC.get());
-      RCs.insert(RC.get());
-      Sketches.push_back(make_pair(CI.get(), std::move(RCs)));
-      exprs.emplace_back(std::move(CI));
-      exprs.emplace_back(std::move(RC));
+      auto VA = make_unique<Var>(V->V());
+      Sketches.push_back(make_pair(VA.get(), std::move(RCs)));
+      exprs.emplace_back(std::move(VA));
     }
-    // nops
-    {
-      for (auto &V : values) {
-        if (V->getType().getWidth() != I->getType()->getPrimitiveSizeInBits())
-          continue;
-        set<ReservedConst*> RCs;
-        auto VA = make_unique<Var>(V->V());
-        Sketches.push_back(make_pair(VA.get(), std::move(RCs)));
-        exprs.emplace_back(std::move(VA));
-      }
+  }
+
+  getSketches(&*I, Sketches);
+  debug() << "[enumerator] listing sketches\n";
+  for (auto &Sketch : Sketches) {
+    debug() << *Sketch.first << "\n";
+  }
+
+  unsigned CI = 0;
+
+  vector<Candidate> Fns;
+  auto FT = F.getFunctionType();
+  // sketches -> llvm functions
+
+  for (auto &Sketch : Sketches) {
+    bool HaveC = !Sketch.second.empty();
+    auto &G = Sketch.first;
+    llvm::ValueToValueMapTy VMap;
+
+    llvm::SmallVector<llvm::Type*, 8> Args;
+    for (auto I: FT->params()) {
+      Args.push_back(I);
+    }
+    for (auto &C : Sketch.second) {
+      Args.push_back(C->getType().toLLVM(F.getContext()));
     }
 
-    getSketches(&*I, Sketches);
-    debug() << "[enumerator] listing sketches\n";
-    for (auto &Sketch : Sketches) {
-      debug() << *Sketch.first << "\n";
+    auto _functionType =
+      llvm::FunctionType::get(FT->getReturnType(), Args, FT->isVarArg());
+
+    llvm::Function *Tgt =
+      llvm::Function::Create(_functionType, F.getLinkage(),
+                              F.getName(), F.getParent());
+
+
+    llvm::Function::arg_iterator TgtArgI = Tgt->arg_begin();
+
+    for (auto I = F.arg_begin(), E = F.arg_end(); I != E; ++I, ++TgtArgI) {
+      VMap[I] = TgtArgI;
+      TgtArgI->setName(I->getName());
     }
 
-    unsigned CI = 0;
+    unordered_map<const llvm::Argument*, ReservedConst*> ArgConst;
+    // sketches with constants, duplicate F
+    for (auto &C : Sketch.second) {
+      string arg_name = "_reservedc_" + std::to_string(CI);
+      TgtArgI->setName(arg_name);
+      C->setA(TgtArgI);
+      ArgConst[TgtArgI] = C;
+      ++CI;
+      ++TgtArgI;
+    }
 
-    vector<Candidate> Fns;
-    auto FT = F.getFunctionType();
-    // sketches -> llvm functions
+    llvm::SmallVector<llvm::ReturnInst*, 8> _returns;
+    llvm::CloneFunctionInto(Tgt, &F, VMap,
+      llvm::CloneFunctionChangeType::LocalChangesOnly, _returns);
 
-    for (auto &Sketch : Sketches) {
-      bool HaveC = !Sketch.second.empty();
-      auto &G = Sketch.first;
-      llvm::ValueToValueMapTy VMap;
+    llvm::Function *Src;
+    if (HaveC) {
+      llvm::ValueToValueMapTy _vs;
+      Src = llvm::CloneFunction(Tgt, _vs);
+    } else {
+      Src = &F;
+    }
 
-      llvm::SmallVector<llvm::Type*, 8> Args;
-      for (auto I: FT->params()) {
-        Args.push_back(I);
-      }
-      for (auto &C : Sketch.second) {
-        Args.push_back(C->getType().toLLVM(F.getContext()));
-      }
+    llvm::Instruction *PrevI = llvm::cast<llvm::Instruction>(VMap[&*I]);
+    ConstMap _consts;
+    llvm::Value *V =
+        LLVMGen(PrevI, IntrinsicDecls).codeGen(G, _consts, VMap);
+    V = llvm::IRBuilder<>(PrevI).CreateBitCast(V, PrevI->getType());
+    PrevI->replaceAllUsesWith(V);
 
-      auto _functionType =
-        llvm::FunctionType::get(FT->getReturnType(), Args, FT->isVarArg());
+    eliminate_dead_code(*Tgt);
+    unsigned tgt_cost = get_approx_cost(Tgt);
 
-      llvm::Function *Tgt =
-        llvm::Function::Create(_functionType, F.getLinkage(),
-                               F.getName(), F.getParent());
+    ++REWRITES;
 
-
-      llvm::Function::arg_iterator TgtArgI = Tgt->arg_begin();
-
-      for (auto I = F.arg_begin(), E = F.arg_end(); I != E; ++I, ++TgtArgI) {
-        VMap[I] = TgtArgI;
-        TgtArgI->setName(I->getName());
-      }
-
-      unordered_map<const llvm::Argument*, ReservedConst*> ArgConst;
-      // sketches with constants, duplicate F
-      for (auto &C : Sketch.second) {
-        string arg_name = "_reservedc_" + std::to_string(CI);
-        TgtArgI->setName(arg_name);
-        C->setA(TgtArgI);
-        ArgConst[TgtArgI] = C;
-        ++CI;
-        ++TgtArgI;
-      }
-
-      llvm::SmallVector<llvm::ReturnInst*, 8> _returns;
-      llvm::CloneFunctionInto(Tgt, &F, VMap,
-        llvm::CloneFunctionChangeType::LocalChangesOnly, _returns);
-
-      llvm::Function *Src;
-      if (HaveC) {
-        llvm::ValueToValueMapTy _vs;
-        Src = llvm::CloneFunction(Tgt, _vs);
-      } else {
-        Src = &F;
-      }
-
-      llvm::Instruction *PrevI = llvm::cast<llvm::Instruction>(VMap[&*I]);
-      ConstMap _consts;
-      llvm::Value *V =
-         LLVMGen(PrevI, IntrinsicDecls).codeGen(G, _consts, VMap);
-      V = llvm::IRBuilder<>(PrevI).CreateBitCast(V, PrevI->getType());
-      PrevI->replaceAllUsesWith(V);
-
-      eliminate_dead_code(*Tgt);
-      unsigned tgt_cost = get_approx_cost(Tgt);
-
-      ++REWRITES;
-
-      bool skip = false;
-      string err;
-      llvm::raw_string_ostream err_stream(err);
-      bool illformed = llvm::verifyFunction(*Tgt, &err_stream);
-      llvm::KnownBits KnownV(Width);
+    bool skip = false;
+    string err;
+    llvm::raw_string_ostream err_stream(err);
+    bool illformed = llvm::verifyFunction(*Tgt, &err_stream);
+    llvm::KnownBits KnownV(Width);
 
 
-      // TODO: add more pruning here
-      if (illformed) {
-        llvm::errs()<<"Error tgt found: "<<err<<"\n";
-        Tgt->dump();
-        skip = true;
-        goto push;
-      }
+    // TODO: add more pruning here
+    if (illformed) {
+      llvm::errs()<<"Error tgt found: "<<err<<"\n";
+      Tgt->dump();
+      skip = true;
+      goto push;
+    }
 
-      // check cost
-      if (tgt_cost >= src_cost) {
-        skip = true;
-        goto push;
-      }
+    // check cost
+    if (tgt_cost >= src_cost) {
+      skip = true;
+      goto push;
+    }
 push:
-      if (skip) {
-        Tgt->eraseFromParent();
-        if (HaveC)
-          Src->eraseFromParent();
-      } else {
-        Fns.push_back(make_tuple(Tgt, Src, G, ArgConst, !Sketch.second.empty()));
-      }
-    }
-    std::stable_sort(Fns.begin(), Fns.end(), approx);
-    // llvm functions -> alive2 functions
-    auto iter = Fns.begin();
-    Inst *R;
-    bool success = false;
-    ConstMap Consts;
-    for (;iter != Fns.end();) {
-      auto &[Tgt, Src, G, ArgConst, HaveC] = *iter;
-      unsigned tgt_cost = get_approx_cost(Tgt);
-      debug() << "[enumerator] approx_cost(tgt) = " << tgt_cost
-              << ", approx_cost(src) = " << src_cost <<"\n";
-      debug() << *Tgt;
-
-      bool Good = false;
-      unordered_map<const llvm::Argument*, llvm::Constant*> ConstantResults;
-
-      try {
-        if (!HaveC) {
-          Good = AE.compareFunctions(*Src, *Tgt);
-        } else {
-          Good = AE.constantSynthesis(*Src, *Tgt, ConstantResults);
-        }
-      } catch (AliveException E) {
-        debug() << E.msg << "\n";
-        if (E.msg == "slow vcgen") {
-          continue;
-        }
-      }
-
-      if (Good) {
-        R = G;
-        if (HaveC) {
-          for (auto &[A, C] : ConstantResults) {
-            Consts[ArgConst[A]] = C;
-          }
-        }
-        success = true;
-      }
-
+    if (skip) {
+      Tgt->eraseFromParent();
       if (HaveC)
         Src->eraseFromParent();
-      Tgt->eraseFromParent();
-
-      iter = Fns.erase(iter);
-
-      unsigned Duration = ( std::clock() - start ) / CLOCKS_PER_SEC;
-      if ((config::return_first_solution && Good) || Duration > 120) {
-        break;
-      }
+    } else {
+      Fns.push_back(make_tuple(Tgt, Src, G, ArgConst, !Sketch.second.empty()));
     }
+  }
+  std::stable_sort(Fns.begin(), Fns.end(), approx);
+  // llvm functions -> alive2 functions
+  auto iter = Fns.begin();
+  Inst *R;
+  bool success = false;
+  ConstMap Consts;
+  for (;iter != Fns.end();) {
+    auto &[Tgt, Src, G, ArgConst, HaveC] = *iter;
+    unsigned tgt_cost = get_approx_cost(Tgt);
+    debug() << "[enumerator] approx_cost(tgt) = " << tgt_cost
+            << ", approx_cost(src) = " << src_cost <<"\n";
+    debug() << *Tgt;
 
-    for (;iter != Fns.end(); ++iter) {
-      auto &[Tgt, Src, _, __, HaveC] = *iter;
-      if (HaveC)
-        Src->eraseFromParent();
-      Tgt->eraseFromParent();
-    }
+    bool Good = false;
+    unordered_map<const llvm::Argument*, llvm::Constant*> ConstantResults;
 
-    debug() <<"[enumerator] rewrites,"<< REWRITES
-            << ",pruned," << PRUNED << "\n";
-
-    // replace
-    if (success) {
-      debug() << "[enumerator] original ir (uops=" <<costBefore<<")\n"
-              << F << "\n";
-
-      llvm::ValueToValueMapTy VMap;
-      llvm::Value *V = LLVMGen(&*I, IntrinsicDecls).codeGen(R, Consts, VMap);
-      // fill in dummy for reserved constants for cost calculation
-      if (isa<llvm::Argument>(V)) {
-        V = llvm::Constant::getAllOnesValue(V->getType());
-      }
-      V = llvm::IRBuilder<>(I).CreateBitCast(V, I->getType());
-      I->replaceAllUsesWith(V);
-      unsigned costAfter = get_machine_cost(&F);
-
-      debug() << "[enumerator] optimized ir (uops=" << costAfter << ")\n"
-              << F << "\n";
-
-      if (!costAfter || !costBefore) {
-        debug() << "[enumerator] cost is zero, skip\n";
-      } else if (config::ignore_machine_cost || costAfter <= costBefore) {
-        removeUnusedDecls(IntrinsicDecls);
-        debug () << "[enumerator] successfully synthesized rhs\n";
-        ret.emplace_back(R, Consts, costAfter, costBefore);
+    try {
+      if (!HaveC) {
+        Good = AE.compareFunctions(*Src, *Tgt);
+        debug()<<"foo";
+        debug()<<Good;
       } else {
-        debug() <<  "[enumerator] RHS is more expensive than LHS\n";
+        Good = AE.constantSynthesis(*Src, *Tgt, ConstantResults);
       }
+    } catch (AliveException E) {
+      debug() << E.msg << "\n";
+      if (E.msg == "slow vcgen") {
+        continue;
+      }
+    }
+
+    if (Good) {
+      R = G;
+      if (HaveC) {
+        for (auto &[A, C] : ConstantResults) {
+          Consts[ArgConst[A]] = C;
+        }
+      }
+      success = true;
+      debug()<<"fast\n";
+    }
+
+    if (HaveC)
+      Src->eraseFromParent();
+    Tgt->eraseFromParent();
+
+    iter = Fns.erase(iter);
+
+    unsigned Duration = ( std::clock() - start ) / CLOCKS_PER_SEC;
+    if ((config::return_first_solution && Good) || Duration > 120) {
+      break;
+    }
+  }
+
+  for (;iter != Fns.end(); ++iter) {
+    auto &[Tgt, Src, _, __, HaveC] = *iter;
+    if (HaveC)
+      Src->eraseFromParent();
+    Tgt->eraseFromParent();
+  }
+
+  debug() <<"[enumerator] rewrites,"<< REWRITES
+          << ",pruned," << PRUNED << "\n";
+
+  // replace
+  if (success) {
+    debug() << "[enumerator] original ir (uops=" <<costBefore<<")\n"
+            << F << "\n";
+
+    llvm::ValueToValueMapTy VMap;
+    llvm::Value *V = LLVMGen(&*I, IntrinsicDecls).codeGen(R, Consts, VMap);
+    // fill in dummy for reserved constants for cost calculation
+    if (isa<llvm::Argument>(V)) {
+      V = llvm::Constant::getAllOnesValue(V->getType());
+    }
+    V = llvm::IRBuilder<>(I).CreateBitCast(V, I->getType());
+    I->replaceAllUsesWith(V);
+    unsigned costAfter = get_machine_cost(&F);
+
+    debug() << "[enumerator] optimized ir (uops=" << costAfter << ")\n"
+            << F << "\n";
+
+    if (!costAfter || !costBefore) {
+      debug() << "[enumerator] cost is zero, skip\n";
+    } else if (config::ignore_machine_cost || costAfter <= costBefore) {
+      removeUnusedDecls(IntrinsicDecls);
+      debug () << "[enumerator] successfully synthesized rhs\n";
+      ret.emplace_back(R, Consts, costAfter, costBefore);
+    } else {
+      debug() <<  "[enumerator] RHS is more expensive than LHS\n";
     }
   }
 
