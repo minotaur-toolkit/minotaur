@@ -466,7 +466,7 @@ static bool approx(const Candidate &f1, const Candidate &f2){
   return get_approx_cost(get<0>(f1)) < get_approx_cost(get<0>(f2));
 }
 
-vector<Rewrite> Enumerator::synthesize(llvm::Function &F) {
+vector<Rewrite> Enumerator::synthesize(llvm::Function &F, llvm::Instruction *I) {
   unsigned CANDIDATES = 0, PRUNED = 0, GOOD = 0;
   vector<Rewrite> ret;
 
@@ -489,24 +489,6 @@ vector<Rewrite> Enumerator::synthesize(llvm::Function &F) {
   AliveEngine AE(TLI);
 
   unsigned costBefore = get_machine_cost(&F);
-
-  llvm::Instruction *I = nullptr;
-
-  for (auto &BB : F) {
-    auto T = BB.getTerminator();
-    if(!llvm::isa<llvm::ReturnInst>(T))
-      continue;
-    llvm::Value *S = llvm::cast<llvm::ReturnInst>(T)->getReturnValue();
-    if (!llvm::isa<llvm::Instruction>(S))
-      continue;
-    I = cast<llvm::Instruction>(S);
-    break;
-  }
-
-  if (!I) {
-    debug() << "[enumerator] no return inst found\n";
-    return ret;
-  }
 
   unsigned Width = I->getType()->getScalarSizeInBits();
   llvm::KnownBits KnownI(Width);

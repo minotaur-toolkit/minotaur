@@ -31,8 +31,8 @@ public:
   }
   std::unique_ptr<llvm::Module> getNewModule() {return std::move(m); }
   llvm::ValueToValueMapTy& getValueMap() { return mapping; }
-  std::optional<std::reference_wrapper<llvm::Function>>
-    extractExpr(llvm::Value &V);
+  std::optional<std::pair<std::reference_wrapper<llvm::Function>,
+    llvm::Instruction*>> extractExpr(llvm::Value&);
 };
 
 } // namespace minotaur

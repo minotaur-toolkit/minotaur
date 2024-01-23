@@ -23,6 +23,7 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
+#include <functional>
 #include <optional>
 #include <queue>
 #include <unordered_map>
@@ -80,12 +81,15 @@ namespace minotaur {
 
 //  * if a external value is outside the loop, and it does not dominates v,
 //    do not extract it
-optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
+optional<pair<reference_wrapper<Function>, Instruction*>>
+Slice::extractExpr(Value &v) {
   debug() << "[slicer] slicing value " << v << ">>>\n";
 
   Type *vsty = v.getType()->getScalarType();
-  if (isUnsupportedTy(vsty))
+  if (isUnsupportedTy(vsty)) {
+    debug() << "[slicer] unsupported type " << *vsty << "\n";
     return nullopt;
+  }
 
   assert(isa<Instruction>(&v) && "Expr to be extracted must be a Instruction");
   Instruction *vi = cast<Instruction>(&v);
@@ -526,7 +530,9 @@ optional<reference_wrapper<Function>> Slice::extractExpr(Value &v) {
 
   debug()<< *F << "\n" << "<<< end of %" << v.getName() << " <<<\n";
 
-  return optional<reference_wrapper<Function>>(*F);
+
+  return pair<reference_wrapper<Function>, Instruction*>(*F,
+    cast<Instruction>(vmap[&v]));
 }
 
 } // namespace minotaur

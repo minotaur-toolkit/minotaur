@@ -208,16 +208,16 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
           if (rewrite == "<no-sol>") {
             debug() << "[online] cache matched, but no solution found in "
                        "previous run, skipping function: \n"
-                    << (*NewF).get();
+                    << (*NewF).first.get();
             continue;
           }
         }
       }
 
       Enumerator EN;
-      debug() << "[online] working on function:\n" << (*NewF).get();
+      debug() << "[online] working on function:\n" << (*NewF).first.get();
 
-      auto RHSs = EN.synthesize(*NewF);
+      auto RHSs = EN.synthesize(NewF->first.get(), NewF->second);
 
       if (RHSs.empty()) {
         if (enable_caching)
@@ -230,9 +230,13 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
       if (enable_caching) {
         string optimized;
         llvm::raw_string_ostream bs(optimized);
-        for (auto &F : *m) {
-          eliminate_dead_code(F);
-        }
+        llvm::ValueToValueMapTy VMap;
+        std::unordered_set<llvm::Function *> IntrinsicDecls;
+        llvm::Instruction *I = NewF->second;
+        llvm::Value *V = LLVMGen(I, IntrinsicDecls).codeGen(R.I, R.Consts, VMap);
+        V = llvm::IRBuilder<>(I).CreateBitCast(V, I->getType());
+        eliminate_dead_code(NewF->first.get());
+        removeUnusedDecls(IntrinsicDecls);
         WriteBitcodeToFile(*m, bs);
 
         string rewrite;

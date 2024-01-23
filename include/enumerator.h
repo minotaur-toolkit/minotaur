@@ -33,7 +33,7 @@ class Enumerator {
   bool getSketches(llvm::Value *V,
                    std::vector<Sketch>&);
 public:
-  std::vector<Rewrite> synthesize(llvm::Function &F1);
+  std::vector<Rewrite> synthesize(llvm::Function &, llvm::Instruction*);
 };
 
 }
