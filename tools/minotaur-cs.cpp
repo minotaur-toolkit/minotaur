@@ -137,7 +137,7 @@ int main(int argc, char **argv) {
     report_fatal_error("could not find reservedconst argument in tgt");
 
   minotaur::config::debug_tv = true;
-  unordered_map<const Argument*, Constant*> constMap;
+  unordered_map<Argument*, Constant*> constMap;
   minotaur::AliveEngine AE(TLI);
   try {
     AE.constantSynthesis(*SRC, *TGT, constMap);

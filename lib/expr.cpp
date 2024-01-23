@@ -29,7 +29,7 @@ void Var::print(raw_ostream &os) const {
 
 void ReservedConst::print(raw_ostream &os) const {
 // TODO : print literals
-  // if (!Values.empty()) {
+  //  if (!Values.empty()) {
   //   string str;
   //   if (ty.isScalar()) {
   //     llvm::raw_string_ostream ss(str);
@@ -52,7 +52,7 @@ void ReservedConst::print(raw_ostream &os) const {
   //   }
   //   os << "(const " << str << ")";
   // } else {
-    os << "reservedconst";
+    // os << "reservedconst";
   // }
 }
 

@@ -57,9 +57,9 @@ struct debug {
 template<class T>
 debug &operator<<(const T &s)
 {
-  if (minotaur::config::debug_enumerator)
-    minotaur::config::dbg() << s;
-  return *this;
+if (minotaur::config::debug_enumerator)
+  minotaur::config::dbg() << s;
+return *this;
 }
 };
 }
@@ -467,8 +467,7 @@ static bool approx(const Candidate &f1, const Candidate &f2){
 }
 
 vector<Rewrite> Enumerator::synthesize(llvm::Function &F) {
-  unsigned REWRITES = 0;
-  unsigned PRUNED = 0;
+  unsigned CANDIDATES = 0, PRUNED = 0, GOOD = 0;
   vector<Rewrite> ret;
 
   debug() << "[enumerator] working on slice\n" << F << "\n";
@@ -613,7 +612,7 @@ vector<Rewrite> Enumerator::synthesize(llvm::Function &F) {
     eliminate_dead_code(*Tgt);
     unsigned tgt_cost = get_approx_cost(Tgt);
 
-    ++REWRITES;
+    ++CANDIDATES;
 
     bool skip = false;
     string err;
@@ -647,9 +646,7 @@ push:
   std::stable_sort(Fns.begin(), Fns.end(), approx);
   // llvm functions -> alive2 functions
   auto iter = Fns.begin();
-  Inst *R;
-  bool success = false;
-  ConstMap Consts;
+
   for (;iter != Fns.end();) {
     auto &[Tgt, Src, G, ArgConst, HaveC] = *iter;
     unsigned tgt_cost = get_approx_cost(Tgt);
@@ -658,13 +655,11 @@ push:
     debug() << *Tgt;
 
     bool Good = false;
-    unordered_map<const llvm::Argument*, llvm::Constant*> ConstantResults;
+    unordered_map<llvm::Argument*, llvm::Constant*> ConstantResults;
 
     try {
       if (!HaveC) {
         Good = AE.compareFunctions(*Src, *Tgt);
-        debug()<<"foo";
-        debug()<<Good;
       } else {
         Good = AE.constantSynthesis(*Src, *Tgt, ConstantResults);
       }
@@ -676,14 +671,31 @@ push:
     }
 
     if (Good) {
-      R = G;
+      GOOD ++;
+      Inst *R = G;
+      ConstMap Consts;
       if (HaveC) {
         for (auto &[A, C] : ConstantResults) {
           Consts[ArgConst[A]] = C;
         }
       }
-      success = true;
-      debug()<<"fast\n";
+
+      for (auto &[A, C] : ConstantResults) {
+        A->replaceAllUsesWith(C);
+      }
+      unsigned costAfter = get_machine_cost(Tgt);
+
+      debug() << "[enumerator] optimized ir (uops=" << costAfter << ")\n"
+              << *Tgt << "\n";
+
+      if (!costAfter || !costBefore) {
+        debug() << "[enumerator] cost is zero, skip\n";
+      } else if (config::ignore_machine_cost || costAfter <= costBefore) {
+        debug () << "[enumerator] successfully synthesized rhs\n";
+        ret.emplace_back(R, Consts, costAfter, costBefore);
+      } else {
+        debug() <<  "[enumerator] RHS is more expensive than LHS\n";
+      }
     }
 
     if (HaveC)
@@ -705,42 +717,20 @@ push:
     Tgt->eraseFromParent();
   }
 
-  debug() <<"[enumerator] rewrites,"<< REWRITES
-          << ",pruned," << PRUNED << "\n";
-
-  // replace
-  if (success) {
-    debug() << "[enumerator] original ir (uops=" <<costBefore<<")\n"
-            << F << "\n";
-
-    llvm::ValueToValueMapTy VMap;
-    llvm::Value *V = LLVMGen(&*I, IntrinsicDecls).codeGen(R, Consts, VMap);
-    // fill in dummy for reserved constants for cost calculation
-    if (isa<llvm::Argument>(V)) {
-      V = llvm::Constant::getAllOnesValue(V->getType());
-    }
-    V = llvm::IRBuilder<>(I).CreateBitCast(V, I->getType());
-    I->replaceAllUsesWith(V);
-    unsigned costAfter = get_machine_cost(&F);
-
-    debug() << "[enumerator] optimized ir (uops=" << costAfter << ")\n"
-            << F << "\n";
-
-    if (!costAfter || !costBefore) {
-      debug() << "[enumerator] cost is zero, skip\n";
-    } else if (config::ignore_machine_cost || costAfter <= costBefore) {
-      removeUnusedDecls(IntrinsicDecls);
-      debug () << "[enumerator] successfully synthesized rhs\n";
-      ret.emplace_back(R, Consts, costAfter, costBefore);
-    } else {
-      debug() <<  "[enumerator] RHS is more expensive than LHS\n";
-    }
-  }
+  debug() << "[enumerator] #Candidates = "<< CANDIDATES << "\n"
+          << "[enumerator] #Pruned = " << PRUNED << "\n"
+          << "[enumerator] #Good = " << GOOD << "\n";
 
   std::stable_sort(ret.begin(), ret.end(),
     [](const Rewrite &a, const Rewrite &b) {
-      return a.CostAfter <= b.CostAfter;
+      return a.CostAfter > b.CostAfter;
     });
+
+  for (auto &R : ret) {
+    debug() << "[enumerator] rewrite: " << *R.I << "\n";
+  }
+
+  removeUnusedDecls(IntrinsicDecls);
   return ret;
 }
 

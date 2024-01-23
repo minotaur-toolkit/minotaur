@@ -36,7 +36,7 @@ public:
   }
 
   bool constantSynthesis(llvm::Function&, llvm::Function&,
-    std::unordered_map<const llvm::Argument*, llvm::Constant*>&);
+    std::unordered_map<llvm::Argument*, llvm::Constant*>&);
   bool compareFunctions(llvm::Function&, llvm::Function&);
 };
 

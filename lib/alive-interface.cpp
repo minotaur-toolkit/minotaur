@@ -233,7 +233,7 @@ static const llvm::fltSemantics &getFloatSemantics(unsigned BitWidth) {
 // call constant synthesizer and fill in constMap if synthesis suceeeds
 bool
 AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
-   unordered_map<const llvm::Argument*, llvm::Constant*>& ConstMap) {
+   unordered_map<llvm::Argument*, llvm::Constant*>& ConstMap) {
   std::optional<smt::smt_initializer> smt_init;
   smt_init.emplace();
 
@@ -245,7 +245,7 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
     return false;
   }
 
-  unordered_map<string, const Argument*> Arguments;
+  unordered_map<string, Argument*> Arguments;
   for (auto &arg : tgt.args()) {
     string ArgName = "%" + string(arg.getName());
     if (ArgName.starts_with("%_reservedc")) {
@@ -257,7 +257,7 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
   t.src = std::move(*Func1);
   t.tgt = std::move(*Func2);
 
-  unordered_map<const IR::Value*, const Argument*> Inputs;
+  unordered_map<const IR::Value*, Argument*> Inputs;
   for (auto &&I : t.tgt.getInputs()) {
     string InputName = I.getName();
 
