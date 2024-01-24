@@ -113,7 +113,7 @@ Slice::extractExpr(Value &v) {
   ValueToValueMapTy vmap;
   vector<Instruction*> insts;
   unordered_map<BasicBlock*, vector<pair<Instruction*,unsigned>>> bb_insts;
-  unordered_set<BasicBlock*> blocks;
+  set<BasicBlock*> blocks;
 
   // set of predecessor bb a bb depends on
   unordered_map<BasicBlock *, unordered_set<BasicBlock *>> bb_deps;
@@ -284,7 +284,7 @@ Slice::extractExpr(Value &v) {
                    BasicBlock* target,
                    unordered_set<BasicBlock*>& visited,
                    vector<BasicBlock*>& currentPath,
-                   unordered_set<BasicBlock*>& result) -> void {
+                   set<BasicBlock*>& result) -> void {
 
     // Add current block to the path
     currentPath.push_back(current);
@@ -352,7 +352,7 @@ Slice::extractExpr(Value &v) {
   BasicBlock *sinkbb = BasicBlock::Create(ctx, "sink");
   new UnreachableInst(ctx, sinkbb);
 
-  unordered_set<BasicBlock *> cloned_blocks;
+  set<BasicBlock *> cloned_blocks;
   unordered_map<BasicBlock *, BasicBlock *> bmap;
   {
     // pass 3.1.1;
@@ -477,7 +477,6 @@ Slice::extractExpr(Value &v) {
     }
   }
 
-  BasicBlock *entry = nullptr;
   if (block_without_preds.size() == 0) {
     report_fatal_error("[slicer] no entry block found, terminating\n");
   }
@@ -489,8 +488,11 @@ Slice::extractExpr(Value &v) {
         phi->eraseFromParent();
       }
     }
+    bb->insertInto(F);
   }
   for (auto block : cloned_blocks) {
+    if (block_without_preds.count(block))
+      continue;
     block->insertInto(F);
   }
 
