@@ -31,7 +31,7 @@ if [[ $SKIP == 0 ]]; then
   -minotaur-ignore-machine-cost=false \
   -minotaur-debug-enumerator=$DEBUG \
   -minotaur-debug-codegen=$DEBUG \
-  $TV_REPORT_DIR
+  #s$TV_REPORT_DIR
 else
 @LLVM_BINARY_DIR@/bin/opt
 fi

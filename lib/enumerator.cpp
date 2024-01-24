@@ -240,7 +240,10 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
     unsigned lanes = expected.getWidth();
     for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
       for (auto Op1 = Comps.begin(); Op1 != Comps.end(); ++Op1) {
-        // skip (icmp rc, rc)
+        // skip (icmp op, op)
+        if (Op0 == Op1)
+          continue;
+        // skip (icmp rc1, rc2)
         if (dynamic_cast<ReservedConst*>(*Op0) &&
             dynamic_cast<ReservedConst*>(*Op1))
           continue;
@@ -249,7 +252,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
           continue;
 
         //icmps
-        for (unsigned C = ICmp::Cond::eq; C <= ICmp::Cond::sle; ++C) {
+        for (unsigned C = ICmp::Cond::eq; C <= ICmp::Cond::sge; ++C) {
           ICmp::Cond Cond = static_cast<ICmp::Cond>(C);
           set<ReservedConst*> RCs;
           Value *I = nullptr, *J = nullptr;
@@ -293,7 +296,8 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
     unsigned lanes = expected.getWidth();
     for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
       for (auto Op1 = Comps.begin(); Op1 != Comps.end(); ++Op1) {
-
+        if (Op0 == Op1)
+          continue;
         // skip (fcmp rc, rc)
         if (dynamic_cast<ReservedConst*>(*Op0) &&
             dynamic_cast<ReservedConst*>(*Op1))

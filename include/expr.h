@@ -130,7 +130,7 @@ public:
 class ICmp final : public Value {
 public:
   // syntactic pruning: less than/less equal only
-  enum Cond { eq, ne, ult, ule, slt, sle};
+  enum Cond { eq, ne, ult, ule, slt, sle, ugt, uge, sgt, sge};
 private:
   Cond cond;
   Value *lhs;

@@ -207,6 +207,18 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap, ConstMap &CMap) {
     case ICmp::sle:
       r = b.CreateICmp(CmpInst::ICMP_SLE, op0, op1, "isle");
       break;
+    case ICmp::ugt:
+      r = b.CreateICmp(CmpInst::ICMP_UGT, op0, op1, "iugt");
+      break;
+    case ICmp::uge:
+      r = b.CreateICmp(CmpInst::ICMP_UGE, op0, op1, "iuge");
+      break;
+    case ICmp::sgt:
+      r = b.CreateICmp(CmpInst::ICMP_SGT, op0, op1, "isgt");
+      break;
+    case ICmp::sge:
+      r = b.CreateICmp(CmpInst::ICMP_SGE, op0, op1, "isge");
+      break;
     }
     return r;
 
