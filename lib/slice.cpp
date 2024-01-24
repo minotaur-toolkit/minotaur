@@ -9,6 +9,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
+#include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalValue.h"
@@ -199,6 +200,13 @@ Slice::extractExpr(Value &v) {
           haveUnknownOperand = true;
           break;
         }
+        // give up <i31 34, i31 ptrtoint (ptr @external_global to i31)>
+        if (auto c = dyn_cast<Constant>(op)) {
+          if (c->containsConstantExpression()) {
+            haveUnknownOperand = true;
+            break;
+          }
+        }
         auto op_ty = op->getType();
         if (isUnsupportedTy(op_ty)) {
           debug() << "[slicer] found instruction with operands with type "
@@ -255,7 +263,7 @@ Slice::extractExpr(Value &v) {
 
   // if no instructions satisfied the criteria of cloning, return null.
   if (insts.empty()) {
-    debug() << "[slicer] no instruction can be harvested, skipping\n";
+    debug() << "[slicer] no eligible instruction can be harvested, skipping\n";
     return nullopt;
   }
 
@@ -290,11 +298,11 @@ Slice::extractExpr(Value &v) {
         result.insert(currentPath.begin(), currentPath.end());
     } else {
       for (BasicBlock* pred : predecessors(current)) {
-          if (visited.find(pred) == visited.end()) {
-              visited.insert(pred);
-              self(self, pred, target, visited, currentPath, result);
-              visited.erase(pred);  // Backtrack
-          }
+        if (visited.find(pred) == visited.end()) {
+            visited.insert(pred);
+            self(self, pred, target, visited, currentPath, result);
+            visited.erase(pred);  // Backtrack
+        }
       }
     }
 
@@ -430,8 +438,6 @@ Slice::extractExpr(Value &v) {
           continue;
         argTys.push_back(op->getType());
         argMap[op.get()] = idx++;
-      } else if (isa<Constant>(op)) {
-        continue;
       } else if (Instruction *op_i = dyn_cast<Instruction>(op)) {
         auto unknown = find(cloned_insts.begin(), cloned_insts.end(), op_i);
         if (unknown != cloned_insts.end())

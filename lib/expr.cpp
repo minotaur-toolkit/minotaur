@@ -52,7 +52,7 @@ void ReservedConst::print(raw_ostream &os) const {
   //   }
   //   os << "(const " << str << ")";
   // } else {
-    // os << "reservedconst";
+     os << "reservedconst";
   // }
 }
 
