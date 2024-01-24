@@ -699,9 +699,9 @@ push:
     Tgt->eraseFromParent();
   }
 
-  debug() << "[enumerator] #Candidates = "<< CANDIDATES << "\n"
-          << "[enumerator] #Pruned = " << PRUNED << "\n"
-          << "[enumerator] #Good = " << GOOD << "\n";
+  debug() << "[enumerator] #Candidates = "<< CANDIDATES
+          << ", #Pruned = " << PRUNED
+          << ", #Good = " << GOOD << "\n";
 
   std::stable_sort(ret.begin(), ret.end(),
     [](const Rewrite &a, const Rewrite &b) {

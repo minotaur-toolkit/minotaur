@@ -480,21 +480,21 @@ Slice::extractExpr(Value &v) {
   BasicBlock *entry = nullptr;
   if (block_without_preds.size() == 0) {
     report_fatal_error("[slicer] no entry block found, terminating\n");
-  } if (block_without_preds.size() == 1) {
-    entry = *block_without_preds.begin();
-    entry->insertInto(F);
-    for (auto &I : make_early_inc_range(*entry)) {
+  }
+
+  for (auto bb : block_without_preds) {
+    for (auto &I : make_early_inc_range(*bb)) {
       if (PHINode *phi = dyn_cast<PHINode>(&I)) {
         phi->replaceAllUsesWith(PoisonValue::get(phi->getType()));
         phi->eraseFromParent();
       }
     }
-    for (auto block : cloned_blocks) {
-      if (block == entry)
-        continue;
-      block->insertInto(F);
-    }
-  } else {
+  }
+  for (auto block : cloned_blocks) {
+    block->insertInto(F);
+  }
+
+  /* else {
     entry = BasicBlock::Create(ctx, "entry");
     SwitchInst *sw = SwitchInst::Create(F->getArg(idx), sinkbb, 1, entry);
     unsigned idx  = 0;
@@ -505,7 +505,7 @@ Slice::extractExpr(Value &v) {
     for (auto block : cloned_blocks) {
       block->insertInto(F);
     }
-  }
+  }*/
 
   sinkbb->insertInto(F);
 
