@@ -74,7 +74,7 @@ static bool isUnsupportedTy(llvm::Type *ty) {
   Type *vsty = ty->getScalarType();
   return ty->isStructTy() || vsty->isPointerTy() ||
          (vsty->isFloatingPointTy() && !vsty->isIEEELikeFPTy()) ||
-         ty->isScalableTy();
+         ty->isScalableTy() || vsty->isX86_MMXTy() || vsty->isX86_AMXTy();
 }
 
 namespace minotaur {
@@ -183,21 +183,17 @@ Slice::extractExpr(Value &v) {
           continue;
         }
       } else if (auto LI = dyn_cast<LoadInst>(i)) {
-          continue;
-          /*auto dep = MD.getDependency(LI);
-          if (dep.isDef() || dep.isClobber()) {
-            auto st = dep.getInst();
-
-            if (st->getParent() == ibb) {
-              insts.push_back(st);
-              bb_insts[ibb].push_back({st, getInstructionIdx(st)});
-            }
-          }*/
-        }
+        continue;
+      }
 
       // filter unknown operation by operand type
       bool haveUnknownOperand = false;
       for (auto &op : ops) {
+        if (isa<GlobalValue>(op)) {
+          debug() << "[slicer] found instruction that uses GlobalValue\n";
+          haveUnknownOperand = true;
+          break;
+        }
         if (isa<ConstantExpr>(op)) {
           debug() << "[slicer] found instruction that uses ConstantExpr\n";
           haveUnknownOperand = true;
