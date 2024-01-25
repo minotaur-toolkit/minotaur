@@ -10,9 +10,10 @@ set -e
 #  MINOTAUR_SHAREDLIB=@CACHE_EXPRS_PASS.so
 #fi
 
-TV_REPORT_DIR=-minotaur-report-dir=@CMAKE_BINARY_DIR@/logs
+#TV_REPORT_DIR=-minotaur-report-dir=@CMAKE_BINARY_DIR@/logs
 TV_SMT_TO=-minotaur-query-to=20000
 DEBUG=true
+
 
 SKIP=0
 
@@ -27,11 +28,11 @@ if [[ $SKIP == 0 ]]; then
 @LLVM_BINARY_DIR@/bin/opt -load-pass-plugin=@ONLINE_PASS@ \
   $@ \
   -passes="minotaur-online" \
-  -minotaur-enable-caching=true \
+  -minotaur-enable-caching=false \
   -minotaur-ignore-machine-cost=false \
   -minotaur-debug-enumerator=$DEBUG \
   -minotaur-debug-codegen=$DEBUG \
-  #s$TV_REPORT_DIR
+  $TV_REPORT_DIR
 else
 @LLVM_BINARY_DIR@/bin/opt
 fi

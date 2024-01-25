@@ -1,3 +1,4 @@
+; CHECK: icmp ugt i64 %0, -4503599627370497
 define i1 @rewrite(i64 %0) {
 if.end25:
   %1 = lshr i64 %0, 52

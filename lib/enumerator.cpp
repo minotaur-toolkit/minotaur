@@ -707,11 +707,12 @@ push:
 
   std::stable_sort(ret.begin(), ret.end(),
     [](const Rewrite &a, const Rewrite &b) {
-      return a.CostAfter > b.CostAfter;
+      return a.CostAfter < b.CostAfter;
     });
 
   for (auto &R : ret) {
-    debug() << "[enumerator] rewrite: " << *R.I << "\n";
+    debug() << "[enumerator] rewrite: " << *R.I
+            << ", cost="<<  R.CostAfter << "\n";
   }
 
   removeUnusedDecls(IntrinsicDecls);
