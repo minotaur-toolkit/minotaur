@@ -28,32 +28,13 @@ void Var::print(raw_ostream &os) const {
 }
 
 void ReservedConst::print(raw_ostream &os) const {
-// TODO : print literals
-  //  if (!Values.empty()) {
-  //   string str;
-  //   if (ty.isScalar()) {
-  //     llvm::raw_string_ostream ss(str);
-  //     auto V = Values[0];
-  //     ss<<"i"<<V.getBitWidth()<<" ";
-  //     V.print(ss, false);
-  //     ss.flush();
-  //   } else if (ty.isVector()) {
-  //     llvm::raw_string_ostream ss(str);
-  //     ss<<"<"<<ty.getLane()<<" x i"<<ty.getBits()<<"> ";
-
-  //     ss<<"{";
-  //     for (unsigned i = 0 ; i < ty.getLane(); i ++) {
-  //       Values[i].print(ss, false);
-  //       if (i != ty.getLane() - 1)
-  //         ss<<",";
-  //     }
-  //     ss<<"}";
-  //     ss.flush();
-  //   }
-  //   os << "(const " << str << ")";
-  // } else {
-     os << "reservedconst";
-  // }
+  if (C) {
+    os << "(reservedconst " << ty << " ";
+    os << *C;
+    os << ")";
+  } else {
+    os << "(reservedconst " << ty << " " << "null" << ")";
+  }
 }
 
 void Copy::print(raw_ostream &os) const {
@@ -112,6 +93,10 @@ void ICmp::print(raw_ostream &os) const {
   case ule:      str = "ule"; break;
   case slt:      str = "slt"; break;
   case sle:      str = "sle"; break;
+  case ugt:      str = "ugt"; break;
+  case uge:      str = "uge"; break;
+  case sgt:      str = "sgt"; break;
+  case sge:      str = "sge"; break;
   }
   os << "(icmp_" << str << " ";
   lhs->print(os);

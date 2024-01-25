@@ -233,7 +233,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         llvm::ValueToValueMapTy VMap;
         std::unordered_set<llvm::Function *> IntrinsicDecls;
         llvm::Instruction *I = NewF->second;
-        llvm::Value *V = LLVMGen(I, IntrinsicDecls).codeGen(R.I, R.Consts, VMap);
+        llvm::Value *V = LLVMGen(I, IntrinsicDecls).codeGen(R.I, VMap);
         V = llvm::IRBuilder<>(I).CreateBitCast(V, I->getType());
         eliminate_dead_code(NewF->first.get());
         removeUnusedDecls(IntrinsicDecls);
@@ -257,7 +257,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         insertpt = insertpt->getNextNode();
       }
 
-      auto *V = LLVMGen(insertpt, IntrinDecls).codeGen(R.I, R.Consts, S.getValueMap());
+      auto *V = LLVMGen(insertpt, IntrinDecls).codeGen(R.I, S.getValueMap());
       V = llvm::IRBuilder<>(insertpt).CreateBitCast(V, I.getType());
 
 

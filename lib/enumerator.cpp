@@ -589,9 +589,8 @@ vector<Rewrite> Enumerator::synthesize(llvm::Function &F, llvm::Instruction *I) 
     }
 
     llvm::Instruction *PrevI = llvm::cast<llvm::Instruction>(VMap[&*I]);
-    ConstMap _consts;
     llvm::Value *V =
-        LLVMGen(PrevI, IntrinsicDecls).codeGen(G, _consts, VMap);
+        LLVMGen(PrevI, IntrinsicDecls).codeGen(G, VMap);
     V = llvm::IRBuilder<>(PrevI).CreateBitCast(V, PrevI->getType());
     PrevI->replaceAllUsesWith(V);
 
@@ -659,16 +658,15 @@ push:
     if (Good) {
       GOOD ++;
       Inst *R = G;
-      ConstMap Consts;
       if (HaveC) {
         for (auto &[A, C] : ConstantResults) {
-          Consts[ArgConst[A]] = C;
+          //Consts[ArgConst[A]] = C;
+          ArgConst[A]->setC(C);
+          A->replaceAllUsesWith(C);
         }
       }
 
-      for (auto &[A, C] : ConstantResults) {
-        A->replaceAllUsesWith(C);
-      }
+
       unsigned costAfter = get_machine_cost(Tgt);
 
       debug() << "[enumerator] optimized ir (uops=" << costAfter << ")\n"
@@ -678,7 +676,7 @@ push:
         debug() << "[enumerator] cost is zero, skip\n";
       } else if (config::ignore_machine_cost || costAfter <= costBefore) {
         debug () << "[enumerator] successfully synthesized rhs\n";
-        ret.emplace_back(R, Consts, costAfter, costBefore);
+        ret.emplace_back(R, costAfter, costBefore);
       } else {
         debug() <<  "[enumerator] RHS is more expensive than LHS\n";
       }

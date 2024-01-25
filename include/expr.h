@@ -55,13 +55,16 @@ public:
 // literal constants to be synthesized
 class ReservedConst final : public Value {
   llvm::Argument *A;
+  llvm::Constant *C;
 public:
-  ReservedConst(type t) : Value(t), A(nullptr) {}
-  ReservedConst(type t, llvm::Constant *C);
+  ReservedConst(type t) : Value(t), A(nullptr), C(nullptr) {}
+  ReservedConst(type t, llvm::Constant *C) : Value(t), A(nullptr), C(C) {};
   type getType() { return ty; }
   llvm::Argument *getA () const { return A; }
   void setA (llvm::Argument *Arg) { A = Arg; }
   void print(llvm::raw_ostream &os) const override;
+  void setC (llvm::Constant *C) { this->C = C; }
+  llvm::Constant *getC () const { return C; }
 };
 
 // No-op
@@ -269,11 +272,8 @@ public:
   type getNewTy () const { return type(lane, new_bits, false); }
 };
 
-using ConstMap = std::map<ReservedConst*, llvm::Constant*>;
-
 struct Rewrite {
   Inst *I;
-  ConstMap Consts;
   unsigned CostAfter;
   unsigned CostBefore;
 };

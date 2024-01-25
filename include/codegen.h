@@ -24,11 +24,11 @@ public:
           std::unordered_set<llvm::Function *> &IDs)
     : IntrinsicDecls(IDs), b(llvm::IRBuilder<>(I)),
       M(I->getModule()), C(I->getContext()) {};
-  llvm::Value *codeGen(Inst*, ConstMap&, llvm::ValueToValueMapTy &VMap);
+  llvm::Value *codeGen(Inst*, llvm::ValueToValueMapTy &VMap);
   llvm::Value *bitcastTo(llvm::Value*, llvm::Type*);
 
 private:
-  llvm::Value *codeGenImpl(Inst*, llvm::ValueToValueMapTy&, ConstMap&);
+  llvm::Value *codeGenImpl(Inst*, llvm::ValueToValueMapTy&);
 };
 
 }
