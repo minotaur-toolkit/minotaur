@@ -317,10 +317,7 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     auto mask = codeGenImpl(FSV->M(), VMap);
     llvm::Value *SV = nullptr;
     if (isa<Constant>(mask)) {
-      ConstantVector *CV = cast<ConstantVector>(mask);
-      auto zm = b.CreateZExt(mask,
-        FixedVectorType::get(b.getInt32Ty(), CV->getType()->getNumElements()));
-      SV = b.CreateShuffleVector(op0, op1, zm, "sv");
+      SV = b.CreateShuffleVector(op0, op1, mask, "sv");
     } else {
       std::vector<llvm::Type*> Args(2, op_ty);
       Args.push_back(FSV->M()->getType().toLLVM(C));

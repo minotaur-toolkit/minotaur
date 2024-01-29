@@ -413,7 +413,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
 
     auto tys = getShuffleWorkTypes(expected);
     for (auto ty : tys) {
-      type mask_ty = type(ty.getLane(), 8, false);
+      type mask_ty = type(ty.getLane(), 32, false);
       if (mask_ty.isScalar())
         continue;
 
@@ -665,8 +665,9 @@ push:
         }
       }
 
+      // rewrite fksv calls to shufflevector
       for (auto &BB : *Tgt) {
-        for (auto &I : BB) {
+        for (auto &I : make_early_inc_range(BB)) {
           if (!isa<llvm::CallInst>(&I))
             continue;
           auto CI = llvm::cast<llvm::CallInst>(&I);
@@ -674,13 +675,12 @@ push:
           auto callee = CI->getCalledFunction();
           if(!callee)
             continue;
-
           if (!callee->getName().startswith("__fksv"))
             continue;
 
           auto shuf = new llvm::ShuffleVectorInst(CI->getArgOperand(0),
                                                   CI->getArgOperand(1),
-                                                  CI->getArgOperand(2), CI);
+                                                  CI->getArgOperand(2), "", CI);
           CI->replaceAllUsesWith(shuf);
           CI->eraseFromParent();
         }
