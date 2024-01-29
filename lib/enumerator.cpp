@@ -542,8 +542,8 @@ vector<Rewrite> Enumerator::synthesize(llvm::Function &F, llvm::Instruction *I) 
     llvm::ValueToValueMapTy VMap;
 
     llvm::SmallVector<llvm::Type*, 8> Args;
-    for (auto I: FT->params()) {
-      Args.push_back(I);
+    for (auto A: FT->params()) {
+      Args.push_back(A);
     }
     for (auto &C : Sketch.second) {
       Args.push_back(C->getType().toLLVM(F.getContext()));
@@ -559,9 +559,9 @@ vector<Rewrite> Enumerator::synthesize(llvm::Function &F, llvm::Instruction *I) 
 
     llvm::Function::arg_iterator TgtArgI = Tgt->arg_begin();
 
-    for (auto I = F.arg_begin(), E = F.arg_end(); I != E; ++I, ++TgtArgI) {
-      VMap[I] = TgtArgI;
-      TgtArgI->setName(I->getName());
+    for (auto A = F.arg_begin(), E = F.arg_end(); A != E; ++A, ++TgtArgI) {
+      VMap[A] = TgtArgI;
+      TgtArgI->setName(A->getName());
     }
 
     unordered_map<const llvm::Argument*, ReservedConst*> ArgConst;
@@ -665,10 +665,31 @@ push:
         }
       }
 
+      for (auto &BB : *Tgt) {
+        for (auto &I : BB) {
+          if (!isa<llvm::CallInst>(&I))
+            continue;
+          auto CI = llvm::cast<llvm::CallInst>(&I);
+
+          auto callee = CI->getCalledFunction();
+          if(!callee)
+            continue;
+
+          if (!callee->getName().startswith("__fksv"))
+            continue;
+
+          auto shuf = new llvm::ShuffleVectorInst(CI->getArgOperand(0),
+                                                  CI->getArgOperand(1),
+                                                  CI->getArgOperand(2), CI);
+          CI->replaceAllUsesWith(shuf);
+          CI->eraseFromParent();
+        }
+      }
 
       unsigned costAfter = get_machine_cost(Tgt);
 
-      debug() << "[enumerator] optimized ir (uops=" << costAfter << ")\n"
+      debug() << "[enumerator] optimized ir (uops=" << costAfter <<")"
+              << ", original cost (uops=" << costBefore << "), \n"
               << *Tgt << "\n";
 
       if (!costAfter || !costBefore) {

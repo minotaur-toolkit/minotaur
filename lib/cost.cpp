@@ -107,12 +107,12 @@ unsigned get_approx_cost(llvm::Function *F) {
       } else if (CallInst *CI = dyn_cast<CallInst>(&I)) {
         auto CalledF = CI->getCalledFunction();
         if (CalledF && CalledF->getName().startswith("__fksv")) {
-          cost += 2;
+          cost += 1;
         } else {
           cost += 1;
         }
       } else if (isa<ShuffleVectorInst>(&I)) {
-        cost += 2;
+        cost += 1;
       } else if (BinaryOperator *BO = dyn_cast<BinaryOperator>(&I)) {
         auto opCode = BO->getOpcode();
         if (opCode == Instruction::UDiv || opCode == Instruction::SDiv ||
