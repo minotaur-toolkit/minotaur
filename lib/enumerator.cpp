@@ -408,8 +408,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
     type op_ty = (*Op0)->getType();
 
     //skip if expected and op_ty are not both fp or int
-    if (!( expected.isFP() &&  op_ty.isFP()) ||
-         (!expected.isFP() && !op_ty.isFP()))
+    if (expected.isFP() ^ op_ty.isFP())
       continue;
 
     auto tys = getShuffleWorkTypes(expected);
