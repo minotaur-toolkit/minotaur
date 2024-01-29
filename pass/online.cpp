@@ -280,8 +280,11 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
     redisFree(ctx);
   }
 
-  debug() << "[online] minotaur completed\n";
-
+  if (changed)
+    debug() << "[online] minotaur completed, changed the program\n";
+  else {
+    debug() << "[online] minotaur completed, no change to the program\n";
+  }
 
   if (out_file != &errs()) {
     out_file->flush();
