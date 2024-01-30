@@ -75,7 +75,7 @@ void BinaryOp::print(raw_ostream &os) const {
   case fmul:       str = "fmul"; break;
   case fsub:       str = "fsub"; break;
   case fdiv:       str = "fdiv"; break;
-  case frem:       str = "frem"; break;
+  // case frem:       str = "frem"; break;
   }
   os << "(" << str << " " << workty << " ";
   lhs->print(os);
@@ -191,36 +191,32 @@ vector<type> getUnaryOpWorkTypes(type ty, UnaryOp::Op op) {
   if (ty.isFP()) {
     return {};
   } else {
-    return getIntegerVectorTypes(ty.getWidth());
+    return getIntegerVectorTypes(ty);
   }
 }
 
 vector<type> getBinaryOpWorkTypes(type ty, BinaryOp::Op op) {
-  if (ty.isFP()) {
-    return {};
-  }
-
   if (BinaryOp::isFloatingPoint(op)) {
-    return {};
-  }
-
-  if (BinaryOp::isLaneIndependent(op)) {
-    return {ty};
+    if (ty.isFP()) {
+      return { ty };
+    } else {
+      return {};
+    }
   } else {
-    return getIntegerVectorTypes(ty.getWidth());
+    return getIntegerVectorTypes(ty);
   }
 }
 
 vector<type> getShuffleWorkTypes(type ty) {
   if (ty.isFP()) {
-    return {ty};
+    return { ty };
   } else {
-    return getIntegerVectorTypes(ty.getWidth());
+    return getIntegerVectorTypes(ty);
   }
 }
 
 vector<type> getConversionOpWorkTypes(type to, type from) {
-  vector<type> tys = getIntegerVectorTypes(to.getWidth());
+  vector<type> tys = getIntegerVectorTypes(to);
   return tys;
 }
 

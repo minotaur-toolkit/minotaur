@@ -70,9 +70,9 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     if (VMap.empty()) {
       return V->V();
     } else {
-      if (VMap.count(V->V()))
+      if (VMap.count(V->V())) {
         return VMap[V->V()];
-      else {
+      } else {
         llvm::errs()<<*V<<"\n";
         llvm::report_fatal_error("Value is not found in VMap");
       }
@@ -175,6 +175,21 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     case BinaryOp::shl:
       r = b.CreateShl(op0, op1, "shl");
       break;
+    case BinaryOp::fadd:
+      r = b.CreateFAdd(op0, op1, "fadd");
+      break;
+    case BinaryOp::fsub:
+      r = b.CreateFSub(op0, op1, "fsub");
+      break;
+    case BinaryOp::fmul:
+      r = b.CreateFMul(op0, op1, "fmul");
+      break;
+    case BinaryOp::fdiv:
+      r = b.CreateFDiv(op0, op1, "fdiv");
+      break;
+    // case BinaryOp::frem:
+    //   r = b.CreateFRem(op0, op1, "frem");
+  //   break;
     default:
       UNREACHABLE();
     }

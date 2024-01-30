@@ -99,7 +99,7 @@ class BinaryOp final : public Value {
 public:
   enum Op { band, bor, bxor, lshr, ashr, shl,
             add, sub, mul, sdiv, udiv,
-            fadd, fsub, fmul, fdiv, frem };
+            fadd, fsub, fmul, fdiv, /*frem*/ };
 private:
   Op op;
   Value *lhs;
@@ -115,7 +115,8 @@ public:
   type getWorkTy() { return workty; }
 
   static bool isFloatingPoint(Op op) {
-    return op == fadd || op == fsub || op == fmul || op == fdiv || op == frem;
+    return op == fadd || op == fsub || op == fmul || op == fdiv
+     /*|| op == frem */;
   }
 
   static bool isCommutative(Op op) {

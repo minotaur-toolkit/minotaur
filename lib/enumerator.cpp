@@ -114,7 +114,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
     if (Op->getType().same_width(expected))
       continue;
 
-    vector<type> tys = getIntegerVectorTypes(Op->getType().getWidth());
+    vector<type> tys = getIntegerVectorTypes(Op->getType());
     for (auto workty : tys) {
       unsigned op_bits = workty.getBits();
       unsigned lane = workty.getLane();
@@ -175,7 +175,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
   }
 
   // binop
-  for (unsigned K = BinaryOp::band; K <= BinaryOp::frem; ++K) {
+  for (unsigned K = BinaryOp::band; K <= BinaryOp::fdiv; ++K) {
     BinaryOp::Op Op = static_cast<BinaryOp::Op>(K);
     for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
       auto Op1 = BinaryOp::isCommutative(Op) ? Op0 : Comps.begin();
