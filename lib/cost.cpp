@@ -101,9 +101,6 @@ unsigned get_approx_cost(llvm::Function *F) {
       if (isa<Argument>(&I)) {
         cost += 0;
         // reserved const
-      } else if (isa<BitCastInst>(&I)) {
-        // bitcast counts nothing
-        cost += 0;
       } else if (CallInst *CI = dyn_cast<CallInst>(&I)) {
         auto CalledF = CI->getCalledFunction();
         if (CalledF && CalledF->getName().startswith("__fksv")) {
@@ -111,15 +108,25 @@ unsigned get_approx_cost(llvm::Function *F) {
         } else {
           cost += 1;
         }
-      } else if (isa<ShuffleVectorInst>(&I)) {
-        cost += 1;
-      } else if (BinaryOperator *BO = dyn_cast<BinaryOperator>(&I)) {
+      } else if (Instruction *BO = dyn_cast<Instruction>(&I)) {
         auto opCode = BO->getOpcode();
         if (opCode == Instruction::UDiv || opCode == Instruction::SDiv ||
             opCode == Instruction::URem || opCode == Instruction::SRem) {
           cost += 5;
         } else if (opCode == Instruction::Mul) {
           cost += 2;
+        } else if (opCode == Instruction::FAdd || opCode == Instruction::FSub ||
+                   opCode == Instruction::FMul) {
+          cost += 15;
+        } else if (opCode == Instruction::FDiv || opCode == Instruction::FRem) {
+          cost += 40;
+        } else if (opCode == Instruction::FNeg) {
+          cost += 3;
+        } else if (opCode == Instruction::BitCast) {
+          cost += 0;
+        } else if (opCode == Instruction::Unreachable ||
+                   opCode == Instruction::Ret) {
+          cost += 0;
         } else {
           cost += 1;
         }

@@ -158,14 +158,11 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
       continue;
     if (dynamic_cast<ReservedConst *>(*Op0))
       continue;
-    for (unsigned K = UnaryOp::bitreverse; K <= UnaryOp::ctpop; ++K) {
+    for (unsigned K = UnaryOp::bitreverse; K <= UnaryOp::fneg; ++K) {
       UnaryOp::Op Op = static_cast<UnaryOp::Op>(K);
       vector<type> tys = getUnaryOpWorkTypes(expected, Op);
 
       for (auto workty : tys) {
-        unsigned bits = workty.getBits();
-        if (K == UnaryOp::Op::bswap && (bits < 16 || bits % 8))
-          continue;
         set<ReservedConst*> RCs;
         auto U = make_unique<UnaryOp>(Op, **Op0, workty);
         sketches.push_back(make_pair(U.get(), std::move(RCs)));

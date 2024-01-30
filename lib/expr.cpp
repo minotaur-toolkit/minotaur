@@ -51,6 +51,7 @@ void UnaryOp::print(raw_ostream &os) const {
   case ctpop:      str = "ctpop";      break;
   case ctlz:       str = "ctlz";       break;
   case cttz:       str = "cttz";       break;
+  case fneg:       str = "fneg";       break;
   }
   os << "(" << str << " " << workty << " ";
   v->print(os);
@@ -188,7 +189,14 @@ void ConversionOp::print(raw_ostream &os) const {
 }
 
 vector<type> getUnaryOpWorkTypes(type ty, UnaryOp::Op op) {
-  if (ty.isFP()) {
+  unsigned width = ty.getWidth();
+  if (UnaryOp::isFloatingPoint(op)) {
+    if (ty.isFP()) {
+      return { ty };
+    } else {
+      return {};
+    }
+  } else if (op == UnaryOp::Op::bswap && (width < 16 || width % 8)) {
     return {};
   } else {
     return getIntegerVectorTypes(ty);

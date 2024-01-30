@@ -91,12 +91,16 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     op0 = bitcastTo(op0, workty.toLLVM(C));
     Intrinsic::ID iid = 0;
     auto K = U->K();
+    if (K == UnaryOp::fneg)
+      return b.CreateFNeg(op0);
+
     switch (K) {
     case UnaryOp::bitreverse: iid = Intrinsic::bitreverse; break;
     case UnaryOp::bswap:      iid = Intrinsic::bswap;      break;
     case UnaryOp::ctpop:      iid = Intrinsic::ctpop;      break;
     case UnaryOp::ctlz:       iid = Intrinsic::ctlz;       break;
     case UnaryOp::cttz:       iid = Intrinsic::cttz;       break;
+    default: UNREACHABLE();
     }
 
     if (K == UnaryOp::ctlz || K == UnaryOp::cttz) {
