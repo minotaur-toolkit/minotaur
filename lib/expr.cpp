@@ -189,15 +189,24 @@ void ConversionOp::print(raw_ostream &os) const {
 }
 
 vector<type> getUnaryOpWorkTypes(type ty, UnaryOp::Op op) {
-  unsigned width = ty.getWidth();
   if (UnaryOp::isFloatingPoint(op)) {
     if (ty.isFP()) {
       return { ty };
     } else {
       return {};
     }
-  } else if (op == UnaryOp::Op::bswap && (width < 16 || width % 8)) {
-    return {};
+  } else if (op == UnaryOp::Op::bswap) {
+    unsigned width = ty.getWidth();
+    if (width % 16)
+      return {};
+    vector<unsigned> bits = { 64, 32, 16 };
+    vector<type> types;
+    for (unsigned i = 0 ; i < bits.size() ; ++ i) {
+      if (width % bits[i] == 0 && width >= bits[i]) {
+        types.push_back(type(width/bits[i], bits[i], false));
+      }
+    }
+    return types;
   } else {
     return getIntegerVectorTypes(ty);
   }
