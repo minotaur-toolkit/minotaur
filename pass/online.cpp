@@ -61,7 +61,7 @@ namespace {
 llvm::cl::opt<unsigned> smt_to(
     "minotaur-query-to",
     llvm::cl::desc("minotaur: timeout for SMT queries"),
-    llvm::cl::init(30), llvm::cl::value_desc("s"));
+    llvm::cl::init(60), llvm::cl::value_desc("s"));
 
 llvm::cl::opt<bool> smt_verbose(
     "minotaur-smt-verbose",
