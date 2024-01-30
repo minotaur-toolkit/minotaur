@@ -89,29 +89,29 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     if(!U->V()->getType().same_width(workty))
       report_fatal_error("operand width mismatch");
     op0 = bitcastTo(op0, workty.toLLVM(C));
-    Intrinsic::ID iid = 0;
+
     auto K = U->K();
     if (K == UnaryOp::fneg)
       return b.CreateFNeg(op0);
 
+    Intrinsic::ID iid = 0;
     switch (K) {
     case UnaryOp::bitreverse: iid = Intrinsic::bitreverse; break;
     case UnaryOp::bswap:      iid = Intrinsic::bswap;      break;
     case UnaryOp::ctpop:      iid = Intrinsic::ctpop;      break;
-    case UnaryOp::ctlz:       iid = Intrinsic::ctlz;       break;
-    case UnaryOp::cttz:       iid = Intrinsic::cttz;       break;
+    // case UnaryOp::ctlz:       iid = Intrinsic::ctlz;       break;
+    // case UnaryOp::cttz:       iid = Intrinsic::cttz;       break;
     default: UNREACHABLE();
     }
 
-    if (K == UnaryOp::ctlz || K == UnaryOp::cttz) {
+    /*if (K == UnaryOp::ctlz || K == UnaryOp::cttz) {
       llvm::Function *F = Intrinsic::getDeclaration(M, iid, {workty.toLLVM(C), Type::getInt1Ty(C)});
       IntrinsicDecls.insert(F);
       return b.CreateCall(F, { op0, ConstantInt::getFalse(C) });
-    } else {
-      llvm::Function *F = Intrinsic::getDeclaration(M, iid, {workty.toLLVM(C)});
-      IntrinsicDecls.insert(F);
-      return b.CreateCall(F, op0);
-    }
+    } else {}*/
+    llvm::Function *F = Intrinsic::getDeclaration(M, iid, {workty.toLLVM(C)});
+    IntrinsicDecls.insert(F);
+    return b.CreateCall(F, op0);
   } else if (auto U = dynamic_cast<Copy*>(I)) {
     auto op0 = codeGenImpl(U->V(), VMap);
     return op0;

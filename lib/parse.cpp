@@ -200,10 +200,10 @@ Value* parse_unary(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
     op = UnaryOp::bswap; break;
   case CTPOP:
     op = UnaryOp::ctpop; break;
-  case CTLZ:
+  /*case CTLZ:
     op = UnaryOp::ctlz; break;
   case CTTZ:
-    op = UnaryOp::cttz; break;
+    op = UnaryOp::cttz; break;*/
   // TODO: add
   default:
     UNREACHABLE();

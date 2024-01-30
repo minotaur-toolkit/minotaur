@@ -650,7 +650,6 @@ push:
         continue;
       }
     }
-    cout<<Good<<endl;
     if (Good) {
       GOOD ++;
       Inst *R = G;
