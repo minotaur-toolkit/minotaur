@@ -1,4 +1,7 @@
 ; CHECK: <i16 1, i16 -1, i16 1, i16 -1, i16 1, i16 -1, i16 1, i16 -1, i16 1, i16 -1, i16 1, i16 -1, i16 1, i16 -1, i16 1, i16 -1>
+
+; long duration test case
+
 define <8 x i32> @sliced_(<16 x i16> %0) {
 entry:
   %1 = call <8 x i32> @llvm.x86.avx2.pmadd.wd(<16 x i16> %0, <16 x i16> <i16 0, i16 1, i16 0, i16 1, i16 0, i16 1, i16 0, i16 1, i16 0, i16 1, i16 0, i16 1, i16 0, i16 1, i16 0, i16 1>)

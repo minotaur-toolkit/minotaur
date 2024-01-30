@@ -26,7 +26,7 @@ bool disable_avx512 = true;
 bool show_stats = false;
 bool return_first_solution = false;
 
-unsigned slicer_max_depth = 2;
+unsigned slicer_max_depth = 5;
 
 llvm::raw_ostream &dbg() {
   return *debug_os;
