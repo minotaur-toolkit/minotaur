@@ -52,6 +52,7 @@ void UnaryOp::print(raw_ostream &os) const {
   //case ctlz:       str = "ctlz";       break;
   //case cttz:       str = "cttz";       break;
   case fneg:       str = "fneg";       break;
+  case fabs:       str = "fabs";       break;
   }
   os << "(" << str << " " << workty << " ";
   v->print(os);

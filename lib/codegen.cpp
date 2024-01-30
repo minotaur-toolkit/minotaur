@@ -101,6 +101,7 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     case UnaryOp::ctpop:      iid = Intrinsic::ctpop;      break;
     // case UnaryOp::ctlz:       iid = Intrinsic::ctlz;       break;
     // case UnaryOp::cttz:       iid = Intrinsic::cttz;       break;
+    case UnaryOp::fabs:       iid = Intrinsic::fabs;       break;
     default: UNREACHABLE();
     }
 

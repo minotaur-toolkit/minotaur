@@ -158,7 +158,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
       continue;
     if (dynamic_cast<ReservedConst *>(*Op0))
       continue;
-    for (unsigned K = UnaryOp::bitreverse; K <= UnaryOp::fneg; ++K) {
+    for (unsigned K = UnaryOp::bitreverse; K <= UnaryOp::fabs; ++K) {
       UnaryOp::Op Op = static_cast<UnaryOp::Op>(K);
       vector<type> tys = getUnaryOpWorkTypes(expected, Op);
 

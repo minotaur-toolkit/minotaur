@@ -80,7 +80,8 @@ public:
 
 class UnaryOp final : public Value {
 public:
-  enum Op { bitreverse, bswap, ctpop, /*ctlz, cttz,*/ fneg };
+  enum Op { bitreverse, bswap, ctpop, /*ctlz, cttz,*/
+            fneg, fabs };
 private:
   Op op;
   Value *v;
@@ -94,7 +95,7 @@ public:
   type getWorkTy() { return workty; }
 
   static bool isFloatingPoint(Op op) {
-    return op == fneg;
+    return op == fneg || op == fabs;
      /*|| op == frem */;
   }
 };
