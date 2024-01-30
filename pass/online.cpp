@@ -235,6 +235,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         llvm::Instruction *I = NewF->second;
         llvm::Value *V = LLVMGen(I, IntrinsicDecls).codeGen(R.I, VMap);
         V = llvm::IRBuilder<>(I).CreateBitCast(V, I->getType());
+        I->replaceAllUsesWith(V);
         eliminate_dead_code(NewF->first.get());
         removeUnusedDecls(IntrinsicDecls);
         WriteBitcodeToFile(*m, bs);
