@@ -86,6 +86,11 @@ Type* type::toLLVM(LLVMContext &C) const {
 }
 
 raw_ostream& operator<<(raw_ostream &os, const type &val) {
+  if (!val.valid()) {
+    os<<"null";
+    return os;
+  }
+
   if (val.fp) {
     os<<"<"<<val.lane<<" x f"<<val.bits<<">";
   } else {
