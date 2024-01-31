@@ -145,6 +145,20 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
       report_fatal_error("left operand width mismatch");
     op1 = bitcastTo(op1, workty.toLLVM(C));
 
+    Intrinsic::ID iid = 0;
+    switch (B->K()) {
+    case BinaryOp::fmaxnum:    iid = Intrinsic::maxnum;     break;
+    case BinaryOp::fminnum:    iid = Intrinsic::minnum;     break;
+    case BinaryOp::fmaximum:   iid = Intrinsic::maximum;    break;
+    case BinaryOp::fminimum:   iid = Intrinsic::minimum;    break;
+    default: break;
+    }
+    if (iid) {
+      llvm::Function *F = Intrinsic::getDeclaration(M, iid, {workty.toLLVM(C)});
+      IntrinsicDecls.insert(F);
+      return b.CreateCall(F, { op0, op1 });
+    }
+
     llvm::Value *r = nullptr;
     switch (B->K()) {
     case BinaryOp::band:

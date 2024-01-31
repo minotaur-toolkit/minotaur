@@ -103,8 +103,21 @@ unsigned get_approx_cost(llvm::Function *F) {
         // reserved const
       } else if (CallInst *CI = dyn_cast<CallInst>(&I)) {
         auto CalledF = CI->getCalledFunction();
-        if (CalledF && CalledF->getName().startswith("__fksv")) {
-          cost += 1;
+        if (CalledF) {
+          if (CalledF->getName().startswith("__fksv")) {
+            cost += 1;
+          } else if (CalledF->isIntrinsic()){
+            if (CalledF->getIntrinsicID() == Intrinsic::minnum ||
+                CalledF->getIntrinsicID() == Intrinsic::minimum ||
+                CalledF->getIntrinsicID() == Intrinsic::maxnum ||
+                CalledF->getIntrinsicID() == Intrinsic::maximum) {
+              cost += 15;
+            } else {
+              cost += 1;
+            }
+          } else {
+            cost += 1;
+          }
         } else {
           cost += 1;
         }

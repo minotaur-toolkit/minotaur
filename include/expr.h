@@ -105,7 +105,8 @@ class BinaryOp final : public Value {
 public:
   enum Op { band, bor, bxor, lshr, ashr, shl,
             add, sub, mul, sdiv, udiv,
-            fadd, fsub, fmul, fdiv, /*frem*/ };
+            fadd, fsub, fmul, fdiv, /*frem*/
+            fmaxnum, fminnum, fmaximum, fminimum };
 private:
   Op op;
   Value *lhs;
@@ -121,14 +122,18 @@ public:
   type getWorkTy() { return workty; }
 
   static bool isFloatingPoint(Op op) {
-    return op == fadd || op == fsub || op == fmul || op == fdiv
+    return op == fadd || op == fsub || op == fmul || op == fdiv ||
+           op == fmaxnum || op == fminnum ||
+           op == fmaximum || op == fminimum;
      /*|| op == frem */;
   }
 
   static bool isCommutative(Op op) {
     return op == band || op == bor || op == bxor ||
            op == add || op == mul ||
-           op == fadd || op == fmul;
+           op == fadd || op == fmul ||
+           op == fmaxnum || op == fminnum ||
+           op == fmaximum || op == fminimum;
   }
 
   static bool isLaneIndependent(Op op) {

@@ -62,21 +62,25 @@ void UnaryOp::print(raw_ostream &os) const {
 void BinaryOp::print(raw_ostream &os) const {
   const char *str = nullptr;
   switch (op) {
-  case band:       str = "and";  break;
-  case bor:        str = "or";   break;
-  case bxor:       str = "xor";  break;
-  case add:        str = "add";  break;
-  case sub:        str = "sub";  break;
-  case mul:        str = "mul";  break;
-  case sdiv:       str = "sdiv"; break;
-  case udiv:       str = "udiv"; break;
-  case lshr:       str = "lshr"; break;
-  case ashr:       str = "ashr"; break;
-  case shl:        str = "shl" ; break;
-  case fadd:       str = "fadd"; break;
-  case fmul:       str = "fmul"; break;
-  case fsub:       str = "fsub"; break;
-  case fdiv:       str = "fdiv"; break;
+  case band:       str = "and";      break;
+  case bor:        str = "or";       break;
+  case bxor:       str = "xor";      break;
+  case add:        str = "add";      break;
+  case sub:        str = "sub";      break;
+  case mul:        str = "mul";      break;
+  case sdiv:       str = "sdiv";     break;
+  case udiv:       str = "udiv";     break;
+  case lshr:       str = "lshr";     break;
+  case ashr:       str = "ashr";     break;
+  case shl:        str = "shl" ;     break;
+  case fadd:       str = "fadd";     break;
+  case fmul:       str = "fmul";     break;
+  case fsub:       str = "fsub";     break;
+  case fdiv:       str = "fdiv";     break;
+  case fmaxnum:    str = "fmaxnum";  break;
+  case fminnum:    str = "fminnum";  break;
+  case fmaximum:   str = "fmaximum"; break;
+  case fminimum:   str = "fminimum"; break;
   // case frem:       str = "frem"; break;
   }
   os << "(" << str << " " << workty << " ";

@@ -71,10 +71,9 @@ void
 Enumerator::findInputs(llvm::Function &F,
                        llvm::Instruction *root,
                        llvm::DominatorTree &DT) {
-  // breadth-first search
   for (auto &A : F.args()) {
     auto T = make_unique<Var>(&A);
-    values.insert(T.get());
+    values.emplace_back(T.get());
     exprs.emplace_back(std::move(T));
   }
   for (auto &BB : F) {
@@ -90,7 +89,7 @@ Enumerator::findInputs(llvm::Function &F,
         continue;
 
       auto T = make_unique<Var>(&I);
-      values.insert(T.get());
+      values.emplace_back(T.get());
       exprs.emplace_back(std::move(T));
     }
   }
@@ -102,9 +101,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
     Comps.emplace_back(I);
   }
 
-
   type expected{V->getType()};
-
 
   // casts
   for (auto Comp : Comps) {
@@ -176,10 +173,16 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
   Comps.emplace_back(RC1.get());
 
   // binop
-  for (unsigned K = BinaryOp::band; K <= BinaryOp::fdiv; ++K) {
+  for (unsigned K = BinaryOp::band; K <= BinaryOp::fminimum; ++K) {
     BinaryOp::Op Op = static_cast<BinaryOp::Op>(K);
     for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
-      auto Op1 = BinaryOp::isCommutative(Op) ? Op0 : Comps.begin();
+
+      auto Op1 = Comps.begin();
+      if (K == BinaryOp::Op::mul || K == BinaryOp::Op::fmul)
+        Op1 = Op0;
+      else if (BinaryOp::isCommutative(Op))
+        Op1 = Op0 + 1;
+
       for (; Op1 != Comps.end(); ++Op1) {
 
         for (auto workty : getBinaryOpWorkTypes(expected, Op)) {
@@ -196,12 +199,9 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
               RCs.insert(T.get());
               exprs.emplace_back(std::move(T));
               J = R;
-              if (BinaryOp::isCommutative(Op)) {
-                swap(I, J);
-              }
             } else continue;
           }
-          // (op var, rc)
+          // (op var, rc), for commutative operations, rc is always in rhs
           else if (dynamic_cast<ReservedConst *>(*Op1)) {
             if (auto L = dynamic_cast<Var *>(*Op0)) {
               // do not generate (- x 3) which can be represented as (+ x -3)

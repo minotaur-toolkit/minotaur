@@ -25,7 +25,7 @@ using Sketch = std::pair<Inst*, std::set<ReservedConst*>>;
 class Enumerator {
   std::vector<std::unique_ptr<Inst>> exprs;
 
-  std::set<Var*> values;
+  std::vector<Var*> values;
 
   void findInputs(llvm::Function&,
                   llvm::Instruction*,
