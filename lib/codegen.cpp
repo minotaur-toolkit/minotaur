@@ -102,6 +102,13 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     // case UnaryOp::ctlz:       iid = Intrinsic::ctlz;       break;
     // case UnaryOp::cttz:       iid = Intrinsic::cttz;       break;
     case UnaryOp::fabs:       iid = Intrinsic::fabs;       break;
+    case UnaryOp::fceil:      iid = Intrinsic::ceil;       break;
+    case UnaryOp::ffloor:     iid = Intrinsic::floor;      break;
+    case UnaryOp::frint:      iid = Intrinsic::rint;       break;
+    case UnaryOp::fnearbyint: iid = Intrinsic::nearbyint;  break;
+    case UnaryOp::fround:     iid = Intrinsic::round;      break;
+    case UnaryOp::froundeven: iid = Intrinsic::roundeven;  break;
+    case UnaryOp::ftrunc:     iid = Intrinsic::trunc;      break;
     default: UNREACHABLE();
     }
 

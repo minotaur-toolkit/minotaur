@@ -81,7 +81,8 @@ public:
 class UnaryOp final : public Value {
 public:
   enum Op { bitreverse, bswap, ctpop, /*ctlz, cttz,*/
-            fneg, fabs };
+            fneg, fabs , fceil, ffloor, frint, fnearbyint, fround,
+            froundeven, ftrunc };
 private:
   Op op;
   Value *v;
@@ -95,7 +96,9 @@ public:
   type getWorkTy() { return workty; }
 
   static bool isFloatingPoint(Op op) {
-    return op == fneg || op == fabs;
+    return op == fneg || op == fabs || op == fceil || op == ffloor ||
+           op == frint || op == fnearbyint || op == fround ||
+           op == froundeven || op == ftrunc;
      /*|| op == frem */;
   }
 };

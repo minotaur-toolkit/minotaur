@@ -53,6 +53,13 @@ void UnaryOp::print(raw_ostream &os) const {
   //case cttz:       str = "cttz";       break;
   case fneg:       str = "fneg";       break;
   case fabs:       str = "fabs";       break;
+  case fceil:      str = "fceil";      break;
+  case ffloor:     str = "ffloor";     break;
+  case frint:      str = "frint";      break;
+  case fnearbyint: str = "fnearbyint"; break;
+  case fround:     str = "fround";     break;
+  case froundeven: str = "froundeven"; break;
+  case ftrunc:     str = "ftrunc";     break;
   }
   os << "(" << str << " " << workty << " ";
   v->print(os);

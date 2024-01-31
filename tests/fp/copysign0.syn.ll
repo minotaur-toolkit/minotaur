@@ -1,4 +1,4 @@
-; call float @llvm.copysign.f32(float %x, float %y)
+; CHECK: call float @llvm.copysign.f32(float %x, float %y)
 define float @fabs_mag(float %x, float %y) {
 ; CHECK-LABEL: @fabs_mag(
 ; CHECK-NEXT:    [[R:%.*]] = call float @llvm.copysign.f32(float [[X:%.*]], float [[Y:%.*]])

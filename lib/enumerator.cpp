@@ -156,7 +156,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
   for (auto Op0 : Comps) {
     if (!expected.same_width(Op0->getType()))
       continue;
-    for (unsigned K = UnaryOp::bitreverse; K <= UnaryOp::fabs; ++K) {
+    for (unsigned K = UnaryOp::bitreverse; K <= UnaryOp::ftrunc; ++K) {
       UnaryOp::Op opcode = static_cast<UnaryOp::Op>(K);
       vector<type> tys = getUnaryOpWorkTypes(expected, opcode);
 
