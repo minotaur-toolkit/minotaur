@@ -81,6 +81,7 @@ void BinaryOp::print(raw_ostream &os) const {
   case fminnum:    str = "fminnum";  break;
   case fmaximum:   str = "fmaximum"; break;
   case fminimum:   str = "fminimum"; break;
+  case copysign:   str = "copysign"; break;
   // case frem:       str = "frem"; break;
   }
   os << "(" << str << " " << workty << " ";

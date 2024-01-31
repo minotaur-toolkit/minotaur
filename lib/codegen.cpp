@@ -151,6 +151,7 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     case BinaryOp::fminnum:    iid = Intrinsic::minnum;     break;
     case BinaryOp::fmaximum:   iid = Intrinsic::maximum;    break;
     case BinaryOp::fminimum:   iid = Intrinsic::minimum;    break;
+    case BinaryOp::copysign:   iid = Intrinsic::copysign;   break;
     default: break;
     }
     if (iid) {

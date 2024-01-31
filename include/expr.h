@@ -106,7 +106,7 @@ public:
   enum Op { band, bor, bxor, lshr, ashr, shl,
             add, sub, mul, sdiv, udiv,
             fadd, fsub, fmul, fdiv, /*frem*/
-            fmaxnum, fminnum, fmaximum, fminimum };
+            fmaxnum, fminnum, fmaximum, fminimum, copysign };
 private:
   Op op;
   Value *lhs;
@@ -124,7 +124,8 @@ public:
   static bool isFloatingPoint(Op op) {
     return op == fadd || op == fsub || op == fmul || op == fdiv ||
            op == fmaxnum || op == fminnum ||
-           op == fmaximum || op == fminimum;
+           op == fmaximum || op == fminimum ||
+           op == copysign;
      /*|| op == frem */;
   }
 

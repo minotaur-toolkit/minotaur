@@ -173,7 +173,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
   Comps.emplace_back(RC1.get());
 
   // binop
-  for (unsigned K = BinaryOp::band; K <= BinaryOp::fminimum; ++K) {
+  for (unsigned K = BinaryOp::band; K <= BinaryOp::copysign; ++K) {
     BinaryOp::Op Op = static_cast<BinaryOp::Op>(K);
     for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
 
