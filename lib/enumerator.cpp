@@ -107,9 +107,13 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
 
   type expected{V->getType()};
 
-  for (auto Comp = Comps.begin(); Comp != Comps.end(); ++Comp) {
-    auto Op = dynamic_cast<Var*>(*Comp);
-    if (!Op) continue;
+
+  // casts
+  for (auto Comp : Comps) {
+    auto Op = dynamic_cast<Var*>(Comp);
+    if (!Op)
+      continue;
+
     unsigned op_w = Op->getType().getWidth();
     if (Op->getType().same_width(expected))
       continue;
@@ -137,7 +141,8 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
         sketches.push_back(make_pair(ZI.get(), std::move(RCs2)));
         exprs.emplace_back(std::move(ZI));
       } else if (expected.getWidth() < op_w){
-        if (expected.getWidth() % op_w != 0)
+        cout<<"fuckbb"<<endl;
+        if (op_w % expected.getWidth() != 0)
           continue;
 
         unsigned nb = expected.getWidth() * op_bits / op_w;
@@ -153,18 +158,18 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
   }
 
   // unop
-  for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
-    if (!expected.same_width((*Op0)->getType()))
+  for (auto Op0 : Comps) {
+    if (!expected.same_width(Op0->getType()))
       continue;
-    if (dynamic_cast<ReservedConst *>(*Op0))
+    if (dynamic_cast<ReservedConst *>(Op0))
       continue;
     for (unsigned K = UnaryOp::bitreverse; K <= UnaryOp::fabs; ++K) {
-      UnaryOp::Op Op = static_cast<UnaryOp::Op>(K);
-      vector<type> tys = getUnaryOpWorkTypes(expected, Op);
+      UnaryOp::Op opcode = static_cast<UnaryOp::Op>(K);
+      vector<type> tys = getUnaryOpWorkTypes(expected, opcode);
 
       for (auto workty : tys) {
         set<ReservedConst*> RCs;
-        auto U = make_unique<UnaryOp>(Op, **Op0, workty);
+        auto U = make_unique<UnaryOp>(opcode, *Op0, workty);
         sketches.push_back(make_pair(U.get(), std::move(RCs)));
         exprs.emplace_back(std::move(U));
       }
