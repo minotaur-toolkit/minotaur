@@ -279,6 +279,21 @@ public:
   type getNewTy () const { return type(lane, new_bits, false); }
 };
 
+
+class Select final : public Value {
+  Value *cond;
+  Value *lhs;
+  Value *rhs;
+public:
+  Select(Value &cond, Value &lhs, Value &rhs)
+  : Value(lhs.getType()), cond(&cond), lhs(&lhs), rhs(&rhs) {}
+  void print(llvm::raw_ostream &os) const override;
+  Value *Cond() { return cond; }
+  Value *L() { return lhs; }
+  Value *R() { return rhs; }
+};
+
+
 struct Rewrite {
   Inst *I;
   unsigned CostAfter;

@@ -102,7 +102,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
     Comps.emplace_back(I);
   }
 
-  auto RC1 = make_unique<ReservedConst>(type(-1, -1, false));
+  auto RC1 = make_unique<ReservedConst>(type(0, 0, false));
   Comps.emplace_back(RC1.get());
 
   type expected{V->getType()};
@@ -455,6 +455,65 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
       }
     }
   }
+
+  // adding new reserved constants for ternary operators
+  auto RC2 = make_unique<ReservedConst>(type(0, 0, false));
+  Comps.emplace_back(RC2.get());
+
+  // select
+  for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
+    for (auto Op1 = Comps.begin(); Op1 != Comps.end(); ++Op1) {
+      if (Op0 == Op1)
+        continue;
+      type op0_ty = (*Op0)->getType(), op1_ty = (*Op1)->getType();
+      if (expected.isFP()) {
+        // exact match for FP operations
+        if (op0_ty.isValid() && op0_ty != expected )
+          continue;
+        if (op1_ty.isValid() && op1_ty != expected )
+          continue;
+      } else {
+        // for integer operations, we only check width match
+        if (op0_ty.isValid() && op0_ty.same_width(expected))
+          continue;
+        if (op1_ty.isValid() && op1_ty.same_width(expected))
+          continue;
+      }
+
+      for (auto Cond = Comps.begin(); Cond != Comps.end(); ++Cond) {
+        if (dynamic_cast<ReservedConst*>(*Cond))
+          continue;
+        if ((*Cond)->getType().getWidth() != 1)
+          continue;
+
+        set<ReservedConst*> RCs;
+        Value *I = nullptr, *J = nullptr;
+
+        if (dynamic_cast<ReservedConst*>(*Op0)) {
+          auto T = make_unique<ReservedConst>(expected);
+          RCs.insert(T.get());
+          I = T.get();
+          exprs.emplace_back(std::move(T));
+        } else {
+          I = *Op0;
+        }
+
+        if (dynamic_cast<ReservedConst*>(*Op1)) {
+          auto T = make_unique<ReservedConst>(expected);
+          RCs.insert(T.get());
+          J = T.get();
+          exprs.emplace_back(std::move(T));
+        } else {
+          J = *Op1;
+        }
+
+        auto s = make_unique<Select>(**Cond, *I, *J);
+        sketches.push_back(make_pair(s.get(), std::move(RCs)));
+        exprs.emplace_back(std::move(s));
+      }
+    }
+  }
+
   return true;
 }
 

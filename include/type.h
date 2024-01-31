@@ -34,6 +34,7 @@ public:
   unsigned getLane() const { return lane; }
   unsigned getBits() const  { return bits; }
   bool isFP() const { return fp; }
+  bool isValid() const { return lane != 0 && bits != 0; }
 };
 
 type getIntrinsicRetTy(IR::X86IntrinBinOp::Op);

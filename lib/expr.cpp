@@ -189,6 +189,18 @@ void ConversionOp::print(raw_ostream &os) const {
   os << ")";
 }
 
+
+void Select::print(raw_ostream &os) const {
+  os << "(select ";
+  cond->print(os);
+  os << " ";
+  lhs->print(os);
+  os << " ";
+  rhs->print(os);
+  os << ")";
+}
+
+
 vector<type> getUnaryOpWorkTypes(type ty, UnaryOp::Op op) {
   if (UnaryOp::isFloatingPoint(op)) {
     if (ty.isFP()) {
