@@ -102,7 +102,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
     Comps.emplace_back(I);
   }
 
-  auto RC1 = make_unique<ReservedConst>(type(0, 0, false));
+  auto RC1 = make_unique<ReservedConst>(type());
   Comps.emplace_back(RC1.get());
 
   type expected{V->getType()};
@@ -468,15 +468,15 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
       type op0_ty = (*Op0)->getType(), op1_ty = (*Op1)->getType();
       if (expected.isFP()) {
         // exact match for FP operations
-        if (op0_ty.isValid() && op0_ty != expected )
+        if (op0_ty.valid() && op0_ty != expected)
           continue;
-        if (op1_ty.isValid() && op1_ty != expected )
+        if (op1_ty.valid() && op1_ty != expected)
           continue;
       } else {
-        // for integer operations, we only check width match
-        if (op0_ty.isValid() && op0_ty.same_width(expected))
+        // for integer operations, only check width match
+        if (op0_ty.valid() && op0_ty.same_width(expected))
           continue;
-        if (op1_ty.isValid() && op1_ty.same_width(expected))
+        if (op1_ty.valid() && op1_ty.same_width(expected))
           continue;
       }
 

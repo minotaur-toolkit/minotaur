@@ -47,7 +47,7 @@ bool type::operator==(const type &rhs) const {
 }
 
 bool type::same_width(const type &rhs) const {
-  assert(isValid());
+  assert(valid());
   return getWidth() == rhs.getWidth();
 }
 
@@ -66,7 +66,7 @@ static Type* getFloatingPointType(LLVMContext &C, unsigned bits) {
 }
 
 Type* type::toLLVM(LLVMContext &C) const {
-  if (lane == 0 || bits == 0) {
+  if (!valid()) {
     report_fatal_error("error minotaur type");
   }
 
