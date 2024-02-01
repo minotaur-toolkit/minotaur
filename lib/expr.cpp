@@ -195,8 +195,8 @@ void ExtractElement::print(raw_ostream &os) const {
 
 type ExtractElement::getInputTy() {
   type lhs_ty = v->getType();
-  unsigned lane = lhs_ty.getWidth()/ty.getBits();
-  return type(lane, ty.getBits(), ty.isFP());
+  unsigned lane = lhs_ty.getWidth()/ty.getWidth();
+  return type(lane, ty.getWidth(), ty.isFP());
 }
 
 

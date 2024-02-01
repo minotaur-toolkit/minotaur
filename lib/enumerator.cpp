@@ -177,19 +177,22 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
       continue;
     if (op0_ty.isFP() ^ expected.isFP())
       continue;
-    if (op0_ty.isFP() && op0_ty.getBits() != expected.getBits())
-      continue;
+    if (op0_ty.isFP()) {
+      if (expected.getLane() != 1)
+        continue;
+      if (op0_ty.getBits() != expected.getBits())
+        continue;
+    }
 
     auto T = make_unique<ReservedConst>(type(1, 8, false));
     ReservedConst *idx = T.get();
-    auto ety = type(1, expected.getBits(), expected.isFP());
+    auto ety = type(1, expected.getWidth(), expected.isFP());
     set<ReservedConst*> RCs;
     RCs.insert(T.get());
     exprs.emplace_back(std::move(T));
     auto EE = make_unique<ExtractElement>(*Op0, *idx, ety);
     sketches.push_back(make_pair(EE.get(), std::move(RCs)));
     exprs.emplace_back(std::move(EE));
-
   }
 
   auto RC1 = make_unique<ReservedConst>(type());
