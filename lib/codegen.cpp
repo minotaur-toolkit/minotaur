@@ -5,6 +5,7 @@
 
 #include "ir/instr.h"
 
+#include "llvm/CodeGen/MachineValueType.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/GlobalValue.h"
@@ -370,6 +371,12 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
       SV = b.CreateCall(F, { op0, op1, mask }, "sv");
     }
     return SV;
+  } else if (auto FEE = dynamic_cast<ExtractElement*>(I)) {
+    auto op0 = codeGenImpl(FEE->V(), VMap);
+    llvm::Type *op_ty = FEE->getInputTy().toLLVM(C);
+    op0 = bitcastTo(op0, op_ty);
+    auto idx = codeGenImpl(FEE->Idx(), VMap);
+    return b.CreateExtractElement(op0, idx, "ee");
   } else if (auto S = dynamic_cast<Select*>(I)) {
     auto cond = codeGenImpl(S->Cond(), VMap);
     auto op0 = codeGenImpl(S->L(), VMap);

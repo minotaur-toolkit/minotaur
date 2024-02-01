@@ -185,6 +185,20 @@ type FakeShuffleInst::getInputTy() {
   return type(lane, getElementBits(), lhs_ty.isFP());
 }
 
+void ExtractElement::print(raw_ostream &os) const {
+  os << "(extractelement ";
+  v->print(os);
+  os << " ";
+  idx->print(os);
+  os << ")";
+}
+
+type ExtractElement::getInputTy() {
+  type lhs_ty = v->getType();
+  unsigned lane = lhs_ty.getWidth()/ty.getBits();
+  return type(lane, ty.getBits(), ty.isFP());
+}
+
 
 void ConversionOp::print(raw_ostream &os) const {
   const char *str = nullptr;

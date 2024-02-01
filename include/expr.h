@@ -270,6 +270,19 @@ public:
 };
 
 
+class ExtractElement final : public Value {
+  Value *v;
+  ReservedConst *idx;
+public:
+  ExtractElement(Value &v, ReservedConst &idx, type &ety)
+  : Value(type(ety)), v(&v), idx(&idx) {}
+  void print(llvm::raw_ostream &os) const override;
+  Value *V() { return v; }
+  ReservedConst *Idx() { return idx; }
+  type getInputTy();
+};
+
+
 class ConversionOp final : public Value {
 public:
   enum Op { sext, zext, trunc };
