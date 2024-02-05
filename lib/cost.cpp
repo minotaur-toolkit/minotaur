@@ -134,7 +134,7 @@ unsigned get_approx_cost(llvm::Function *F) {
         } else if (opCode == Instruction::FDiv || opCode == Instruction::FRem) {
           cost += 40;
         } else if (opCode == Instruction::FNeg) {
-          cost += 3;
+          cost += 1;
         } else if (opCode == Instruction::BitCast) {
           cost += 0;
         } else if (opCode == Instruction::Unreachable ||

@@ -92,7 +92,24 @@ raw_ostream& operator<<(raw_ostream &os, const type &val) {
   }
 
   if (val.fp) {
-    os<<"<"<<val.lane<<" x f"<<val.bits<<">";
+    os<<"<"<<val.lane<<" x ";
+    switch(val.bits) {
+    case 16:
+      os<<"half";
+      break;
+    case 32:
+      os<<"float";
+      break;
+    case 64:
+      os<<"double";
+      break;
+    case 128:
+      os<<"fp128";
+      break;
+    default:
+      UNREACHABLE();
+    }
+    os<<">";
   } else {
     os<<"<"<<val.lane<<" x i"<<val.bits<<">";
   }
