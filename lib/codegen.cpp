@@ -13,6 +13,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicsX86.h"
+#include "llvm/IR/Type.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
@@ -125,20 +126,47 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
   } else if (auto U = dynamic_cast<Copy*>(I)) {
     auto op0 = codeGenImpl(U->V(), VMap);
     return op0;
-  } else if (auto CI = dynamic_cast<ConversionOp*>(I)) {
+  } else if (auto CI = dynamic_cast<IntConversion*>(I)) {
     auto op0 = codeGenImpl(CI->V(), VMap);
     op0 = bitcastTo(op0, CI->getPrevTy().toLLVM(C));
     Type *new_type = CI->getNewTy().toLLVM(C);
     llvm::Value *r = nullptr;
     switch (CI->K()) {
-    case ConversionOp::sext:
+    case IntConversion::sext:
       r = b.CreateSExt(op0, new_type);
       break;
-    case ConversionOp::zext:
+    case IntConversion::zext:
       r = b.CreateZExt(op0, new_type);
       break;
-    case ConversionOp::trunc:
+    case IntConversion::trunc:
       r = b.CreateTrunc(op0, new_type);
+      break;
+    }
+    return r;
+  } else if (auto FI = dynamic_cast<FPConversion*>(I)) {
+    auto op0 = codeGenImpl(FI->V(), VMap);
+    op0 = bitcastTo(op0, FI->getPrevTy().toLLVM(C));
+    Type* new_type = FI->getNewTy().toLLVM(C);
+    llvm::Value *r = nullptr;
+
+    switch (FI->K()) {
+    case FPConversion::fptrunc:
+      r = b.CreateFPTrunc(op0, new_type);
+      break;
+    case FPConversion::fpext:
+      r = b.CreateFPExt(op0, new_type);
+      break;
+    case FPConversion::fptoui:
+      r = b.CreateFPToUI(op0, new_type);
+      break;
+    case FPConversion::fptosi:
+      r = b.CreateFPToSI(op0, new_type);
+      break;
+    case FPConversion::uitofp:
+      r = b.CreateUIToFP(op0, new_type);
+      break;
+    case FPConversion::sitofp:
+      r = b.CreateSIToFP(op0, new_type);
       break;
     }
     return r;

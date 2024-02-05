@@ -294,11 +294,11 @@ public:
   Value *V() { return v; }
   Value *Elt() { return elt; }
   ReservedConst *Idx() { return idx; }
-  type getInputTy();
+  type getInputTy() const;
 };
 
 
-class ConversionOp final : public Value {
+class IntConversion final : public Value {
 public:
   enum Op { sext, zext, trunc };
 private:
@@ -306,7 +306,7 @@ private:
   Value *v;
   unsigned lane, prev_bits, new_bits;
 public:
-  ConversionOp(Op op, Value &v, unsigned l, unsigned pb, unsigned nb)
+  IntConversion(Op op, Value &v, unsigned l, unsigned pb, unsigned nb)
   : Value(type(l, nb, false)), k(op), v(&v), lane(l),
     prev_bits(pb), new_bits(nb) {}
   void print(llvm::raw_ostream &os) const override;
@@ -314,6 +314,23 @@ public:
   Op K() { return k; }
   type getPrevTy () const { return type(lane, prev_bits, false); }
   type getNewTy () const { return type(lane, new_bits, false); }
+};
+
+
+class FPConversion final : public Value {
+public:
+  enum Op { fptrunc, fpext, fptoui, fptosi, uitofp, sitofp };
+private:
+  Op k;
+  Value *v;
+public:
+  FPConversion(Op op, Value &v, type &ty)
+  : Value(ty), k(op), v(&v) {}
+  void print(llvm::raw_ostream &os) const override;
+  Value *V() { return v; }
+  Op K() { return k; }
+  type getPrevTy () const;
+  type getNewTy () const;
 };
 
 

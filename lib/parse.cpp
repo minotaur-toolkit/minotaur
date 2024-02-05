@@ -304,14 +304,14 @@ Value* parse_shuffle(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
 }
 
 Value* parse_conv(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
-  ConversionOp::Op op;
+  IntConversion::Op op;
   switch (op_token) {
   case CONV_ZEXT:
-    op = ConversionOp::zext; break;
+    op = IntConversion::zext; break;
   case CONV_SEXT:
-    op = ConversionOp::sext; break;
+    op = IntConversion::sext; break;
   case CONV_TRUNC:
-    op = ConversionOp::trunc; break;
+    op = IntConversion::trunc; break;
   default:
     UNREACHABLE();
   }
@@ -320,7 +320,7 @@ Value* parse_conv(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
   auto to   = parse_vector_type();
 
   tokenizer.ensure(RPAREN);
-  auto CI = make_unique<ConversionOp>(op, *a, from.getLane(), from.getBits(), to.getBits());
+  auto CI = make_unique<IntConversion>(op, *a, from.getLane(), from.getBits(), to.getBits());
   Value *T = CI.get();
   exprs.emplace_back(std::move(CI));
   return T;

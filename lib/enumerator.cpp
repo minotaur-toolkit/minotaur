@@ -126,13 +126,13 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
           continue;
         unsigned nb = (expected.getWidth() / op_w) * op_bits;
         set<ReservedConst*> RCs1;
-        auto SI = make_unique<ConversionOp>(ConversionOp::sext, *Op, lane,
-                                            op_bits, nb);
+        auto SI = make_unique<IntConversion>(IntConversion::sext, *Op, lane,
+                                             op_bits, nb);
         sketches.push_back(make_pair(SI.get(), std::move(RCs1)));
         exprs.emplace_back(std::move(SI));
         set<ReservedConst*> RCs2;
-        auto ZI = make_unique<ConversionOp>(ConversionOp::zext, *Op, lane,
-                                            op_bits, nb);
+        auto ZI = make_unique<IntConversion>(IntConversion::zext, *Op, lane,
+                                             op_bits, nb);
         sketches.push_back(make_pair(ZI.get(), std::move(RCs2)));
         exprs.emplace_back(std::move(ZI));
       } else if (expected.getWidth() < op_w){
@@ -143,10 +143,59 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
         if (nb == 0)
           continue;
         set<ReservedConst*> RCs1;
-        auto SI = make_unique<ConversionOp>(ConversionOp::trunc, *Op, lane,
-                                            op_bits, nb);
+        auto SI = make_unique<IntConversion>(IntConversion::trunc, *Op, lane,
+                                             op_bits, nb);
         sketches.push_back(make_pair(SI.get(), std::move(RCs1)));
         exprs.emplace_back(std::move(SI));
+      }
+    }
+  }
+
+  for (auto Comp : Comps) {
+    auto Op = dynamic_cast<Var*>(Comp);
+    if (!Op)
+      continue;
+
+    auto op_ty = Op->getType();
+    if (expected.isFP() && op_ty.isFP()) {
+      if (expected.getLane() != op_ty.getLane())
+        continue;
+      if (expected.getBits() > op_ty.getBits()) {
+        set<ReservedConst*> RCs;
+        auto SI = make_unique<FPConversion>(FPConversion::fpext, *Op, expected);
+        sketches.push_back(make_pair(SI.get(), std::move(RCs)));
+        exprs.emplace_back(std::move(SI));
+      } else if (expected.getBits() < op_ty.getBits()) {
+        set<ReservedConst*> RCs;
+        auto SI = make_unique<FPConversion>(FPConversion::fptrunc, *Op, expected);
+        sketches.push_back(make_pair(SI.get(), std::move(RCs)));
+        exprs.emplace_back(std::move(SI));
+      }
+    }
+
+    if (expected.isFP() ^ op_ty.isFP()) {
+      if (op_ty.isFP()) {
+        if (expected.getWidth() % op_ty.getLane())
+          continue;
+        set<ReservedConst*> RCs;
+        auto SI = make_unique<FPConversion>(FPConversion::fptosi, *Op, expected);
+        sketches.push_back(make_pair(SI.get(), std::move(RCs)));
+        exprs.emplace_back(std::move(SI));
+        set<ReservedConst*> RCs2;
+        auto UI = make_unique<FPConversion>(FPConversion::fptoui, *Op, expected);
+        sketches.push_back(make_pair(UI.get(), std::move(RCs2)));
+        exprs.emplace_back(std::move(UI));
+      } else if(expected.isFP()) {
+        if (op_ty.getWidth() % expected.getLane())
+          continue;
+        set<ReservedConst*> RCs;
+        auto SI = make_unique<FPConversion>(FPConversion::uitofp, *Op, expected);
+        sketches.push_back(make_pair(SI.get(), std::move(RCs)));
+        exprs.emplace_back(std::move(SI));
+        set<ReservedConst*> RCs2;
+        auto UI = make_unique<FPConversion>(FPConversion::sitofp, *Op, expected);
+        sketches.push_back(make_pair(UI.get(), std::move(RCs2)));
+        exprs.emplace_back(std::move(UI));
       }
     }
   }

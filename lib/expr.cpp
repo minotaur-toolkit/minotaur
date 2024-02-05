@@ -158,6 +158,7 @@ void SIMDBinOpInst::print(raw_ostream &os) const {
   os << ")";
 }
 
+
 void FakeShuffleInst::print(raw_ostream &os) const {
   if (rhs)
     os << "(blend ";
@@ -185,6 +186,7 @@ type FakeShuffleInst::getInputTy() {
   return type(lane, getElementBits(), lhs_ty.isFP());
 }
 
+
 void ExtractElement::print(raw_ostream &os) const {
   os << "(extractelement ";
   v->print(os);
@@ -210,7 +212,7 @@ void InsertElement::print(raw_ostream &os) const {
   os << ")";
 }
 
-type InsertElement::getInputTy() {
+type InsertElement::getInputTy() const {
   type lhs_ty = v->getType();
   unsigned elt_width = elt->getType().getWidth();
   unsigned lane = lhs_ty.getWidth() / elt_width;
@@ -218,7 +220,7 @@ type InsertElement::getInputTy() {
 }
 
 
-void ConversionOp::print(raw_ostream &os) const {
+void IntConversion::print(raw_ostream &os) const {
   const char *str = nullptr;
   switch (k) {
   case sext:  str = "sext"; break;
@@ -231,6 +233,54 @@ void ConversionOp::print(raw_ostream &os) const {
   os << " " << getPrevTy();
   os << " " << getNewTy();
   os << ")";
+}
+
+
+void FPConversion::print(raw_ostream &os) const {
+  const char *str = nullptr;
+  switch (k) {
+  case fptrunc: str = "fptrunc"; break;
+  case fpext:   str = "fpext";   break;
+  case fptoui:  str = "fptoui";  break;
+  case fptosi:  str = "fptosi";  break;
+  case uitofp:  str = "uitofp";  break;
+  case sitofp:  str = "sitofp";  break;
+  }
+
+  os << "(conv_"<< str << " ";
+  v->print(os);
+  os << " " << v->getType();
+  os << " " << ty;
+  os << ")";
+}
+
+type FPConversion::getPrevTy() const {
+  type v_ty = v->getType();
+
+  if (k == fptrunc || k == fpext) {
+    return v_ty;
+  }
+
+  if (v_ty.isFP()) {
+    return v->getType();
+  } else {
+    int bits = v->getType().getWidth() / ty.getLane();
+    return type(ty.getLane(), bits, false);
+  }
+}
+
+type FPConversion::getNewTy() const {
+  if (k == fptrunc || k == fpext) {
+    return ty;
+  }
+
+  type v_ty = v->getType();
+  if (v_ty.isFP()) {
+    int bits = ty.getWidth() / v_ty.getLane();
+    return type(v_ty.getLane(), bits, false);
+  } else {
+    return ty;
+  }
 }
 
 
