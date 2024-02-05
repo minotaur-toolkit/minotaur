@@ -30,8 +30,8 @@ if [[ $SKIP == 0 ]]; then
   -passes="minotaur-online" \
   -minotaur-enable-caching=false \
   -minotaur-ignore-machine-cost=false \
+  -minotaur-debug-codegen=false \
   -minotaur-debug-enumerator=$DEBUG \
-  -minotaur-debug-codegen=$DEBUG \
   $TV_REPORT_DIR
 else
 @LLVM_BINARY_DIR@/bin/opt

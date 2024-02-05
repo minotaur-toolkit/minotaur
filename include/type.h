@@ -36,6 +36,7 @@ public:
   bool isFP() const { return fp; }
   bool valid() const { return lane != 0 && bits != 0; }
   bool isBool() const { return lane == 1 && bits == 1; }
+  type getScalarTy() const { return type(1, bits, fp); }
 };
 
 type getIntrinsicRetTy(IR::X86IntrinBinOp::Op);

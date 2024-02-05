@@ -283,6 +283,21 @@ public:
 };
 
 
+class InsertElement final : public Value {
+  Value *v;
+  Value *elt;
+  ReservedConst *idx;
+public:
+  InsertElement(Value &v, Value &elt, ReservedConst &idx, type &ety)
+  : Value(type(ety)), v(&v), elt(&elt), idx(&idx) {}
+  void print(llvm::raw_ostream &os) const override;
+  Value *V() { return v; }
+  Value *Elt() { return elt; }
+  ReservedConst *Idx() { return idx; }
+  type getInputTy();
+};
+
+
 class ConversionOp final : public Value {
 public:
   enum Op { sext, zext, trunc };
@@ -326,5 +341,6 @@ std::vector<type> getBinaryOpWorkTypes(type expected, BinaryOp::Op op);
 std::vector<type> getUnaryOpWorkTypes(type expected, UnaryOp::Op op);
 std::vector<type> getShuffleWorkTypes(type expected);
 std::vector<type> getConversionOpWorkTypes(type to, type from);
+std::vector<type> getInsertElementWorkTypes(type expected);
 
 }

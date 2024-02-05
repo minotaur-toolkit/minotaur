@@ -372,6 +372,76 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
     }
   }
 
+  // insertelement
+  for (auto Op0 : Comps) {
+    for (auto Op1 : Comps) {
+      if (dynamic_cast<ReservedConst*>(Op1)) {
+        Value *V = Op0;
+        auto v_ty = Op0->getType();
+        if (v_ty.getWidth() != expected.getWidth())
+          continue;
+        auto worktys = getInsertElementWorkTypes(expected);
+        for (auto ty : worktys) {
+          set<ReservedConst*> RCs;
+          auto T1 = make_unique<ReservedConst>(ty.getScalarTy());
+          Value *Elm = T1.get();
+          RCs.insert(T1.get());
+          exprs.emplace_back(std::move(T1));
+
+          auto T2 = make_unique<ReservedConst>(type(1, 8, false));
+          ReservedConst *idx = T2.get();
+          RCs.insert(T2.get());
+          exprs.emplace_back(std::move(T2));
+          auto IE = make_unique<InsertElement>(*V, *Elm, *idx, ty);
+          sketches.push_back(make_pair(IE.get(), std::move(RCs)));
+          exprs.emplace_back(std::move(IE));
+        }
+      } else {
+        Value *V = Op0, *Elm = Op1;
+        set<ReservedConst*> RCs;
+        if (dynamic_cast<ReservedConst*>(Op0)) {
+          auto T = make_unique<ReservedConst>(expected);
+          V = T.get();
+          RCs.insert(T.get());
+          exprs.emplace_back(std::move(T));
+        }
+        auto v_ty = V->getType();
+        auto elm_ty = Elm->getType();
+
+        if (v_ty.getWidth() != expected.getWidth())
+          continue;
+        if (elm_ty.getWidth() >= v_ty.getWidth())
+          continue;
+        if (v_ty.getWidth() % elm_ty.getWidth())
+          continue;
+        if (elm_ty.getWidth() < 8)
+          continue;
+        if (v_ty.isFP() ^ elm_ty.isFP())
+          continue;
+        if (elm_ty.isFP()) {
+          if (elm_ty.getLane() != 1)
+            continue;
+          if (v_ty.getBits() != elm_ty.getBits())
+            continue;
+        } else {
+          auto lane = v_ty.getWidth() / elm_ty.getWidth();
+          auto bits = elm_ty.getWidth();
+          v_ty = type(lane, bits, false);
+          elm_ty = type(1, bits, false);
+        }
+
+        auto T = make_unique<ReservedConst>(type(1, 8, false));
+        ReservedConst *idx = T.get();
+        auto ety = type(1, expected.getWidth(), expected.isFP());
+        RCs.insert(T.get());
+        exprs.emplace_back(std::move(T));
+        auto IE = make_unique<InsertElement>(*V, *Elm, *idx, ety);
+        sketches.push_back(make_pair(IE.get(), std::move(RCs)));
+        exprs.emplace_back(std::move(IE));
+      }
+    }
+  }
+
   // BinaryIntrinsics
   for (unsigned K = 0; K < X86IntrinBinOp::numOfX86Intrinsics; ++K) {
     if (expected.isFP())
@@ -784,7 +854,8 @@ push:
         debug () << "[enumerator] successfully synthesized rhs\n";
         ret.emplace_back(R, costAfter, costBefore);
       } else {
-        debug() <<  "[enumerator] RHS is more expensive than LHS\n";
+        debug() << "[enumerator] successfully synthesized rhs, "
+                << "however, rhs is more expensive than lhs\n";
       }
     }
 

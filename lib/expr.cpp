@@ -200,6 +200,24 @@ type ExtractElement::getInputTy() {
 }
 
 
+void InsertElement::print(raw_ostream &os) const {
+  os << "(insertelement ";
+  v->print(os);
+  os << " ";
+  elt->print(os);
+  os << " ";
+  idx->print(os);
+  os << ")";
+}
+
+type InsertElement::getInputTy() {
+  type lhs_ty = v->getType();
+  unsigned elt_width = elt->getType().getWidth();
+  unsigned lane = lhs_ty.getWidth() / elt_width;
+  return type(lane, elt_width, ty.isFP());
+}
+
+
 void ConversionOp::print(raw_ostream &os) const {
   const char *str = nullptr;
   switch (k) {
@@ -274,6 +292,36 @@ vector<type> getShuffleWorkTypes(type ty) {
 vector<type> getConversionOpWorkTypes(type to, type from) {
   vector<type> tys = getIntegerVectorTypes(to);
   return tys;
+}
+
+vector<type> getInsertElementWorkTypes(type ty) {
+  if (ty.isFP()) {
+    if (ty.getLane() != 1) {
+      return { ty.getScalarTy() };
+    } else {
+      return {};
+    }
+  }
+
+  unsigned width = ty.getWidth();
+
+  if (width % 16 != 0) {
+    if (ty.getLane() != 1) {
+      return { ty.getScalarTy() };
+    } else {
+      return {};
+    }
+  }
+
+  vector<unsigned> bits = {64, 32, 16, 8};
+  vector<type> types;
+
+  for (unsigned i = 0 ; i < bits.size() ; ++ i) {
+    if (width % bits[i] == 0 && width > bits[i]) {
+      types.push_back(type(width/bits[i], bits[i], false));
+    }
+  }
+  return types;
 }
 
 }

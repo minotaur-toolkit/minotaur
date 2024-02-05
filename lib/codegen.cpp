@@ -62,6 +62,7 @@ llvm::Value *LLVMGen::bitcastTo(llvm::Value *V, llvm::Type *to) {
   if (auto BC = dyn_cast<BitCastInst>(V)) {
     V = BC->getOperand(0);
   }
+  debug() << "bitcastTo: " << *V << " to " << *to << "\n";
   return b.CreateBitCast(V, to);
 }
 
@@ -377,6 +378,14 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     op0 = bitcastTo(op0, op_ty);
     auto idx = codeGenImpl(FEE->Idx(), VMap);
     return b.CreateExtractElement(op0, idx, "ee");
+  } else if (auto IE = dynamic_cast<InsertElement*>(I)) {
+    auto op0 = codeGenImpl(IE->V(), VMap);
+    llvm::Type *op_ty = IE->getInputTy().toLLVM(C);
+    op0 = bitcastTo(op0, op_ty);
+    auto op1 = codeGenImpl(IE->Elt(), VMap);
+    op1 = bitcastTo(op1, op_ty->getScalarType());
+    auto idx = codeGenImpl(IE->Idx(), VMap);
+    return b.CreateInsertElement(op0, op1, idx, "ie");
   } else if (auto S = dynamic_cast<Select*>(I)) {
     auto cond = codeGenImpl(S->Cond(), VMap);
     auto op0 = codeGenImpl(S->L(), VMap);
