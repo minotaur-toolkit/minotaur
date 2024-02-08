@@ -108,6 +108,7 @@ class BinaryOp final : public Value {
 public:
   enum Op { band, bor, bxor, lshr, ashr, shl,
             add, sub, mul, sdiv, udiv,
+            umax, umin, smax, smin,
             fadd, fsub, fmul, fdiv, /*frem*/
             fmaxnum, fminnum, fmaximum, fminimum, copysign };
 private:
@@ -136,6 +137,7 @@ public:
     return op == band || op == bor || op == bxor ||
            op == add || op == mul ||
            op == fadd || op == fmul ||
+           op == umax || op == umin || op == smax || op == smin ||
            op == fmaxnum || op == fminnum ||
            op == fmaximum || op == fminimum;
   }

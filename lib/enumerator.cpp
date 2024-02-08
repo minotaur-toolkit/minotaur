@@ -645,6 +645,8 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
         Value *I = nullptr, *J = nullptr;
 
         if (dynamic_cast<ReservedConst*>(Op0)) {
+          if (Op0 != RC1.get())
+            continue;
           auto T = make_unique<ReservedConst>(expected);
           RCs.insert(T.get());
           I = T.get();
@@ -654,6 +656,8 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
         }
 
         if (dynamic_cast<ReservedConst*>(Op1)) {
+          if (Op1 != RC2.get())
+            continue;
           auto T = make_unique<ReservedConst>(expected);
           RCs.insert(T.get());
           J = T.get();

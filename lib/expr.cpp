@@ -80,6 +80,10 @@ void BinaryOp::print(raw_ostream &os) const {
   case lshr:       str = "lshr";     break;
   case ashr:       str = "ashr";     break;
   case shl:        str = "shl" ;     break;
+  case umax:       str = "umax";     break;
+  case umin:       str = "umin";     break;
+  case smax:       str = "smax";     break;
+  case smin:       str = "smin";     break;
   case fadd:       str = "fadd";     break;
   case fmul:       str = "fmul";     break;
   case fsub:       str = "fsub";     break;
