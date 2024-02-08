@@ -105,50 +105,49 @@ unsigned get_approx_cost(llvm::Function *F) {
         auto CalledF = CI->getCalledFunction();
         if (CalledF) {
           if (CalledF->getName().startswith("__fksv")) {
-            cost += 1;
+            cost += 2;
           } else if (CalledF->isIntrinsic()){
             if (CalledF->getIntrinsicID() == Intrinsic::minnum ||
                 CalledF->getIntrinsicID() == Intrinsic::minimum ||
                 CalledF->getIntrinsicID() == Intrinsic::maxnum ||
                 CalledF->getIntrinsicID() == Intrinsic::maximum) {
-              cost += 15;
+              cost += 30;
             } else {
-              cost += 1;
+              cost += 2;
             }
           } else {
-            cost += 1;
+            cost += 2;
           }
         } else {
-          cost += 1;
+          cost += 2;
         }
       } else if (Instruction *BO = dyn_cast<Instruction>(&I)) {
         auto opCode = BO->getOpcode();
         if (opCode == Instruction::UDiv || opCode == Instruction::SDiv ||
             opCode == Instruction::URem || opCode == Instruction::SRem) {
-          cost += 5;
+          cost += 10;
         } else if (opCode == Instruction::Mul) {
-          cost += 2;
+          cost += 4;
         } else if (opCode == Instruction::FAdd || opCode == Instruction::FSub ||
                    opCode == Instruction::FMul) {
-          cost += 15;
+          cost += 30;
         } else if (opCode == Instruction::FDiv || opCode == Instruction::FRem) {
-          cost += 40;
+          cost += 80;
         } else if (opCode == Instruction::FNeg) {
-          cost += 1;
+          cost += 2;
         } else if (opCode == Instruction::BitCast) {
-          cost += 0;
+          cost += 1;
         } else if (opCode == Instruction::Unreachable ||
                    opCode == Instruction::Ret) {
           cost += 0;
         } else if (opCode ==Instruction::Select) {
-          cost += 2;
+          cost += 4;
         } else {
-          cost += 1;
+          cost += 2;
         }
       } else {
-        cost += 1;
+        cost += 2;
       }
-
     }
   }
   return cost;
