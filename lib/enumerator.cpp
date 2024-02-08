@@ -614,7 +614,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
   auto RC2 = make_unique<ReservedConst>(type(0, 0, false));
   Comps.emplace_back(RC2.get());
 
-  // select
+  // select (i1, op, op)
   for (auto Op0 : Comps) {
     for (auto Op1 : Comps) {
       if (Op0 == Op1)
@@ -666,7 +666,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
           J = Op1;
         }
 
-        auto s = make_unique<Select>(*Cond, *I, *J);
+        auto s = make_unique<Select>(*Cond, *I, *J, expected);
         sketches.push_back(make_pair(s.get(), std::move(RCs)));
         exprs.emplace_back(std::move(s));
       }

@@ -345,8 +345,8 @@ class Select final : public Value {
   Value *lhs;
   Value *rhs;
 public:
-  Select(Value &cond, Value &lhs, Value &rhs)
-  : Value(lhs.getType()), cond(&cond), lhs(&lhs), rhs(&rhs) {}
+  Select(Value &cond, Value &lhs, Value &rhs, type &ty)
+  : Value(ty), cond(&cond), lhs(&lhs), rhs(&rhs) {}
   void print(llvm::raw_ostream &os) const override;
   Value *Cond() { return cond; }
   Value *L() { return lhs; }

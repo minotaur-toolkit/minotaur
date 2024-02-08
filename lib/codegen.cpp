@@ -421,7 +421,9 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
   } else if (auto S = dynamic_cast<Select*>(I)) {
     auto cond = codeGenImpl(S->Cond(), VMap);
     auto op0 = codeGenImpl(S->L(), VMap);
+    op0 = bitcastTo(op0, S->getType().toLLVM(C));
     auto op1 = codeGenImpl(S->R(), VMap);
+    op1 = bitcastTo(op1, S->getType().toLLVM(C));
     return b.CreateSelect(cond, op0, op1, "sel");
   }
   llvm::report_fatal_error("[ERROR] unknown instruction found in LLVMGen");
