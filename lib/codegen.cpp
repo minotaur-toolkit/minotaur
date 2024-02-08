@@ -102,8 +102,8 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     case UnaryOp::bitreverse: iid = Intrinsic::bitreverse; break;
     case UnaryOp::bswap:      iid = Intrinsic::bswap;      break;
     case UnaryOp::ctpop:      iid = Intrinsic::ctpop;      break;
-    // case UnaryOp::ctlz:       iid = Intrinsic::ctlz;       break;
-    // case UnaryOp::cttz:       iid = Intrinsic::cttz;       break;
+    case UnaryOp::ctlz:       iid = Intrinsic::ctlz;       break;
+    case UnaryOp::cttz:       iid = Intrinsic::cttz;       break;
     case UnaryOp::fabs:       iid = Intrinsic::fabs;       break;
     case UnaryOp::fceil:      iid = Intrinsic::ceil;       break;
     case UnaryOp::ffloor:     iid = Intrinsic::floor;      break;
@@ -115,14 +115,14 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     default: UNREACHABLE();
     }
 
-    /*if (K == UnaryOp::ctlz || K == UnaryOp::cttz) {
-      llvm::Function *F = Intrinsic::getDeclaration(M, iid, {workty.toLLVM(C), Type::getInt1Ty(C)});
-      IntrinsicDecls.insert(F);
-      return b.CreateCall(F, { op0, ConstantInt::getFalse(C) });
-    } else {}*/
-    llvm::Function *F = Intrinsic::getDeclaration(M, iid, {workty.toLLVM(C)});
-    IntrinsicDecls.insert(F);
-    return b.CreateCall(F, op0);
+    CallInst *CI = nullptr;
+    if (K == UnaryOp::ctlz || K == UnaryOp::cttz) {
+      CI = b.CreateBinaryIntrinsic(iid, op0, b.getFalse());
+    } else {
+      CI = b.CreateUnaryIntrinsic(iid, op0);
+    }
+    IntrinsicDecls.insert(CI->getCalledFunction());
+    return CI;
   } else if (auto U = dynamic_cast<Copy*>(I)) {
     auto op0 = codeGenImpl(U->V(), VMap);
     return op0;
@@ -196,9 +196,9 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     default: break;
     }
     if (iid) {
-      llvm::Function *F = Intrinsic::getDeclaration(M, iid, {workty.toLLVM(C)});
-      IntrinsicDecls.insert(F);
-      return b.CreateCall(F, { op0, op1 });
+      CallInst *C = b.CreateBinaryIntrinsic(iid, op0, op1);
+      IntrinsicDecls.insert(C->getCalledFunction());
+      return C;
     }
 
     llvm::Value *r = nullptr;

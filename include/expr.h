@@ -80,7 +80,7 @@ public:
 
 class UnaryOp final : public Value {
 public:
-  enum Op { bitreverse, bswap, ctpop, /*ctlz, cttz,*/
+  enum Op { bitreverse, bswap, ctpop, ctlz, cttz,
             fneg, fabs , fceil, ffloor, frint, fnearbyint, fround,
             froundeven, ftrunc };
 private:

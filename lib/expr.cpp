@@ -49,8 +49,8 @@ void UnaryOp::print(raw_ostream &os) const {
   case bitreverse: str = "bitreverse"; break;
   case bswap:      str = "bswap";      break;
   case ctpop:      str = "ctpop";      break;
-  //case ctlz:       str = "ctlz";       break;
-  //case cttz:       str = "cttz";       break;
+  case ctlz:       str = "ctlz";       break;
+  case cttz:       str = "cttz";       break;
   case fneg:       str = "fneg";       break;
   case fabs:       str = "fabs";       break;
   case fceil:      str = "fceil";      break;
