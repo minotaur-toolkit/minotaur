@@ -105,7 +105,7 @@ unsigned get_approx_cost(llvm::Function *F) {
         auto CalledF = CI->getCalledFunction();
         if (CalledF) {
           if (CalledF->getName().startswith("__fksv")) {
-            cost += 2;
+            cost += 4;
           } else if (CalledF->isIntrinsic()){
             if (CalledF->getIntrinsicID() == Intrinsic::minnum ||
                 CalledF->getIntrinsicID() == Intrinsic::minimum ||
@@ -141,6 +141,10 @@ unsigned get_approx_cost(llvm::Function *F) {
                    opCode == Instruction::Ret) {
           cost += 0;
         } else if (opCode ==Instruction::Select) {
+          cost += 4;
+        } else if (opCode == Instruction::InsertElement ||
+                   opCode == Instruction::ExtractElement ||
+                   opCode == Instruction::ShuffleVector) {
           cost += 4;
         } else {
           cost += 2;
