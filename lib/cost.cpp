@@ -140,6 +140,8 @@ unsigned get_approx_cost(llvm::Function *F) {
         } else if (opCode == Instruction::Unreachable ||
                    opCode == Instruction::Ret) {
           cost += 0;
+        } else if (opCode ==Instruction::Select) {
+          cost += 2;
         } else {
           cost += 1;
         }

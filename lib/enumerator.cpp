@@ -250,6 +250,11 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
   // binop
   for (unsigned K = BinaryOp::band; K <= BinaryOp::copysign; ++K) {
     BinaryOp::Op Op = static_cast<BinaryOp::Op>(K);
+
+    if (expected.getBits() == 1 && !BinaryOp::isLogical(Op)) {
+      continue;
+    }
+
     for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {
 
       auto Op1 = Comps.begin();
