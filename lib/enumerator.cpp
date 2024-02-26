@@ -425,7 +425,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
       }
     }
   }
-
+#if (false)
   // insertelement
   for (auto Op0 : Comps) {
     for (auto Op1 : Comps) {
@@ -495,7 +495,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
       }
     }
   }
-
+#endif
   // BinaryIntrinsics
   for (unsigned K = 0; K < X86IntrinBinOp::numOfX86Intrinsics; ++K) {
     if (expected.isFP())
@@ -924,7 +924,7 @@ push:
     iter = Fns.erase(iter);
 
     unsigned Duration = ( std::clock() - start ) / CLOCKS_PER_SEC;
-    if ((config::return_first_solution && Good) || Duration > 180) {
+    if ((config::return_first_solution && Good) || Duration > 60) {
       break;
     }
   }

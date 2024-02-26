@@ -533,7 +533,8 @@ Slice::extractExpr(Value &v) {
   bool illformed = verifyFunction(*F, &err_stream);
   if (illformed) {
     llvm::errs() << err << "\n" << *F;
-    report_fatal_error("[slicer] illformed function generated, terminating\n");
+    return nullopt;
+    //report_fatal_error("[slicer] illformed function generated, terminating\n");
   }
 
   debug()<< *F << "\n" << "<<< end of %" << v.getName() << " <<<\n";
