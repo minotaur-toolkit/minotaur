@@ -217,7 +217,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
       Enumerator EN;
       debug() << "[online] working on function:\n" << (*NewF).first.get();
 
-      auto RHSs = EN.synthesize(NewF->first.get(), NewF->second);
+      auto RHSs = EN.solve(NewF->first.get(), NewF->second);
 
       if (RHSs.empty()) {
         if (enable_caching)

@@ -67,10 +67,9 @@ return *this;
 
 namespace minotaur {
 
-void
-Enumerator::findInputs(llvm::Function &F,
-                       llvm::Instruction *root,
-                       llvm::DominatorTree &DT) {
+void Enumerator::findInputs(llvm::Function &F,
+                            llvm::Instruction *root,
+                            llvm::DominatorTree &DT) {
   for (auto &A : F.args()) {
     auto T = make_unique<Var>(&A);
     values.emplace_back(T.get());
@@ -684,7 +683,7 @@ static bool approx(const Candidate &f1, const Candidate &f2){
   return get_approx_cost(get<0>(f1)) < get_approx_cost(get<0>(f2));
 }
 
-vector<Rewrite> Enumerator::synthesize(llvm::Function &F, llvm::Instruction *I) {
+vector<Rewrite> Enumerator::solve(llvm::Function &F, llvm::Instruction *I) {
   unsigned CANDIDATES = 0, PRUNED = 0, GOOD = 0;
   vector<Rewrite> ret;
 
@@ -924,7 +923,7 @@ push:
     iter = Fns.erase(iter);
 
     unsigned Duration = ( std::clock() - start ) / CLOCKS_PER_SEC;
-    if ((config::return_first_solution && Good) || Duration > 60) {
+    if ((config::return_first_solution && Good) || Duration > 180) {
       break;
     }
   }
