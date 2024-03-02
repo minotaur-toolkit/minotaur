@@ -923,7 +923,12 @@ push:
     iter = Fns.erase(iter);
 
     unsigned Duration = ( std::clock() - start ) / CLOCKS_PER_SEC;
-    if ((config::return_first_solution && Good) || Duration > 180) {
+    if ((config::return_first_solution && Good)) {
+      debug() << "[enumerator] returning first solution\n";
+      break;
+    }
+    if (Duration > config::candidate_to) {
+      debug() << "[enumerator] timeout for candidate, skipping\n";
       break;
     }
   }
