@@ -64,7 +64,7 @@ llvm::cl::opt<unsigned> smt_to(
     llvm::cl::init(60), llvm::cl::value_desc("s"));
 
 llvm::cl::opt<unsigned> candidate_to(
-    "minotaur-query-to",
+    "minotaur-candidate-to",
     llvm::cl::desc("minotaur: timeout per candidate"),
     llvm::cl::init(180), llvm::cl::value_desc("s"));
 
