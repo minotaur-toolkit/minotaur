@@ -330,6 +330,8 @@ vector<type> getBinaryOpWorkTypes(type ty, BinaryOp::Op op) {
     } else {
       return {};
     }
+  } else if (BinaryOp::isLaneIndependent(op)) {
+    return { ty.getAsIntTy() };
   } else {
     return getIntegerVectorTypes(ty);
   }

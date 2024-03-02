@@ -26,7 +26,7 @@ bool disable_avx512 = true;
 bool show_stats = false;
 bool return_first_solution = false;
 
-unsigned candidate_to = 180;
+unsigned slice_to;
 unsigned slicer_max_depth = 5;
 
 

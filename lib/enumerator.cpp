@@ -927,7 +927,7 @@ push:
       debug() << "[enumerator] returning first solution\n";
       break;
     }
-    if (Duration > config::candidate_to) {
+    if (Duration > config::slice_to) {
       debug() << "[enumerator] timeout for candidate, skipping\n";
       break;
     }

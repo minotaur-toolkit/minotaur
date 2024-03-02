@@ -8,4 +8,4 @@ define half @test2(half %x, half %y) nounwind  {
   %t5 = fmul float %t1, %t23
   %t56 = fptrunc float %t5 to half
   ret half %t56
-}`
+}
