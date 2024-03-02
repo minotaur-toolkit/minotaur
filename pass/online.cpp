@@ -63,6 +63,11 @@ llvm::cl::opt<unsigned> smt_to(
     llvm::cl::desc("minotaur: timeout for SMT queries"),
     llvm::cl::init(60), llvm::cl::value_desc("s"));
 
+llvm::cl::opt<unsigned> candidate_to(
+    "minotaur-query-to",
+    llvm::cl::desc("minotaur: timeout per candidate"),
+    llvm::cl::init(180), llvm::cl::value_desc("s"));
+
 llvm::cl::opt<bool> smt_verbose(
     "minotaur-smt-verbose",
     llvm::cl::desc("minotaur: SMT verbose mode"),
@@ -175,6 +180,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
   config::debug_tv = debug_tv;
   config::debug_slicer = debug_slicer;
   config::debug_codegen = debug_codegen;
+  config::candidate_to = candidate_to;
   smt::solver_print_queries(smt_verbose);
 
   smt::set_query_timeout(to_string(smt_to * 1000));
