@@ -424,7 +424,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
       }
     }
   }
-#if (false)
+
   // insertelement
   for (auto Op0 : Comps) {
     for (auto Op1 : Comps) {
@@ -494,7 +494,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
       }
     }
   }
-#endif
+
   // BinaryIntrinsics
   for (unsigned K = 0; K < X86IntrinBinOp::numOfX86Intrinsics; ++K) {
     if (expected.isFP())
