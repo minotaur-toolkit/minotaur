@@ -66,7 +66,7 @@ static Type* getFloatingPointType(LLVMContext &C, unsigned bits) {
 }
 
 Type* type::toLLVM(LLVMContext &C) const {
-  if (!valid()) {
+  if (!isValid()) {
     report_fatal_error("error minotaur type");
   }
 
@@ -85,8 +85,28 @@ Type* type::toLLVM(LLVMContext &C) const {
   return Ty;
 }
 
+bool type::isFP() const {
+  return fp;
+}
+
+bool type::isValid() const{
+  return lane != 0 && bits != 0;
+}
+
+bool type::isBool() const {
+  return lane == 1 && bits == 1;
+}
+
+type type::getScalarTy() const {
+  return type(1, bits, fp);
+}
+
+type type::getAsIntTy() const {
+  return fp ? type (1, getWidth(), false): type(lane, bits, false);
+}
+
 raw_ostream& operator<<(raw_ostream &os, const type &val) {
-  if (!val.valid()) {
+  if (!val.isValid()) {
     os<<"null";
     return os;
   }

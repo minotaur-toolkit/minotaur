@@ -33,11 +33,11 @@ public:
   unsigned getWidth() const { return lane * bits; }
   unsigned getLane() const { return lane; }
   unsigned getBits() const  { return bits; }
-  bool isFP() const { return fp; }
-  bool valid() const { return lane != 0 && bits != 0; }
-  bool isBool() const { return lane == 1 && bits == 1; }
-  type getScalarTy() const { return type(1, bits, fp); }
-  type getAsIntTy() const { return type(lane, bits, false); }
+  bool isFP() const;
+  bool isValid() const;
+  bool isBool() const;
+  type getScalarTy() const;
+  type getAsIntTy() const;
 };
 
 type getIntrinsicRetTy(IR::X86IntrinBinOp::Op);
