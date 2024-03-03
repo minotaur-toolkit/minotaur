@@ -67,7 +67,7 @@ static Type* getFloatingPointType(LLVMContext &C, unsigned bits) {
 
 Type* type::toLLVM(LLVMContext &C) const {
   if (!isValid()) {
-    report_fatal_error("error minotaur type");
+    report_fatal_error("invalid minotaur type");
   }
 
   Type *Ty = nullptr;
