@@ -85,6 +85,18 @@ Type* type::toLLVM(LLVMContext &C) const {
   return Ty;
 }
 
+unsigned type::getWidth() const {
+  return lane * bits;
+}
+
+unsigned type::getLane() const {
+  return lane;
+}
+
+unsigned type::getBits() const {
+  return bits;
+}
+
 bool type::isFP() const {
   return fp;
 }

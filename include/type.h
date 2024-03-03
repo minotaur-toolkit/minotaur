@@ -30,9 +30,9 @@ public:
 
   llvm::Type *toLLVM(llvm::LLVMContext&) const;
 
-  unsigned getWidth() const { return lane * bits; }
-  unsigned getLane() const { return lane; }
-  unsigned getBits() const  { return bits; }
+  unsigned getWidth() const;
+  unsigned getLane() const;
+  unsigned getBits() const;
   bool isFP() const;
   bool isValid() const;
   bool isBool() const;
