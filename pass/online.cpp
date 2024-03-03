@@ -204,6 +204,12 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
       if (!NewF.has_value())
         continue;
 
+      if (dryrun) {
+        debug() << "[online] dryrun, skipping function: "
+                << (*NewF).first.get().getName() << "\n";
+        continue;
+      }
+
       string bytecode;
       if (enable_caching) {
         llvm::raw_string_ostream bs(bytecode);
@@ -213,8 +219,8 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         if (minotaur::hGet(bytecode.c_str(), bytecode.size(), rewrite, ctx)) {
           if (rewrite == "<no-sol>") {
             debug() << "[online] cache matched, but no solution found in "
-                       "previous run, skipping function: \n"
-                    << (*NewF).first.get();
+                       "previous run, skipping function: "
+                    << (*NewF).first.get().getName();
             continue;
           }
         }
@@ -254,9 +260,6 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
                     optimized.c_str(), optimized.size(),
                     rewrite, ctx, R.CostAfter, R.CostBefore, F.getName());
       }
-
-      if (dryrun)
-        continue;
 
       unordered_set<llvm::Function *> IntrinDecls;
       Instruction *insertpt = I.getNextNode();

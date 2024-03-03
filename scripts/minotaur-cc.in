@@ -35,6 +35,8 @@ my $minotaur = 1;
 $minotaur = 0 unless exists($ENV{"ENABLE_MINOTAUR"}) && is_compiling();
 
 if ($minotaur) {
+  # the first one is necessary to make plugin command line args work
+  push @ARGV, ("-Xclang", "-load", "-Xclang", "@ONLINE_PASS@");
   push @ARGV, ("-fpass-plugin=@ONLINE_PASS@");
 }
 
@@ -49,6 +51,7 @@ sub getenv($) {
 
 if (getenv("MINOTAUR_DEBUG_SLICER")) {
   push @ARGV, ("-mllvm", "-minotaur-debug-slicer");
+  push @ARGV, ("-mllvm", "-minotaur-dryrun");
 }
 
 exec @ARGV;
