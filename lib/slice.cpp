@@ -227,6 +227,7 @@ Slice::extractExpr(Value &v) {
 
       // add condition to worklist
       if (ibb != vbb && never_visited) {
+        bb_deps[vbb].insert(ibb);
         Instruction *term = ibb->getTerminator();
         if(!isa<BranchInst>(term)) {
           debug() << "found non branch terminator " << *term << ", skipping\n";
@@ -235,8 +236,6 @@ Slice::extractExpr(Value &v) {
         BranchInst *bi = cast<BranchInst>(term);
         if (bi->isConditional()) {
           if (Instruction *c = dyn_cast<Instruction>(bi->getCondition())) {
-            BasicBlock *cbb = cast<Instruction>(c)->getParent();
-            bb_deps[ibb].insert(cbb);
             worklist.push({c, depth + 1});
           }
         }
@@ -251,9 +250,6 @@ Slice::extractExpr(Value &v) {
       for (auto &op : i->operands()) {
         if (!isa<Instruction>(op))
           continue;
-
-        BasicBlock *opbb = cast<Instruction>(op)->getParent();
-        bb_deps[ibb].insert(opbb);
         worklist.push({op, depth + 1});
       }
     } else {
@@ -283,12 +279,15 @@ Slice::extractExpr(Value &v) {
   // values by simply backward-traversing def/use tree, Block I will be missed.
   // To solve this issue,  we identify all such missed block by searching.
   // TODO: better object management.
-  auto search = [](auto self,
-                   BasicBlock* current,
-                   BasicBlock* target,
-                   unordered_set<BasicBlock*>& visited,
-                   vector<BasicBlock*>& currentPath,
-                   unordered_set<BasicBlock*>& result) -> void {
+  unsigned it = 0;
+  auto search = [&it](auto self,
+                      BasicBlock* current,
+                      BasicBlock* target,
+                      unordered_set<BasicBlock*>& visited,
+                      vector<BasicBlock*>& currentPath,
+                      unordered_set<BasicBlock*>& result) -> void {
+
+    it ++;
 
     // Add current block to the path
     currentPath.push_back(current);
@@ -314,9 +313,13 @@ Slice::extractExpr(Value &v) {
     unordered_set<BasicBlock*> visited;
     vector<BasicBlock*> currentPath;
     for (auto *dep : deps) {
+      if (dep == bb)
+        continue;
       search(search, bb, dep, visited, currentPath, blocks);
     }
   }
+
+  debug() << "[slicer] search function called " << it << " times\n";
 
   // FIXME: Do not handle switch for now
   for (BasicBlock *orig_bb : blocks) {
@@ -450,6 +453,7 @@ Slice::extractExpr(Value &v) {
       }
     }
   }
+  argTys.push_back(Type::getInt8Ty(ctx));
 
   unordered_set<BasicBlock *> block_without_preds;
   for (auto block : cloned_blocks) {
@@ -458,9 +462,6 @@ Slice::extractExpr(Value &v) {
       block_without_preds.insert(block);
     }
   }
-  if (block_without_preds.size() > 1)
-    // argument for switch
-    argTys.push_back(Type::getInt8Ty(ctx));
 
   // create function
   Function *F = Function::Create(FunctionType::get(v.getType(), argTys, false),
@@ -479,7 +480,7 @@ Slice::extractExpr(Value &v) {
     }
   }
 
-  if (block_without_preds.size() == 0) {
+  if (block_without_preds.empty()) {
     report_fatal_error("[slicer] no entry block found, terminating\n");
   }
 
@@ -491,9 +492,15 @@ Slice::extractExpr(Value &v) {
       }
     }
   }
-  for (auto block : cloned_blocks) {
-    if (block_without_preds.count(block))
-      continue;
+
+  if (F->getEntryBlock().getName() != "entry") {
+    BasicBlock *entry = BasicBlock::Create(ctx, "entry");
+    SwitchInst *sw = SwitchInst::Create(F->getArg(idx), sinkbb, 1, entry);
+    unsigned idx  = 77;
+    for (BasicBlock *no_pred : block_without_preds) {
+      sw->addCase(ConstantInt::get(IntegerType::get(ctx, 8), idx ++), no_pred);
+    }
+    entry->insertInto(F);
   }
 
   for (auto &bb : f) {
@@ -501,19 +508,6 @@ Slice::extractExpr(Value &v) {
       bmap[&bb]->insertInto(F);
     }
   }
-
-  /* else {
-    entry = BasicBlock::Create(ctx, "entry");
-    SwitchInst *sw = SwitchInst::Create(F->getArg(idx), sinkbb, 1, entry);
-    unsigned idx  = 0;
-    for (BasicBlock *no_pred : block_without_preds) {
-      sw->addCase(ConstantInt::get(IntegerType::get(ctx, 8), idx ++), no_pred);
-    }
-    entry->insertInto(F);
-    for (auto block : cloned_blocks) {
-      block->insertInto(F);
-    }
-  }*/
 
   sinkbb->insertInto(F);
 
@@ -533,8 +527,7 @@ Slice::extractExpr(Value &v) {
   bool illformed = verifyFunction(*F, &err_stream);
   if (illformed) {
     llvm::errs() << err << "\n" << *F;
-    return nullopt;
-    //report_fatal_error("[slicer] illformed function generated, terminating\n");
+    report_fatal_error("[slicer] illformed function generated, terminating\n");
   }
 
   debug()<< *F << "\n" << "<<< end of %" << v.getName() << " <<<\n";
