@@ -11,6 +11,7 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/GlobalVariable.h"
@@ -280,7 +281,7 @@ Slice::extractExpr(Value &v) {
   // To solve this issue,  we identify all such missed block by searching.
   // TODO: better object management.
   unsigned it = 0;
-  auto search = [&it](auto self,
+  auto search = [&](auto self,
                       BasicBlock* current,
                       BasicBlock* target,
                       unordered_set<BasicBlock*>& visited,
@@ -297,7 +298,7 @@ Slice::extractExpr(Value &v) {
         result.insert(currentPath.begin(), currentPath.end());
     } else {
       for (BasicBlock* pred : predecessors(current)) {
-        if (visited.find(pred) == visited.end()) {
+        if (visited.find(pred) == visited.end() && DT.dominates(target, pred)) {
             visited.insert(pred);
             self(self, pred, target, visited, currentPath, result);
             visited.erase(pred);  // Backtrack
@@ -315,6 +316,8 @@ Slice::extractExpr(Value &v) {
     for (auto *dep : deps) {
       if (dep == bb)
         continue;
+      debug() << "[slicer] searching for missed block from " << bb->getName()
+              << " to " << dep->getName() << "\n";
       search(search, bb, dep, visited, currentPath, blocks);
     }
   }
@@ -493,10 +496,10 @@ Slice::extractExpr(Value &v) {
     }
   }
 
-  if (F->getEntryBlock().getName() != "entry") {
+  if (block_without_preds.size() > 1) {
     BasicBlock *entry = BasicBlock::Create(ctx, "entry");
     SwitchInst *sw = SwitchInst::Create(F->getArg(idx), sinkbb, 1, entry);
-    unsigned idx  = 77;
+    unsigned idx  = 23;
     for (BasicBlock *no_pred : block_without_preds) {
       sw->addCase(ConstantInt::get(IntegerType::get(ctx, 8), idx ++), no_pred);
     }
