@@ -117,8 +117,7 @@ static bool walk(BasicBlock* current, BasicBlock* target,
   };
   debug () << "[slicer] start walking from " << current->getName() << " to "
            << target->getName() << "\n";
-  if (blocks.count(target))
-    return true;
+
   unordered_set<BasicBlock*> visited = { current };
 
   return s(s, current, target, visited, blocks);
@@ -216,6 +215,8 @@ Slice::extractExpr(Value &v) {
         vmap[callee] = intrindecl.getCallee();
         ops = call->args();
       } else if (auto phi = dyn_cast<PHINode>(i)) {
+        if (phi != &v)
+          continue;
         bool phiHasUnknownIncome = false;
         unsigned incomes = phi->getNumIncomingValues();
         for (unsigned i = 0; i < incomes; i++) {
@@ -274,6 +275,7 @@ Slice::extractExpr(Value &v) {
       }
 
       if (PHINode *phi = dyn_cast<PHINode>(i)) {
+        debug()<< "[slicer] checking phi " << *phi << "\n";
         bool PhiHasDistantIncome = false;
         for (auto income : phi->blocks()) {
           if (!walk(vbb, income, blocks, DT)) {
@@ -321,7 +323,8 @@ Slice::extractExpr(Value &v) {
     debug() << "[slicer] no eligible instruction can be harvested, skipping\n";
     return nullopt;
   }
-/*
+
+  debug () << "[slicer] " << insts.size() << " instructions are harvested\n";
   for (auto &i : insts) {
     debug() << "[slicer] instruction " << *i << " is harvested\n";
   }
@@ -329,7 +332,7 @@ Slice::extractExpr(Value &v) {
   for (auto &bb : blocks) {
     debug () << "[slicer] block " << bb->getName() << " is harvested\n";
   }
-  */
+
 
   // pass 2
   for (BasicBlock *orig_bb : blocks) {
@@ -503,19 +506,29 @@ Slice::extractExpr(Value &v) {
     }
   }
 
+  BasicBlock *entry = nullptr;
   if (block_without_preds.size() > 1) {
-    BasicBlock *entry = BasicBlock::Create(ctx, "entry");
+    entry = BasicBlock::Create(ctx, "entry");
     SwitchInst *sw = SwitchInst::Create(F->getArg(idx), sinkbb, 1, entry);
     unsigned idx  = 23;
     for (BasicBlock *no_pred : block_without_preds) {
       sw->addCase(ConstantInt::get(IntegerType::get(ctx, 8), idx ++), no_pred);
     }
-    entry->insertInto(F);
   }
+  else if (block_without_preds.size() == 1) {
+    entry = *block_without_preds.begin();
+  } else {
+    report_fatal_error("[slicer] no entry block found, terminating\n");
+  }
+
+  entry->insertInto(F);
 
   for (auto &bb : f) {
     if (bmap.count(&bb)) {
-      bmap[&bb]->insertInto(F);
+      BasicBlock *nb = bmap[&bb];
+      if (nb == entry)
+        continue;
+      nb->insertInto(F);
     }
   }
 
