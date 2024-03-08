@@ -171,8 +171,11 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
   }
   config::set_debug(*out_file);
 
-  debug()<< "[online] minotaur version " << config::minotaur_version << " "
-         << "working on source: " << F.getParent()->getSourceFileName() << "\n";
+  debug() << "[online] minotaur version " << config::minotaur_version << " "
+          << "working on source: " << F.getParent()->getSourceFileName() << "\n";
+
+  debug() << "[online] working on function: " << F.getName() << "\n";
+  debug() << *F.getParent() << "\n";
 
   // set alive2 options
   config::ignore_machine_cost = ignore_mca;

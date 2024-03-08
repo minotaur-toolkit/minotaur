@@ -79,6 +79,51 @@ static bool isUnsupportedTy(llvm::Type *ty) {
          ty->isScalableTy() || vsty->isX86_MMXTy() || vsty->isX86_AMXTy();
 }
 
+static bool walk(BasicBlock* current, BasicBlock* target,
+                 unordered_set<BasicBlock*> &blocks,
+                 DominatorTree &DT) {
+  auto s = [&DT](auto self,
+                 BasicBlock* current,
+                 BasicBlock* target,
+                 unordered_set<BasicBlock*>& visited,
+                 unordered_set<BasicBlock*>& result) -> bool {
+
+    debug() << "[slicer] now at block " << current->getName() << "\n";
+
+    /*if (result.contains(current)) {
+      return true;
+    }*/
+    if (visited.size() > 20) {
+      debug() << "[slicer] block too distant from root, skipping\n";
+      return false;
+    }
+
+    if (target == current) {
+        result.insert(visited.begin(), visited.end());
+        return true;
+    } else {
+      for (BasicBlock* pred : predecessors(current)) {
+        bool t = true;
+        if (visited.find(pred) == visited.end() && DT.dominates(target, pred)) {
+            visited.insert(pred);  // Backtrack
+            t = self(self, pred, target, visited, result);
+            visited.erase(pred);
+        }
+        if (!t)
+          return false;
+      }
+      return true;
+    }
+  };
+  debug () << "[slicer] start walking from " << current->getName() << " to "
+           << target->getName() << "\n";
+  if (blocks.count(target))
+    return true;
+  unordered_set<BasicBlock*> visited = { current };
+
+  return s(s, current, target, visited, blocks);
+}
+
 namespace minotaur {
 
 //  * if a external value is outside the loop, and it does not dominates v,
@@ -117,9 +162,6 @@ Slice::extractExpr(Value &v) {
   unordered_map<BasicBlock*, vector<pair<Instruction*,unsigned>>> bb_insts;
   unordered_set<BasicBlock*> blocks;
 
-  // set of predecessor bb a bb depends on
-  unordered_map<BasicBlock *, unordered_set<BasicBlock *>> bb_deps;
-
   worklist.push({&v, 0});
 
   // pass 1;
@@ -146,6 +188,11 @@ Slice::extractExpr(Value &v) {
       // do not harvest instructions beyond loop boundry.
       if (loopi != loopv)
         continue;
+
+      if (loopi && !loopi->isLoopSimplifyForm()) {
+        debug() << "[slicer] loop is not in simplified form, skipping\n";
+        continue;
+      }
 
       auto ops = i->operands();
 
@@ -216,19 +263,34 @@ Slice::extractExpr(Value &v) {
           break;
         }
       }
-
       if (haveUnknownOperand) {
         continue;
+      }
+
+      // bool never_visited = !blocks.count(ibb);
+
+      if (!walk(vbb, ibb, blocks, DT)) {
+        continue;
+      }
+
+      if (PHINode *phi = dyn_cast<PHINode>(i)) {
+        bool PhiHasDistantIncome = false;
+        for (auto income : phi->blocks()) {
+          if (!walk(vbb, income, blocks, DT)) {
+            PhiHasDistantIncome = true;
+            break;
+          }
+        }
+        if (PhiHasDistantIncome) {
+          continue;
+        }
       }
 
       insts.push_back(i);
       bb_insts[ibb].push_back({i, getInstructionIdx(i)});
 
-      bool never_visited = blocks.insert(ibb).second;
-
       // add condition to worklist
-      if (ibb != vbb && never_visited) {
-        bb_deps[vbb].insert(ibb);
+      if (ibb != vbb) {
         Instruction *term = ibb->getTerminator();
         if(!isa<BranchInst>(term)) {
           debug() << "found non branch terminator " << *term << ", skipping\n";
@@ -237,14 +299,10 @@ Slice::extractExpr(Value &v) {
         BranchInst *bi = cast<BranchInst>(term);
         if (bi->isConditional()) {
           if (Instruction *c = dyn_cast<Instruction>(bi->getCondition())) {
+            /*if (!visited.count(c))
+              continue;*/
             worklist.push({c, depth + 1});
           }
-        }
-      }
-
-      if (PHINode *phi = dyn_cast<PHINode>(i)) {
-        for (auto income : phi->blocks()) {
-          bb_deps[ibb].insert(income);
         }
       }
 
@@ -263,68 +321,17 @@ Slice::extractExpr(Value &v) {
     debug() << "[slicer] no eligible instruction can be harvested, skipping\n";
     return nullopt;
   }
-
-  // pass 2
-  // + find missed intermidiate blocks
-  // For example,
-  /*
-         S
-        / \
-       A   B
-       |   |
-       |   I
-        \  /
-         T
-  */
-  // Suppose an instruction in T uses values defined in A and B, if we harvest
-  // values by simply backward-traversing def/use tree, Block I will be missed.
-  // To solve this issue,  we identify all such missed block by searching.
-  // TODO: better object management.
-  unsigned it = 0;
-  auto search = [&](auto self,
-                      BasicBlock* current,
-                      BasicBlock* target,
-                      unordered_set<BasicBlock*>& visited,
-                      vector<BasicBlock*>& currentPath,
-                      unordered_set<BasicBlock*>& result) -> void {
-
-    it ++;
-
-    // Add current block to the path
-    currentPath.push_back(current);
-
-    // If we reach the target block, add all blocks in currentPath to the result
-    if (target == current) {
-        result.insert(currentPath.begin(), currentPath.end());
-    } else {
-      for (BasicBlock* pred : predecessors(current)) {
-        if (visited.find(pred) == visited.end() && DT.dominates(target, pred)) {
-            visited.insert(pred);
-            self(self, pred, target, visited, currentPath, result);
-            visited.erase(pred);  // Backtrack
-        }
-      }
-    }
-
-    // Remove the current block from the path (backtrack)
-    currentPath.pop_back();
-  };
-
-  for (auto &[bb, deps] : bb_deps) {
-    unordered_set<BasicBlock*> visited;
-    vector<BasicBlock*> currentPath;
-    for (auto *dep : deps) {
-      if (dep == bb)
-        continue;
-      debug() << "[slicer] searching for missed block from " << bb->getName()
-              << " to " << dep->getName() << "\n";
-      search(search, bb, dep, visited, currentPath, blocks);
-    }
+/*
+  for (auto &i : insts) {
+    debug() << "[slicer] instruction " << *i << " is harvested\n";
   }
 
-  debug() << "[slicer] search function called " << it << " times\n";
+  for (auto &bb : blocks) {
+    debug () << "[slicer] block " << bb->getName() << " is harvested\n";
+  }
+  */
 
-  // FIXME: Do not handle switch for now
+  // pass 2
   for (BasicBlock *orig_bb : blocks) {
     Instruction *term = orig_bb->getTerminator();
     if (!isa<BranchInst>(term) && !isa<ReturnInst>(term))
