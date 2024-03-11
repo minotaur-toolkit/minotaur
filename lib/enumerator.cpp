@@ -485,10 +485,9 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
 
         auto T = make_unique<ReservedConst>(type(1, 8, false));
         ReservedConst *idx = T.get();
-        auto ety = type(1, expected.getWidth(), expected.isFP());
         RCs.insert(T.get());
         exprs.emplace_back(std::move(T));
-        auto IE = make_unique<InsertElement>(*V, *Elm, *idx, ety);
+        auto IE = make_unique<InsertElement>(*V, *Elm, *idx, elm_ty);
         sketches.push_back(make_pair(IE.get(), std::move(RCs)));
         exprs.emplace_back(std::move(IE));
       }
