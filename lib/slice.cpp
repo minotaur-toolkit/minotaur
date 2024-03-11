@@ -150,16 +150,16 @@ Slice::extractExpr(Value &v) {
   }
 
   LLVMContext &ctx = m->getContext();
-  set<pair<Value*, BasicBlock*>> visited;
+  set<Value*> visited;
 
-  queue<tuple<Value*, BasicBlock*, unsigned>> worklist;
+  queue<tuple<Value*, unsigned>> worklist;
 
   ValueToValueMapTy vmap;
   set<Instruction*> insts;
   unordered_map<BasicBlock*, vector<pair<Instruction*,unsigned>>> bb_insts;
   unordered_set<BasicBlock*> blocks;
 
-  worklist.push({&v, vbb, 0});
+  worklist.push({&v, 0});
 
   // pass 1;
   // + duplicate instructions, leave the operands untouched
@@ -168,13 +168,13 @@ Slice::extractExpr(Value &v) {
   //   we will create an function argument for the def and replace the use
   //   with the argument.
   while (!worklist.empty()) {
-    auto &[w, basebb, depth] = worklist.front();
+    auto &[w, depth] = worklist.front();
     worklist.pop();
 
     if (depth > config::slicer_max_depth)
       continue;
 
-    if (!visited.insert({w, basebb}).second)
+    if (!visited.insert(w).second)
       continue;
 
     if (Instruction *i = dyn_cast<Instruction>(w)) {
@@ -261,78 +261,13 @@ Slice::extractExpr(Value &v) {
         continue;
       }
 
-      // bool never_visited = !blocks.count(ibb);
-      unordered_set<BasicBlock*> walk_blocks;
-      debug () << "[slicer] walking from " << basebb->getName() << " to "
-               << ibb->getName()
-               << " for " << *i << "\n";
-      if (!walk(basebb, ibb, walk_blocks, DT)) {
-        continue;
-      }
-      blocks.insert(walk_blocks.begin(), walk_blocks.end());
-
-      /*if (PHINode *phi = dyn_cast<PHINode>(i)) {
-        debug()<< "[slicer] checking phi " << *phi << "\n";
-        bool PhiHasDistantIncome = false;
-        unsigned incomes = phi->getNumIncomingValues();
-        unordered_set<BasicBlock*> phi_blocks;
-        for (unsigned i = 0; i < incomes; i++) {
-          Value *income = phi->getIncomingValue(i);
-          BasicBlock *income_bb = phi->getIncomingBlock(i);
-          if (!isa<Instruction>(income)) {
-            phi_blocks.insert(income_bb);
-          } else {
-            Instruction *income_i = cast<Instruction>(income);
-            unordered_set<BasicBlock*> walk_blocks;
-            if (!walk(income_bb, income_i->getParent(), walk_blocks, DT)) {
-              PhiHasDistantIncome = true;
-              break;
-            }
-            phi_blocks.insert(walk_blocks.begin(), walk_blocks.end());
-          }
-        }
-        if (PhiHasDistantIncome) {
-          continue;
-        }
-        blocks.insert(phi_blocks.begin(), phi_blocks.end());
-      }*/
-
-      if (!insts.insert(i).second)
-        continue;
-
+      insts.insert(i);
       bb_insts[ibb].push_back({i, getInstructionIdx(i)});
 
-      // add condition to worklist
-      if (ibb != vbb) {
-        Instruction *term = ibb->getTerminator();
-        if(!isa<BranchInst>(term)) {
-          debug() << "found non branch terminator " << *term << ", skipping\n";
-          return nullopt;
-        }
-        BranchInst *bi = cast<BranchInst>(term);
-        if (bi->isConditional()) {
-          if (Instruction *c = dyn_cast<Instruction>(bi->getCondition())) {
-            /*if (!visited.count(c))
-              continue;*/
-            worklist.push({c, basebb, depth + 1});
-          }
-        }
-      }
-
-      if (auto *phi = dyn_cast<PHINode>(i)) {
-        for (unsigned i = 0; i < phi->getNumIncomingValues(); i++) {
-          BasicBlock *incomebb = phi->getIncomingBlock(i);
-          blocks.insert(incomebb);
-          if (Instruction *c = dyn_cast<Instruction>(phi->getIncomingValue(i))) {
-            worklist.push({c, incomebb, depth + 1});
-          }
-        }
-      } else {
-        for (auto &op : i->operands()) {
-          if (!isa<Instruction>(op))
-            continue;
-          worklist.push({op, basebb, depth + 1});
-        }
+      for (auto &op : i->operands()) {
+        if (!isa<Instruction>(op))
+          continue;
+        worklist.push({op, depth + 1});
       }
     } else {
       report_fatal_error("[slicer] Unknown value:" + w->getName() + "\n");
@@ -343,6 +278,47 @@ Slice::extractExpr(Value &v) {
   if (insts.empty()) {
     debug() << "[slicer] no eligible instruction can be harvested, skipping\n";
     return nullopt;
+  }
+
+  blocks.insert(vbb);
+  unordered_map<BasicBlock*, unordered_set<BasicBlock*>> bb_deps;
+  for (auto i : insts) {
+    blocks.insert(i->getParent());
+    if (auto *phi = dyn_cast<PHINode>(i)) {
+      for (unsigned i = 0; i < phi->getNumIncomingValues(); i++) {
+        BasicBlock *incomebb = phi->getIncomingBlock(i);
+        blocks.insert(incomebb);
+        Value *incomev = phi->getIncomingValue(i);
+        if (!isa<Instruction>(incomev))
+          continue;
+        Instruction *incomei = cast<Instruction>(incomev);
+        if (!insts.count(incomei))
+          continue;
+        bb_deps[incomebb].insert(incomei->getParent());
+      }
+    } else {
+      for (auto &op : i->operands()) {
+        if (!isa<Instruction>(op))
+          continue;
+        Instruction *op_i = cast<Instruction>(op);
+        if (!insts.count(op_i)) {
+          continue;
+        bb_deps[i->getParent()].insert(op_i->getParent());
+      }
+    }
+  }
+
+
+  for(auto &[from, tos] : bb_deps) {
+    for (auto to : tos) {
+      unordered_set<BasicBlock*> walk_blocks;
+      debug() << "[slicer] walking from " << from->getName() << " to "
+              << to->getName() << "\n";
+      if (!walk(from, to, walk_blocks, DT)) {
+        return nullopt;
+      }
+      blocks.insert(walk_blocks.begin(), walk_blocks.end());
+    }
   }
 
   debug () << "[slicer] " << insts.size() << " instructions are harvested\n";
