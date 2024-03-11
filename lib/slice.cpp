@@ -87,10 +87,6 @@ static bool walk(BasicBlock* current, BasicBlock* target,
                  BasicBlock* target,
                  unordered_set<BasicBlock*>& visited,
                  unordered_set<BasicBlock*>& result) -> bool {
-
-    /*if (result.contains(current)) {
-      return true;
-    }*/
     if (visited.size() > 20) {
       debug() << "[slicer] block too distant from root, skipping\n";
       return false;
@@ -294,6 +290,8 @@ Slice::extractExpr(Value &v) {
         Instruction *incomei = cast<Instruction>(incomev);
         if (!insts.count(incomei))
           continue;
+        if (incomebb == incomei->getParent())
+          continue;
         bb_deps[incomebb].insert(incomei->getParent());
       }
     } else {
@@ -301,23 +299,22 @@ Slice::extractExpr(Value &v) {
         if (!isa<Instruction>(op))
           continue;
         Instruction *op_i = cast<Instruction>(op);
-        if (!insts.count(op_i)) {
+        if (!insts.count(op_i))
+          continue;
+        if (op_i->getParent() == i->getParent())
           continue;
         bb_deps[i->getParent()].insert(op_i->getParent());
       }
     }
   }
 
-
   for(auto &[from, tos] : bb_deps) {
     for (auto to : tos) {
-      unordered_set<BasicBlock*> walk_blocks;
       debug() << "[slicer] walking from " << from->getName() << " to "
               << to->getName() << "\n";
-      if (!walk(from, to, walk_blocks, DT)) {
+      if (!walk(from, to, blocks, DT)) {
         return nullopt;
       }
-      blocks.insert(walk_blocks.begin(), walk_blocks.end());
     }
   }
 
