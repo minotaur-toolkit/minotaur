@@ -29,7 +29,7 @@ if [[ $SKIP == 0 ]]; then
   $@ \
   -passes="minotaur-online" \
   -minotaur-enable-caching=false \
-  -minotaur-ignore-machine-cost=false \
+  -minotaur-ignore-machine-cost=true \
   -minotaur-debug-codegen=false \
   -minotaur-debug-enumerator=$DEBUG \
   $TV_REPORT_DIR

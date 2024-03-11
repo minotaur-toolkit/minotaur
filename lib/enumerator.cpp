@@ -906,7 +906,7 @@ push:
 
       if (!costAfter || !costBefore) {
         debug() << "[enumerator] cost is zero, skip\n";
-      } else if (config::ignore_machine_cost || costAfter <= costBefore) {
+      } else if (config::ignore_machine_cost || costAfter < costBefore) {
         debug () << "[enumerator] successfully synthesized rhs\n";
         ret.emplace_back(R, costAfter, costBefore);
       } else {
