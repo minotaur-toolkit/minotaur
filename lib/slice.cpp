@@ -88,8 +88,6 @@ static bool walk(BasicBlock* current, BasicBlock* target,
                  unordered_set<BasicBlock*>& visited,
                  unordered_set<BasicBlock*>& result) -> bool {
 
-    debug() << "[slicer] now at block " << current->getName() << "\n";
-
     /*if (result.contains(current)) {
       return true;
     }*/
@@ -115,8 +113,8 @@ static bool walk(BasicBlock* current, BasicBlock* target,
       return true;
     }
   };
-  debug () << "[slicer] start walking from " << current->getName() << " to "
-           << target->getName() << "\n";
+  /*debug () << "[slicer] start walking from " << current->getName() << " to "
+           << target->getName() << "\n";*/
 
   unordered_set<BasicBlock*> visited = { current };
 
@@ -152,16 +150,16 @@ Slice::extractExpr(Value &v) {
   }
 
   LLVMContext &ctx = m->getContext();
-  unordered_set<Value*> visited;
+  set<pair<Value*, BasicBlock*>> visited;
 
-  queue<pair<Value*, unsigned>> worklist;
+  queue<tuple<Value*, BasicBlock*, unsigned>> worklist;
 
   ValueToValueMapTy vmap;
-  vector<Instruction*> insts;
+  set<Instruction*> insts;
   unordered_map<BasicBlock*, vector<pair<Instruction*,unsigned>>> bb_insts;
   unordered_set<BasicBlock*> blocks;
 
-  worklist.push({&v, 0});
+  worklist.push({&v, vbb, 0});
 
   // pass 1;
   // + duplicate instructions, leave the operands untouched
@@ -170,15 +168,14 @@ Slice::extractExpr(Value &v) {
   //   we will create an function argument for the def and replace the use
   //   with the argument.
   while (!worklist.empty()) {
-    auto &[w, depth] = worklist.front();
+    auto &[w, basebb, depth] = worklist.front();
     worklist.pop();
 
     if (depth > config::slicer_max_depth)
       continue;
 
-    if (!visited.insert(w).second)
+    if (!visited.insert({w, basebb}).second)
       continue;
-
 
     if (Instruction *i = dyn_cast<Instruction>(w)) {
       BasicBlock *ibb = i->getParent();
@@ -215,8 +212,6 @@ Slice::extractExpr(Value &v) {
         vmap[callee] = intrindecl.getCallee();
         ops = call->args();
       } else if (auto phi = dyn_cast<PHINode>(i)) {
-        if (phi != &v)
-          continue;
         bool phiHasUnknownIncome = false;
         unsigned incomes = phi->getNumIncomingValues();
         for (unsigned i = 0; i < incomes; i++) {
@@ -232,8 +227,6 @@ Slice::extractExpr(Value &v) {
           debug() << "[slicer]" << *phi << " has external or constant income\n";
           continue;
         }
-      } else if (auto LI = dyn_cast<LoadInst>(i)) {
-        continue;
       }
 
       // filter unknown operation by operand type
@@ -269,26 +262,44 @@ Slice::extractExpr(Value &v) {
       }
 
       // bool never_visited = !blocks.count(ibb);
-
-      if (!walk(vbb, ibb, blocks, DT)) {
+      unordered_set<BasicBlock*> walk_blocks;
+      debug () << "[slicer] walking from " << basebb->getName() << " to "
+               << ibb->getName()
+               << " for " << *i << "\n";
+      if (!walk(basebb, ibb, walk_blocks, DT)) {
         continue;
       }
+      blocks.insert(walk_blocks.begin(), walk_blocks.end());
 
-      if (PHINode *phi = dyn_cast<PHINode>(i)) {
+      /*if (PHINode *phi = dyn_cast<PHINode>(i)) {
         debug()<< "[slicer] checking phi " << *phi << "\n";
         bool PhiHasDistantIncome = false;
-        for (auto income : phi->blocks()) {
-          if (!walk(vbb, income, blocks, DT)) {
-            PhiHasDistantIncome = true;
-            break;
+        unsigned incomes = phi->getNumIncomingValues();
+        unordered_set<BasicBlock*> phi_blocks;
+        for (unsigned i = 0; i < incomes; i++) {
+          Value *income = phi->getIncomingValue(i);
+          BasicBlock *income_bb = phi->getIncomingBlock(i);
+          if (!isa<Instruction>(income)) {
+            phi_blocks.insert(income_bb);
+          } else {
+            Instruction *income_i = cast<Instruction>(income);
+            unordered_set<BasicBlock*> walk_blocks;
+            if (!walk(income_bb, income_i->getParent(), walk_blocks, DT)) {
+              PhiHasDistantIncome = true;
+              break;
+            }
+            phi_blocks.insert(walk_blocks.begin(), walk_blocks.end());
           }
         }
         if (PhiHasDistantIncome) {
           continue;
         }
-      }
+        blocks.insert(phi_blocks.begin(), phi_blocks.end());
+      }*/
 
-      insts.push_back(i);
+      if (!insts.insert(i).second)
+        continue;
+
       bb_insts[ibb].push_back({i, getInstructionIdx(i)});
 
       // add condition to worklist
@@ -303,15 +314,25 @@ Slice::extractExpr(Value &v) {
           if (Instruction *c = dyn_cast<Instruction>(bi->getCondition())) {
             /*if (!visited.count(c))
               continue;*/
-            worklist.push({c, depth + 1});
+            worklist.push({c, basebb, depth + 1});
           }
         }
       }
 
-      for (auto &op : i->operands()) {
-        if (!isa<Instruction>(op))
-          continue;
-        worklist.push({op, depth + 1});
+      if (auto *phi = dyn_cast<PHINode>(i)) {
+        for (unsigned i = 0; i < phi->getNumIncomingValues(); i++) {
+          BasicBlock *incomebb = phi->getIncomingBlock(i);
+          blocks.insert(incomebb);
+          if (Instruction *c = dyn_cast<Instruction>(phi->getIncomingValue(i))) {
+            worklist.push({c, incomebb, depth + 1});
+          }
+        }
+      } else {
+        for (auto &op : i->operands()) {
+          if (!isa<Instruction>(op))
+            continue;
+          worklist.push({op, basebb, depth + 1});
+        }
       }
     } else {
       report_fatal_error("[slicer] Unknown value:" + w->getName() + "\n");
@@ -326,11 +347,11 @@ Slice::extractExpr(Value &v) {
 
   debug () << "[slicer] " << insts.size() << " instructions are harvested\n";
   for (auto &i : insts) {
-    debug() << "[slicer] instruction " << *i << " is harvested\n";
+    debug() << "[slicer] harvested instruction " << *i << "\n";
   }
 
   for (auto &bb : blocks) {
-    debug () << "[slicer] block " << bb->getName() << " is harvested\n";
+    debug () << "[slicer] harvested block " << bb->getName() << "\n";
   }
 
 
@@ -428,7 +449,7 @@ Slice::extractExpr(Value &v) {
           jumpbb = bmap.at(bi->getSuccessor(0));
         cloned_bi = BranchInst::Create(jumpbb, bmap.at(orig_bb));
       }
-      insts.push_back(bi);
+      insts.insert(bi);
       cloned_insts.push_back(cloned_bi);
       //bb_insts[orig_bb].push_back(bi);
       vmap[bi] = cloned_bi;
