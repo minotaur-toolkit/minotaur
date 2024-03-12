@@ -58,7 +58,7 @@ if ($UNIX) {
     $r = Redis->new(server => "localhost:" . $REDISPORT);
 }
 $r->ping || die "no server?";
-my @keys = $r->keys('*');
+my @all_keys = $r->keys('*');
 
 sub infer($) {
     (my $opt) = @_;
@@ -74,54 +74,55 @@ sub infer($) {
         my $OFN;
         if (1) {
             $OFN = "tmp_${pid}.log";
-            system "${MINOTAUR} < $tmpfn > $OFN 2>&1";
+            system "${minotaur} < $tmpfn > $OFN 2>&1";
             open my $OF, ">>$OFN" or die;
             #print $OF "\n\n$cmd\n\n";
             #print $OF "$k\n\n";
             close $OF;
         }
 
-        open $INF, "<$OFN" or die;
+        #open $INF, "<$OFN" or die;
     } else {
-        open $INF, "$cmd < $tmpfn |" or print $foo "$k\n";
+        #open $INF, "$cmd < $tmpfn |" or print $foo "$k\n";
     }
+    close INF;
 
-    my $ok = 0;
-    my $failed = 0;
-    my @lines = <$INF>;
-    for (@lines) {
-        if ($_ =~ /Failed/) {
-            $failed = 1;
-            next;
-        }
-        if ($_ =~ /successfully/) {
-            $ok = 1;
-            next;
-        }
-    }
-    close $INF;
-    close $fh;
-    unlink $tmpfn;
+    # my $ok = 0;
+    # my $failed = 0;
+    # my @lines = <$INF>;
+    # for (@lines) {
+    #     if ($_ =~ /Failed/) {
+    #         $failed = 1;
+    #         next;
+    #     }
+    #     if ($_ =~ /successfully/) {
+    #         $ok = 1;
+    #         next;
+    #     }
+    # }
+    # close $INF;
+    # close $fh;
+    # unlink $tmpfn;
 
-    my $red;
-    if ($UNIX) {
-	$red = Redis->new(sock => "@CMAKE_BINARY_DIR@/cache.sock");
-    } else {
-	$red = Redis->new(server => "localhost:" . $REDISPORT);
-    }
-    $red->ping || die "no server?";
-    $red->hset($k, "cache-infer-tag" => $tag);
+    # my $red;
+    # if ($UNIX) {
+	# $red = Redis->new(sock => "@CMAKE_BINARY_DIR@/cache.sock");
+    # } else {
+	# $red = Redis->new(server => "localhost:" . $REDISPORT);
+    # }
+    # $red->ping || die "no server?";
+    # $red->hset($k, "cache-infer-tag" => $tag);
 
-    if ($ok) {
-        open(FH, '>', "rewrite-${pid}") or die $!;
-        for(@lines) {
-          print FH $_;
-        }
-        close(FH);
-        exit 0;
-    } else {
-        exit 1;
-    }
+    # if ($ok) {
+    #     open(FH, '>', "rewrite-${pid}") or die $!;
+    #     for(@lines) {
+    #       print FH $_;
+    #     }
+    #     close(FH);
+    #     exit 0;
+    # } else {
+    #     exit 1;
+    # }
 }
 
 my $num_running = 0;
@@ -164,17 +165,28 @@ sub status() {
 my $opid = $$;
 my $skip = 0;
 
-reset_status(scalar(@keys)) if $VERBOSE;
+# reset_status(scalar(@keys)) if $VERBOSE;
 
-my $byx;
-$byx = \&bytimestamp if ($SORT eq "timestamp");
-$byx = \&bycostdiff if ($SORT eq "costdiff");
-$byx = \&byreduce if ($SORT eq "reduce");
+# my $byx;
+# $byx = \&bytimestamp if ($SORT eq "timestamp");
+# $byx = \&bycostdiff if ($SORT eq "costdiff");
+# $byx = \&byreduce if ($SORT eq "reduce");
 
-$count = 0;
+my $count = 0;
 
 
+my %toprint;
 my %ir;
+my %rewrite;
+my %costafter;
+my %costbefore;
+my %costdiff;
+my %reduce;
+my %timestamp;
+my %fn_name;
+my %noopt;
+my %optbc;
+
 foreach my $opt (@all_keys) {
     my %h = $r->hgetall($opt);
 
@@ -182,34 +194,12 @@ foreach my $opt (@all_keys) {
     my $time   = $h{"timestamp"};
     my $fn     = $h{"fn"};
 
-    $ir{$opt} = parse($opt);
+    $ir{$opt} = infer($opt);
     $fn_name{$opt} = $fn;
     $timestamp{$opt} = $time;
-
-    $noopt{$opt} = $result eq "<no-sol>";
-    if ($noopt{$opt}) {
-        $noopt_count++;
-    } else {
-        my $ca     = $h{"costafter"};
-        my $cb     = $h{"costbefore"};
-        my $obc    = $h{"optimizedbc"};
-        if ($cb == 0) {
-            $cb = 1;
-        }
-        if ($ca == 0) {
-            $ca = 1;
-        }
-        $optbc{$opt} = parse($obc);
-        $toprint{$opt} = 1;
-        $costafter{$opt} = $ca;
-        $costbefore{$opt} = $cb;
-        $costdiff{$opt} = $cb - $ca;
-        $reduce{$opt} = ($cb - $ca * 1.0) / $cb;
-        $rewrite{$opt} = $result;
-    }
 }
 
-foreach my $opt (sort $byx keys $toprint) {
+foreach my $opt (keys %toprint) {
     status() if $VERBOSE;
     my $ir   = $ir{$opt};
     # if (defined $result && $result eq $tag) {
@@ -218,7 +208,7 @@ foreach my $opt (sort $byx keys $toprint) {
     # }
     wait_for_one() unless $num_running < $NPROCS;
     die unless $num_running < $NPROCS;
-    print("solving $n\n");
+    print("solving $count\n");
     $count ++;
     my $pid = fork();
     die unless $pid >= 0;

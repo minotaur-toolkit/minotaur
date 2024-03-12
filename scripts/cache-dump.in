@@ -63,7 +63,7 @@ my @all_keys = $r->keys('*');
 
 print "; Inspecting ".scalar(@all_keys)." Redis values\n";
 
-sub parse ($) {
+sub parse($) {
     #(my $opt, my $RHS) = @_;
     (my $opt) = @_;
     (my $fh, my $tmpfn) = File::Temp::tempfile();
