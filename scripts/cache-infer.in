@@ -165,6 +165,8 @@ sub status() {
 my $opid = $$;
 my $skip = 0;
 
+print scalar(@all_keys)." expressions\n";
+
 # reset_status(scalar(@keys)) if $VERBOSE;
 
 # my $byx;
@@ -195,6 +197,7 @@ foreach my $opt (@all_keys) {
     my $fn     = $h{"fn"};
 
     $ir{$opt} = infer($opt);
+    $toprint{$opt} = 1;
     $fn_name{$opt} = $fn;
     $timestamp{$opt} = $time;
 }
