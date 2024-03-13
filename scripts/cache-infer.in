@@ -35,7 +35,7 @@ END
 
 my $tag = "x";
 my $VERBOSE = 0;
-my $SAVE_TEMPS;
+my $SAVE_TEMPS=1;
 my $UNIX = 0;
 
 GetOptions(
@@ -48,7 +48,7 @@ GetOptions(
 
 my $REDISPORT = 6379;
 
-my $minotaur = "@CMAKE_BINARY_DIR@/opt-synthesis-test.sh";
+my $minotaur = "@CMAKE_BINARY_DIR@/opt-minotaur.sh";
 my $llvmdis = "@LLVM_BINARY_DIR@/bin/llvm-dis";
 
 my $r;
@@ -66,26 +66,33 @@ sub infer($) {
     print $fh $opt;
     $fh->flush();
     open INF, "${llvmdis} < $tmpfn 2>&1 |";
-    #print STDERR "\n$k\n\n";
-    #open(my $foo, '>>', 'fail.txt');
-
-    my $pid = $$;
-    if ($SAVE_TEMPS) {
-        my $OFN;
-        if (1) {
-            $OFN = "tmp_${pid}.log";
-            system "${minotaur} < $tmpfn > $OFN 2>&1";
-            open my $OF, ">>$OFN" or die;
-            #print $OF "\n\n$cmd\n\n";
-            #print $OF "$k\n\n";
-            close $OF;
-        }
-
-        #open $INF, "<$OFN" or die;
-    } else {
-        #open $INF, "$cmd < $tmpfn |" or print $foo "$k\n";
+    my $output = "";
+    my $success = 0;
+    while (my $line = <INF>) {
+        $success = 1 if ($line =~ /success/);
+        next if ($line =~ /^;/);
+        $output .= $line;
     }
     close INF;
+    close $fh;
+
+
+    print("solving $output\n");
+    my $pid = $$;
+
+    my $OFN;
+
+    if (1) {
+        $OFN = "tmp_${pid}.log";
+        system "${minotaur} < $tmpfn > $OFN 2>&1";
+        open my $OF, ">>$OFN" or die;
+        #print $OF "\n\n$cmd\n\n";
+        #print $OF "$k\n\n";
+        close $OF;
+    }
+
+    unlink $tmpfn;
+    exit(0);
 
     # my $ok = 0;
     # my $failed = 0;
@@ -106,9 +113,9 @@ sub infer($) {
 
     # my $red;
     # if ($UNIX) {
-	# $red = Redis->new(sock => "@CMAKE_BINARY_DIR@/cache.sock");
+    # $red = Redis->new(sock => "@CMAKE_BINARY_DIR@/cache.sock");
     # } else {
-	# $red = Redis->new(server => "localhost:" . $REDISPORT);
+    # $red = Redis->new(server => "localhost:" . $REDISPORT);
     # }
     # $red->ping || die "no server?";
     # $red->hset($k, "cache-infer-tag" => $tag);
@@ -145,13 +152,6 @@ my $status_cnt;
 my $status_opct;
 my $status_total;
 
-sub reset_status($) {
-    (my $t) = @_;
-    $status_total = $t;
-    $status_opct = 0;
-    $status_cnt = 0;
-}
-
 sub status() {
     print ".";
     $status_cnt++;
@@ -167,27 +167,14 @@ my $skip = 0;
 
 print scalar(@all_keys)." expressions\n";
 
-# reset_status(scalar(@keys)) if $VERBOSE;
-
-# my $byx;
-# $byx = \&bytimestamp if ($SORT eq "timestamp");
-# $byx = \&bycostdiff if ($SORT eq "costdiff");
-# $byx = \&byreduce if ($SORT eq "reduce");
-
 my $count = 0;
-
 
 my %toprint;
 my %ir;
 my %rewrite;
-my %costafter;
-my %costbefore;
-my %costdiff;
-my %reduce;
 my %timestamp;
 my %fn_name;
 my %noopt;
-my %optbc;
 
 foreach my $opt (@all_keys) {
     my %h = $r->hgetall($opt);
@@ -196,7 +183,7 @@ foreach my $opt (@all_keys) {
     my $time   = $h{"timestamp"};
     my $fn     = $h{"fn"};
 
-    $ir{$opt} = infer($opt);
+    #$ir{$opt} = infer($opt);
     $toprint{$opt} = 1;
     $fn_name{$opt} = $fn;
     $timestamp{$opt} = $time;
@@ -216,9 +203,9 @@ foreach my $opt (keys %toprint) {
     my $pid = fork();
     die unless $pid >= 0;
     if ($pid == 0) {
-      die "setrlimit RSS" unless setrlimit(RLIMIT_RSS, $RAM_LIMIT, $RAM_LIMIT);
-      die "setrlimit VMEM" unless setrlimit(RLIMIT_VMEM, $RAM_LIMIT, $RAM_LIMIT);
-      infer ($opt);
+        #die "setrlimit RSS" unless setrlimit(RLIMIT_RSS, $RAM_LIMIT, $RAM_LIMIT);
+        #die "setrlimit VMEM" unless setrlimit(RLIMIT_VMEM, $RAM_LIMIT, $RAM_LIMIT);
+        infer ($opt);
     }
     # make sure we're in the parent
     die unless $$ == $opid;

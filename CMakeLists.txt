@@ -110,8 +110,7 @@ add_library(config STATIC "lib/config.cpp"
                          "${PROJECT_BINARY_DIR}/minotaur_gen.h")
 add_dependencies(config generate_version)
 
-add_library(slice STATIC "lib/slice.cpp"
-                         "lib/removal-slice.cpp")
+add_library(slice STATIC "lib/slice.cpp")
 target_link_libraries(slice PRIVATE utils config)
 
 add_library(synthesizer STATIC ${SYNTHESIZER_SRC})
@@ -123,11 +122,6 @@ target_link_libraries(online
   PRIVATE synthesizer slice ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 
-add_llvm_library(cache-exprs MODULE "pass/cache-exprs.cpp")
-
-target_link_libraries(cache-exprs
-  PRIVATE slice ${HIREDIS_LIBRARY}
-  $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 
 add_llvm_executable(minotaur-cs "tools/minotaur-cs.cpp")
 
@@ -135,9 +129,9 @@ target_link_libraries(minotaur-cs
   PRIVATE synthesizer ${ALIVE_LIBS} ${LLVM_LIBS} ${Z3_LIBRARIES}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 
-add_llvm_executable(slice-ir "tools/slice-ir.cpp")
+add_llvm_executable(minotaur-slice "tools/minotaur-slice.cpp")
 
-target_link_libraries(slice-ir
+target_link_libraries(minotaur-slice
   PRIVATE slice ${ALIVE_LIBS}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 
@@ -157,15 +151,11 @@ if(APPLE)
     set_target_properties(minotaur-cs PROPERTIES
         LINK_FLAGS "-undefined dynamic_lookup"
     )
-    set_target_properties(slice-ir PROPERTIES
-        LINK_FLAGS "-undefined dynamic_lookup"
-    )
-    set_target_properties(cache-exprs PROPERTIES
+    set_target_properties(minotaur-slice PROPERTIES
         LINK_FLAGS "-undefined dynamic_lookup"
     )
 endif(APPLE)
 
-set(CACHE_EXPRS_PASS ${CMAKE_BINARY_DIR}/cache-exprs${CMAKE_SHARED_LIBRARY_SUFFIX})
 set(ONLINE_PASS ${CMAKE_BINARY_DIR}/online${CMAKE_SHARED_LIBRARY_SUFFIX})
 
 configure_file(

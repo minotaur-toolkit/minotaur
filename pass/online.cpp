@@ -3,6 +3,7 @@
 #include "config.h"
 #include "enumerator.h"
 #include "codegen.h"
+#include "expr.h"
 #include "slice.h"
 #include "removal-slice.h"
 #include "util/random.h"
@@ -39,6 +40,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
 
 #include "hiredis.h"
 
@@ -108,9 +110,14 @@ llvm::cl::opt<unsigned> redis_port(
     llvm::cl::desc("redis port number"),
     llvm::cl::init(6379));
 
-llvm::cl::opt<bool> dryrun(
-    "minotaur-dryrun",
-    llvm::cl::desc("minotaur: dryrun, do not change source"),
+llvm::cl::opt<bool> no_infer(
+    "minotaur-no-infer",
+    llvm::cl::desc("minotaur: do not run synthesizer"),
+    llvm::cl::init(false));
+
+llvm::cl::opt<bool> no_slice(
+    "minotaur-no-slice",
+    llvm::cl::desc("minotaur: do not run slicer"),
     llvm::cl::init(false));
 
 llvm::cl::opt<string> report_dir("minotaur-report-dir",
@@ -136,6 +143,52 @@ debug &operator<<(const T &s)
   return *this;
 }
 };
+
+static optional<Rewrite>
+infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN) {
+  string bytecode;
+  if (enable_caching) {
+    llvm::raw_string_ostream bs(bytecode);
+    WriteBitcodeToFile(*F.getParent(), bs);
+    bs.flush();
+    std::string rewrite;
+    if (minotaur::hGet(bytecode.c_str(), bytecode.size(), rewrite, ctx)) {
+      if (rewrite == "<no-sol>") {
+        debug() << "[online] cache matched, but no solution found in "
+                    "previous run, skipping function: "
+                << F.getName();
+        return nullopt;
+      }
+    }
+  }
+
+  vector<Rewrite> RHSs;
+  if (no_infer) {
+    debug() << "[online] skipping synthesizer\n";
+  } else {
+    debug() << "[online] working on function:\n" << F;
+    RHSs = EN.solve(F, I);
+  }
+
+  if (RHSs.empty()) {
+    if (enable_caching)
+      hSetNoSolution(bytecode.c_str(), bytecode.size(), ctx, F.getName());
+    return nullopt;
+  }
+
+  auto R = RHSs[0];
+
+  if (enable_caching) {
+    string rewrite;
+    raw_string_ostream rs(rewrite);
+    R.I->print(rs);
+    rs.flush();
+    hSetRewrite(bytecode.c_str(), bytecode.size(),
+                "", 0,
+                rewrite, ctx, R.CostAfter, R.CostBefore, F.getName());
+  }
+  return R;
+}
 
 static bool
 optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
@@ -194,96 +247,86 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
   }
 
   bool changed = false;
-  for (auto &BB : F) {
-    for (auto &I : make_early_inc_range(BB)) {
-      if (I.getType()->isVoidTy())
-        continue;
 
-      DataLayout DL(F.getParent());
-      minotaur::Slice S(F, LI, DT);
-      auto NewF = S.extractExpr(I);
-      auto m = S.getNewModule();
-
-      if (!NewF.has_value())
-        continue;
-
-      if (dryrun) {
-        debug() << "[online] dryrun, skipping function: "
-                << (*NewF).first.get().getName() << "\n";
-        continue;
+  if (no_slice) {
+    // in this mode we assume only one return point, we do not run slicer,
+    // we check if return value can be optimized
+    ReturnInst *ret = nullptr;
+    for (auto &BB : F) {
+      for (auto &I : BB) {
+        if (isa<ReturnInst>(I)) {
+          ret = cast<ReturnInst>(&I);
+          break;
+        }
       }
+      if (ret) {
+        break;
+      }
+    }
+    if (!ret) {
+      debug() << "[online] no return instruction found, skipping\n";
+      goto final;
+    }
 
-      string bytecode;
-      if (enable_caching) {
-        llvm::raw_string_ostream bs(bytecode);
-        WriteBitcodeToFile(*m, bs);
-        bs.flush();
-        std::string rewrite;
-        if (minotaur::hGet(bytecode.c_str(), bytecode.size(), rewrite, ctx)) {
-          if (rewrite == "<no-sol>") {
-            debug() << "[online] cache matched, but no solution found in "
-                       "previous run, skipping function: "
-                    << (*NewF).first.get().getName();
-            continue;
+    Instruction *retI = dyn_cast<Instruction>(ret->getReturnValue());
+    if (!retI) {
+      debug() << "[online] return value is not an instruction, skipping\n";
+      goto final;
+    }
+
+    Enumerator EN;
+    auto R = infer(F, retI, ctx, EN);
+    if (!R.has_value()) {
+      goto final;
+    }
+
+    unordered_set<llvm::Function*> IntrinDecls;
+    ValueToValueMapTy vmap;
+    auto *V = LLVMGen(ret, IntrinDecls).codeGen(R->I, vmap);
+    V = llvm::IRBuilder<>(ret).CreateBitCast(V, retI->getType());
+    retI->replaceAllUsesWith(V);
+    changed = true;
+  } else {
+    for (auto &BB : F) {
+      for (auto &I : make_early_inc_range(BB)) {
+        if (I.getType()->isVoidTy())
+          continue;
+
+        DataLayout DL(F.getParent());
+        minotaur::Slice S(F, LI, DT);
+        auto NewF = S.extractExpr(I);
+        auto m = S.getNewModule();
+
+        if (!NewF.has_value())
+          continue;
+
+        Enumerator EN;
+        auto R = infer(NewF->first, NewF->second, ctx, EN);
+
+        if (!R.has_value())
+          continue;
+
+        unordered_set<llvm::Function*> IntrinDecls;
+        Instruction *insertpt = I.getNextNode();
+        while(isa<PHINode>(insertpt)) {
+          insertpt = insertpt->getNextNode();
+        }
+
+        auto *V = LLVMGen(insertpt, IntrinDecls).codeGen(R->I, S.getValueMap());
+        V = llvm::IRBuilder<>(insertpt).CreateBitCast(V, I.getType());
+
+        I.replaceUsesWithIf(V, [&changed, &V, &DT](Use &U) {
+          if(dom_check(V, DT, U)) {
+            changed = true;
+            return true;
           }
-        }
+          return false;
+        });
       }
-
-      Enumerator EN;
-      debug() << "[online] working on function:\n" << (*NewF).first.get();
-
-      auto RHSs = EN.solve(NewF->first.get(), NewF->second);
-
-      if (RHSs.empty()) {
-        if (enable_caching)
-          hSetNoSolution(bytecode.c_str(), bytecode.size(), ctx, F.getName());
-        continue;
-      }
-
-      auto R = RHSs[0];
-
-      if (enable_caching) {
-        string optimized;
-        llvm::raw_string_ostream bs(optimized);
-        llvm::ValueToValueMapTy VMap;
-        std::unordered_set<llvm::Function *> IntrinsicDecls;
-        llvm::Instruction *I = NewF->second;
-        llvm::Value *V = LLVMGen(I, IntrinsicDecls).codeGen(R.I, VMap);
-        V = llvm::IRBuilder<>(I).CreateBitCast(V, I->getType());
-        I->replaceAllUsesWith(V);
-        eliminate_dead_code(NewF->first.get());
-        removeUnusedDecls(IntrinsicDecls);
-        WriteBitcodeToFile(*m, bs);
-
-        string rewrite;
-        raw_string_ostream rs(rewrite);
-        R.I->print(rs);
-        rs.flush();
-        hSetRewrite(bytecode.c_str(), bytecode.size(),
-                    optimized.c_str(), optimized.size(),
-                    rewrite, ctx, R.CostAfter, R.CostBefore, F.getName());
-      }
-
-      unordered_set<llvm::Function *> IntrinDecls;
-      Instruction *insertpt = I.getNextNode();
-      while(isa<PHINode>(insertpt)) {
-        insertpt = insertpt->getNextNode();
-      }
-
-      auto *V = LLVMGen(insertpt, IntrinDecls).codeGen(R.I, S.getValueMap());
-      V = llvm::IRBuilder<>(insertpt).CreateBitCast(V, I.getType());
-
-
-      I.replaceUsesWithIf(V, [&changed, &V, &DT](Use &U) {
-        if(dom_check(V, DT, U)) {
-          changed = true;
-          return true;
-        }
-        return false;
-      });
     }
   }
 
+final:
   if (changed) {
     F.removeFnAttr("min-legal-vector-width");
     eliminate_dead_code(F);
