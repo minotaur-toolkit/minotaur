@@ -138,7 +138,7 @@ int main(int argc, char **argv) {
 
   minotaur::config::debug_tv = true;
   unordered_map<Argument*, Constant*> constMap;
-  minotaur::AliveEngine AE(TLI);
+  minotaur::AliveEngine AE(TLI, true);
   try {
     AE.constantSynthesis(*SRC, *TGT, constMap);
   } catch (AliveException e) {

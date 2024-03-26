@@ -702,8 +702,6 @@ vector<Rewrite> Enumerator::solve(llvm::Function &F, llvm::Instruction *I) {
   llvm::Triple Triple = llvm::Triple(F.getParent()->getTargetTriple());
   llvm::TargetLibraryInfoWrapperPass TLI(Triple);
 
-  AliveEngine AE(TLI);
-
   unsigned costBefore = get_machine_cost(&F);
 
   unsigned Width = I->getType()->getScalarSizeInBits();
@@ -856,8 +854,10 @@ push:
 
     try {
       if (!HaveC) {
+        AliveEngine AE(TLI, false);
         Good = AE.compareFunctions(*Src, *Tgt);
       } else {
+        AliveEngine AE(TLI, true);
         Good = AE.constantSynthesis(*Src, *Tgt, ConstantResults);
       }
     } catch (AliveException E) {

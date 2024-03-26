@@ -29,9 +29,9 @@ private:
     std::unordered_map<const IR::Value*, smt::expr>&);
 
 public:
-  AliveEngine(llvm::TargetLibraryInfoWrapperPass &TLI) : TLI(TLI) {
-    util::config::disable_undef_input = config::disable_undef_input;
-    util::config::disable_poison_input = config::disable_poison_input;
+  AliveEngine(llvm::TargetLibraryInfoWrapperPass &TLI, bool dpi) : TLI(TLI) {
+    util::config::disable_undef_input = true;
+    util::config::disable_poison_input = dpi;
     debug = config::debug_tv ? &std::cerr : &NOP_OSTREAM;
   }
 
