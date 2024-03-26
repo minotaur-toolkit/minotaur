@@ -405,7 +405,7 @@ Slice::extractExpr(Value &v) {
     // pass 3.1.1;
     // + duplicate BB;
     for (BasicBlock *orig_bb : blocks) {
-      BasicBlock *bb = BasicBlock::Create(ctx, orig_bb->getName());
+      BasicBlock *bb = BasicBlock::Create(ctx);
       bmap[orig_bb] = bb;
       vmap[orig_bb] = bb;
       cloned_blocks.insert(bb);
