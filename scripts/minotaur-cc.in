@@ -51,7 +51,11 @@ sub getenv($) {
 
 if (getenv("MINOTAUR_DEBUG_SLICER")) {
   push @ARGV, ("-mllvm", "-minotaur-debug-slicer");
-  push @ARGV, ("-mllvm", "-minotaur-dryrun");
+  push @ARGV, ("-mllvm", "-minotaur-no-infer");
+}
+
+if (getenv("MINOTAUR_NO_INFER")) {
+  push @ARGV, ("-mllvm", "-minotaur-no-infer");
 }
 
 exec @ARGV;
