@@ -386,11 +386,11 @@ Slice::extractExpr(Value &v) {
     vmap[inst] = c;
     mapping[c] = inst;
     c->setValueName(nullptr);
-    SmallVector<std::pair<unsigned, MDNode *>, 8> ClonedMeta;
+    /*SmallVector<std::pair<unsigned, MDNode *>, 8> ClonedMeta;
     c->getAllMetadata(ClonedMeta);
     for (size_t i = 0; i < ClonedMeta.size(); ++i) {
       c->setMetadata(ClonedMeta[i].first, NULL);
-    }
+    }*/
     cloned_insts.push_back(c);
   }
 
@@ -505,8 +505,7 @@ Slice::extractExpr(Value &v) {
 
   // create function
   Function *F = Function::Create(FunctionType::get(v.getType(), argTys, false),
-                                 GlobalValue::ExternalLinkage,
-                                 f.getName() + "_" + v.getName(), *m);
+                                 GlobalValue::ExternalLinkage, "cut", *m);
 
   // pass 5:
   // + replace the use of unknown value with the function parameter
