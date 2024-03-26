@@ -208,17 +208,22 @@ Slice::extractExpr(Value &v) {
         ops = call->args();
       } else if (auto phi = dyn_cast<PHINode>(i)) {
         bool phiHasUnknownIncome = false;
-        unsigned incomes = phi->getNumIncomingValues();
-        for (unsigned i = 0; i < incomes; i++) {
-          BasicBlock *block = phi->getIncomingBlock(i);
-          Loop *loopphi = LI.getLoopFor(block);
-          if (loopphi != loopv) {
-            phiHasUnknownIncome = true;
-            break;
-          }
-          if (visited.count(phi->getIncomingValue(i))) {
-            phiHasUnknownIncome = true;
-            break;
+        if (ibb != vbb) {
+          debug() << "[slicer] phi node is not in the same block as the value\n";
+          phiHasUnknownIncome = true;
+        } else {
+          unsigned incomes = phi->getNumIncomingValues();
+          for (unsigned i = 0; i < incomes; i++) {
+            BasicBlock *block = phi->getIncomingBlock(i);
+            Loop *loopphi = LI.getLoopFor(block);
+            if (loopphi != loopv) {
+              phiHasUnknownIncome = true;
+              break;
+            }
+            if (visited.count(phi->getIncomingValue(i))) {
+              phiHasUnknownIncome = true;
+              break;
+            }
           }
         }
         // if a phi node has unknown income, do not harvest
@@ -488,7 +493,7 @@ Slice::extractExpr(Value &v) {
       }
     }
   }
-  argTys.push_back(Type::getInt8Ty(ctx));
+  argTys.push_back(Type::getInt16Ty(ctx));
 
   unordered_set<BasicBlock *> block_without_preds;
   for (auto block : cloned_blocks) {
@@ -534,7 +539,7 @@ Slice::extractExpr(Value &v) {
     SwitchInst *sw = SwitchInst::Create(F->getArg(idx), sinkbb, 1, entry);
     unsigned idx  = 23;
     for (BasicBlock *no_pred : block_without_preds) {
-      sw->addCase(ConstantInt::get(IntegerType::get(ctx, 8), idx ++), no_pred);
+      sw->addCase(ConstantInt::get(IntegerType::get(ctx, 16), idx ++), no_pred);
     }
   }
   else if (block_without_preds.size() == 1) {
