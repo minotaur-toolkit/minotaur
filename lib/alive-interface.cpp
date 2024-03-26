@@ -234,6 +234,7 @@ static const llvm::fltSemantics &getFloatSemantics(unsigned BitWidth) {
 bool
 AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
    unordered_map<llvm::Argument*, llvm::Constant*>& ConstMap) {
+
   std::optional<smt::smt_initializer> smt_init;
   smt_init.emplace();
 
@@ -268,8 +269,9 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
 
   // assume type verifies
   std::unordered_map<const IR::Value*, smt::expr> result;
-
+  config::disable_poison_input = true;
   Errors errs = find_model(t, result);
+  config::disable_poison_input = false;
 
   bool ret(errs);
   if (ret) {

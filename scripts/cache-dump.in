@@ -26,7 +26,7 @@ sub usage() {
 Options:
   -dumpall                            dump all LHSs
   -tofiles                            dump all LHSs to files
-  -sort=timestamp|costdiff|reduce     sort optimizations
+  -sort=timestamp|costdiff|reduce|cutsize    sort optimizations
   -verbose
 END
     exit -1;
@@ -48,7 +48,8 @@ GetOptions(
     ) or usage();
 usage() unless ($SORT eq "timestamp" ||
                 $SORT eq "costdiff" ||
-                $SORT eq "reduce");
+                $SORT eq "reduce" ||
+                $SORT eq "cutsize");
 
 my $noopt_count=0;
 
@@ -95,6 +96,7 @@ my %timestamp;
 my %fn_name;
 my %noopt;
 my %optbc;
+my %cutsize;
 
 
 if ($DUMPALL) {
@@ -152,6 +154,7 @@ foreach my $opt (@all_keys) {
         $costdiff{$opt} = $cb - $ca;
         $reduce{$opt} = ($cb - $ca * 1.0) / $cb;
         $rewrite{$opt} = $result;
+        $cutsize{$opt} = length($optbc{$opt});
     }
 }
 
@@ -164,11 +167,14 @@ print "; Discarding ${noopt_count} not-optimizations leaving ".
 sub bytimestamp { $timestamp{$b} <=> $timestamp{$a} }
 sub bycostdiff { $costdiff{$b} <=> $costdiff{$a} }
 sub byreduce { $reduce{$b} <=> $reduce{$a} }
+sub bycutsize { $cutsize{$b} <=> $cutsize{$a} }
 
 my $byx;
 $byx = \&bytimestamp if ($SORT eq "timestamp");
 $byx = \&bycostdiff if ($SORT eq "costdiff");
 $byx = \&byreduce if ($SORT eq "reduce");
+$byx = \&bycutsize if ($SORT eq "cutsize");
+
 
 my $count = 0;
 foreach my $opt (sort $byx keys %toprint) {
