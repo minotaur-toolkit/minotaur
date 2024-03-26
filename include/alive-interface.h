@@ -31,6 +31,7 @@ private:
 public:
   AliveEngine(llvm::TargetLibraryInfoWrapperPass &TLI) : TLI(TLI) {
     util::config::disable_undef_input = config::disable_undef_input;
+    util::config::disable_poison_input = config::disable_poison_input;
     debug = config::debug_tv ? &std::cerr : &NOP_OSTREAM;
   }
 

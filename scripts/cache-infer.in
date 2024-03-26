@@ -76,24 +76,75 @@ sub infer($) {
     close INF;
     close $fh;
 
+    #print("solving $output\n");
 
-    print("solving $output\n");
     my $pid = $$;
+    my $ok = 0;
 
-    my $OFN;
+    my $OFN = "tmp_${pid}.log";
+    system "${minotaur} < $tmpfn > $OFN 2>&1";
+    open my $OF, ">>$OFN" or die;
+    #print $OF "\n\n$cmd\n\n";
+    #print $OF "$k\n\n";
 
-    if (1) {
-        $OFN = "tmp_${pid}.log";
-        system "${minotaur} -S < $tmpfn > $OFN 2>&1";
-        open my $OF, ">>$OFN" or die;
-        #print $OF "\n\n$cmd\n\n";
-        #print $OF "$k\n\n";
-        close $OF;
+    my @lines = <$OF>;
+    for (@lines) {
+        if ($_ =~ /changed/) {
+            $ok = 1;
+            next;
+        }
     }
-
+    close $OF;
     unlink $tmpfn;
-    exit(0);
+
+    if ($ok) {
+        open(FH, '>', "rewrite-${pid}") or die $!;
+        for(@lines) {
+          print FH $_;
+        }
+        close(FH);
+        exit 0;
+    } else {
+        exit 1;
+    }
 }
+
+    # my $ok = 0;
+    # my $failed = 0;
+    # my @lines = <$INF>;
+    # for (@lines) {
+    #     if ($_ =~ /Failed/) {
+    #         $failed = 1;
+    #         next;
+    #     }
+    #     if ($_ =~ /successfully/) {
+    #         $ok = 1;
+    #         next;
+    #     }
+    # }
+    # close $INF;
+    # close $fh;
+    # unlink $tmpfn;
+
+    # my $red;
+    # if ($UNIX) {
+    # $red = Redis->new(sock => "@CMAKE_BINARY_DIR@/cache.sock");
+    # } else {
+    # $red = Redis->new(server => "localhost:" . $REDISPORT);
+    # }
+    # $red->ping || die "no server?";
+    # $red->hset($k, "cache-infer-tag" => $tag);
+
+    # if ($ok) {
+    #     open(FH, '>', "rewrite-${pid}") or die $!;
+    #     for(@lines) {
+    #       print FH $_;
+    #     }
+    #     close(FH);
+    #     exit 0;
+    # } else {
+    #     exit 1;
+    # }
 
 my $num_running = 0;
 my $good = 0;
