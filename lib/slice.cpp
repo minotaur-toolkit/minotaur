@@ -153,7 +153,6 @@ Slice::extractExpr(Value &v) {
   ValueToValueMapTy vmap;
   set<Instruction*> insts;
   unordered_map<BasicBlock*, vector<pair<Instruction*,unsigned>>> bb_insts;
-  unordered_set<BasicBlock*> blocks;
 
   worklist.push({&v, 0});
 
@@ -217,6 +216,10 @@ Slice::extractExpr(Value &v) {
             phiHasUnknownIncome = true;
             break;
           }
+          if (visited.count(phi->getIncomingValue(i))) {
+            phiHasUnknownIncome = true;
+            break;
+          }
         }
         // if a phi node has unknown income, do not harvest
         if (phiHasUnknownIncome) {
@@ -276,10 +279,12 @@ Slice::extractExpr(Value &v) {
     return nullopt;
   }
 
+  unordered_set<BasicBlock*> blocks;
   blocks.insert(vbb);
   unordered_map<BasicBlock*, unordered_set<BasicBlock*>> bb_deps;
   for (auto i : insts) {
     blocks.insert(i->getParent());
+    // incoming block -> def block
     if (auto *phi = dyn_cast<PHINode>(i)) {
       for (unsigned i = 0; i < phi->getNumIncomingValues(); i++) {
         BasicBlock *incomebb = phi->getIncomingBlock(i);
@@ -295,6 +300,7 @@ Slice::extractExpr(Value &v) {
         bb_deps[incomebb].insert(incomei->getParent());
       }
     } else {
+      // use block -> def block
       for (auto &op : i->operands()) {
         if (!isa<Instruction>(op))
           continue;
@@ -305,6 +311,28 @@ Slice::extractExpr(Value &v) {
           continue;
         bb_deps[i->getParent()].insert(op_i->getParent());
       }
+    }
+  }
+
+  // cond -> def block
+  for (BasicBlock *bb : blocks) {
+    Instruction *term = bb->getTerminator();
+
+    if (!isa<BranchInst>(term))
+      continue;
+    BranchInst *bi = cast<BranchInst>(term);
+
+    if (!bi->isConditional())
+      continue;
+
+    Value *cond = bi->getCondition();
+
+    if (!isa<Instruction>(cond))
+      continue;
+    Instruction *cond_i = cast<Instruction>(cond);
+    BasicBlock *cond_bb = cond_i->getParent();
+    if (insts.contains(cond_i) && cond_bb != bb) {
+      bb_deps[bb].insert(cond_bb);
     }
   }
 
