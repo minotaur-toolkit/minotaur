@@ -4,7 +4,7 @@
 #include "expr.h"
 #include "llvm/IR/Function.h"
 
-namespace parse {
+namespace minotaur {
 
 struct ParseException {
   std::string str;
@@ -14,7 +14,6 @@ struct ParseException {
     : str(std::move(str)), lineno(lineno) {}
 };
 
-minotaur::Inst* parse_rewrite(const llvm::Function &F, std::string rewrite);
-minotaur::Inst* parse(std::string_view buf, std::vector<std::unique_ptr<minotaur::Inst>>&);
+std::vector<Rewrite> parse_rewrite(const llvm::Function &F, std::string rewrite);
 
-}
+} // end namespace minotaur

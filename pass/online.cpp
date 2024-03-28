@@ -8,6 +8,7 @@
 #include "removal-slice.h"
 #include "util/random.h"
 #include "utils.h"
+#include "parse.h"
 
 #include "ir/instr.h"
 #include "llvm_util/llvm2alive.h"
@@ -40,6 +41,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
 #include "hiredis.h"
@@ -147,38 +149,53 @@ debug &operator<<(const T &s)
 static optional<Rewrite>
 infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN) {
   string bytecode;
+
+  vector<Rewrite> RHSs;
+
+  bool from_cache = false;
+
+  // try to parse the cached solution
   if (enable_caching) {
     llvm::raw_string_ostream bs(bytecode);
     WriteBitcodeToFile(*F.getParent(), bs);
     bs.flush();
     std::string rewrite;
+
     if (minotaur::hGet(bytecode.c_str(), bytecode.size(), rewrite, ctx)) {
       if (rewrite == "<no-sol>") {
         debug() << "[online] cache matched, but no solution found in "
                     "previous run, skipping function: "
                 << F.getName();
         return nullopt;
+      } else {
+        debug() << "[online] cache matched, using previous solution for "
+                    "function: "
+                << F.getName();
+        RHSs = parse_rewrite(F, rewrite);
+        if (RHSs.empty()) {
+          debug() << "[online] failed to parse cached solution\n";
+          return nullopt;
+        }
+        from_cache = true;
       }
     }
   }
 
-  vector<Rewrite> RHSs;
   if (no_infer) {
     debug() << "[online] skipping synthesizer\n";
-  } else {
+  } else if (!from_cache) {
     debug() << "[online] working on function:\n" << F;
     RHSs = EN.solve(F, I);
-  }
-
-  if (RHSs.empty()) {
-    if (enable_caching)
-      hSetNoSolution(bytecode.c_str(), bytecode.size(), ctx, F.getName());
-    return nullopt;
+    if (RHSs.empty()) {
+      if (enable_caching)
+        hSetNoSolution(bytecode.c_str(), bytecode.size(), ctx, F.getName());
+      return nullopt;
+    }
   }
 
   auto R = RHSs[0];
 
-  if (enable_caching) {
+  if (!from_cache && enable_caching) {
     string rewrite;
     raw_string_ostream rs(rewrite);
     R.I->print(rs);
