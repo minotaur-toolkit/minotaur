@@ -259,6 +259,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
   config::debug_tv = debug_tv;
   config::debug_slicer = debug_slicer;
   config::debug_codegen = debug_codegen;
+  config::debug_parser = debug_parser;
   config::slice_to = slice_to;
   smt::solver_print_queries(smt_verbose);
 

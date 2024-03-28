@@ -445,6 +445,8 @@ void match_vars(llvm::Function &F, vector<unique_ptr<minotaur::Inst>>&exprs) {
 namespace minotaur {
 
 vector<Rewrite> Parser::parse(const llvm::Function &F, std::string_view buf) {
+  debug() << "[parser] parsing: " << buf << '\n';
+
   parse::yylex_init(buf);
   if (parse::tokenizer.empty())
     debug()<<"cannot parse empty string\n";
