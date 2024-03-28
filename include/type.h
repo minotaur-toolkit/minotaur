@@ -11,6 +11,7 @@ namespace minotaur {
 
 class type {
   unsigned lane, bits;
+  bool scalar;
   bool fp;
 
 public:
