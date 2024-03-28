@@ -170,12 +170,13 @@ infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN) {
       } else {
         debug() << "[online] cache matched, using previous solution for "
                     "function: "
-                << F.getName();
+                << F.getName() << "\n";
         RHSs = parse_rewrite(F, rewrite);
         if (RHSs.empty()) {
           debug() << "[online] failed to parse cached solution\n";
           return nullopt;
         }
+        debug() << *RHSs[0].I << "\n";
         from_cache = true;
       }
     }
