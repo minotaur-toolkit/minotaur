@@ -135,14 +135,11 @@ target_link_libraries(minotaur-slice
   PRIVATE slice ${ALIVE_LIBS}
   $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 
-
-if(BUILD_PARSER_TEST)
-  add_llvm_executable(parse-tests "unit-tests/parse-tests.cpp")
-  set(GTEST_LIBS "-lgtest_main -lgtest -lpthread")
-  target_link_libraries(parse-tests
-    PRIVATE synthesizer ${GTEST_LIBS} ${ALIVE_LIBS} ${Z3_LIBRARIES}
-    $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
-endif(BUILD_PARSER_TEST)
+add_llvm_executable(parse-tests "unit-tests/parse-tests.cpp")
+set(GTEST_LIBS "-lgtest_main -lgtest -lpthread")
+target_link_libraries(parse-tests
+  PRIVATE synthesizer ${GTEST_LIBS} ${Z3_LIBRARIES}
+  $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
 
 if(APPLE)
     set_target_properties(online PROPERTIES

@@ -107,6 +107,11 @@ llvm::cl::opt<bool> debug_codegen(
     llvm::cl::desc("minotaur: enable alive2 debug output"),
     llvm::cl::init(false));
 
+llvm::cl::opt<bool> debug_parser(
+    "minotaur-debug-parser",
+    llvm::cl::desc("minotaur: enable alive2 debug output"),
+    llvm::cl::init(false));
+
 llvm::cl::opt<unsigned> redis_port(
     "minotaur-redis-port",
     llvm::cl::desc("redis port number"),
@@ -147,7 +152,7 @@ debug &operator<<(const T &s)
 };
 
 static optional<Rewrite>
-infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN) {
+infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, Parser &P) {
   string bytecode;
 
   vector<Rewrite> RHSs;
@@ -171,7 +176,7 @@ infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN) {
         debug() << "[online] cache matched, using previous solution for "
                     "function: "
                 << F.getName() << "\n";
-        RHSs = parse_rewrite(F, rewrite);
+        RHSs = P.parse(F, rewrite);
         if (RHSs.empty()) {
           debug() << "[online] failed to parse cached solution\n";
           return nullopt;
@@ -293,7 +298,8 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
     }
 
     Enumerator EN;
-    auto R = infer(F, retI, ctx, EN);
+    Parser P;
+    auto R = infer(F, retI, ctx, EN, P);
     if (!R.has_value()) {
       goto final;
     }
@@ -319,7 +325,8 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
           continue;
 
         Enumerator EN;
-        auto R = infer(NewF->first, NewF->second, ctx, EN);
+        Parser P;
+        auto R = infer(NewF->first, NewF->second, ctx, EN, P);
 
         if (!R.has_value())
           continue;
