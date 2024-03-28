@@ -14,6 +14,12 @@ struct ParseException {
     : str(std::move(str)), lineno(lineno) {}
 };
 
-std::vector<Rewrite> parse_rewrite(const llvm::Function &F, std::string rewrite);
+class Parser {
+  std::vector<std::unique_ptr<minotaur::Inst>> exprs;
+public:
+  std::vector<Rewrite> parse(const llvm::Function&, std::string_view);
+};
+
+
 
 } // end namespace minotaur

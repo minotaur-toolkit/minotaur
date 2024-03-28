@@ -1,7 +1,6 @@
-#pragma once
-
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
+#pragma once
 
 #include "llvm/Support/raw_ostream.h"
 #include <string>
@@ -16,6 +15,7 @@ extern bool debug_slicer;
 extern bool debug_enumerator;
 extern bool debug_tv;
 extern bool debug_codegen;
+extern bool debug_parser;
 extern bool ignore_machine_cost;
 extern bool smt_verbose;
 extern bool disable_avx512;

@@ -2,6 +2,7 @@
 // Distributed under the MIT license that can be found in the LICENSE file.
 #include "parse.h"
 #include "expr.h"
+#include "config.h"
 #include "lexer.h"
 
 #include "iostream"
@@ -18,6 +19,17 @@
 
 using namespace std;
 using namespace minotaur;
+
+struct debug {
+  template<class T>
+  debug &operator<<(const T &s)
+  {
+    if (minotaur::config::debug_parser)
+      minotaur::config::dbg()<<s;
+    return *this;
+  }
+};
+
 
 namespace parse {
 
@@ -429,12 +441,17 @@ void match_vars(llvm::Function &F, vector<unique_ptr<minotaur::Inst>>&exprs) {
   }
 }
 
-minotaur::Inst* parse(string_view buf, vector<unique_ptr<minotaur::Inst>>&exprs) {
-  yylex_init(buf);
-  if (tokenizer.empty())
-    llvm::report_fatal_error("cannot parse empty string");
+}
+namespace minotaur {
 
-  return parse_expr(exprs);
+vector<Rewrite> Parser::parse(const llvm::Function &F, std::string_view buf) {
+  parse::yylex_init(buf);
+  if (parse::tokenizer.empty())
+    debug()<<"cannot parse empty string\n";
+
+  Inst *I = parse::parse_expr(exprs);
+
+  return { Rewrite(I, 0, 0) };
 }
 
 }
