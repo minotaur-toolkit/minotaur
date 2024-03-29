@@ -38,7 +38,7 @@ public:
   : lane(t.getLane()), bits(t.getBits()), fp(t.isFP()) {}
   type(llvm::Type *t);
 
-  bool isVector() const { return lane != 1; }
+  bool isVector() const { return lane  > 1; }
   bool isScalar() const { return lane == 1; }
 
   bool operator==(const type &rhs) const;
