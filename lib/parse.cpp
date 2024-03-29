@@ -25,7 +25,7 @@ struct debug {
   debug &operator<<(const T &s)
   {
     if (minotaur::config::debug_parser)
-      minotaur::config::dbg()<<s;
+      minotaur::config::dbg()<<"[parser] "<<s;
     return *this;
   }
 };
@@ -115,18 +115,18 @@ static Value* parse_expr(vector<unique_ptr<minotaur::Inst>>&);
 
 static type parse_vector_type() {
   tokenizer.ensure(VECTOR_TYPE_PREFIX);
-  unsigned elements = yylval.num;
+  unsigned lanes = yylval.num;
 
   tokenizer.ensure(INT_TYPE);
   unsigned bits = yylval.num;
   tokenizer.ensure(CSGT);
-  return type(elements, bits, false);
+  return type::Vector(lanes, bits, false);
 }
 
 static type parse_scalar_type() {
   tokenizer.ensure(INT_TYPE);
   unsigned bits = yylval.num;
-  return type(1, bits, false);
+  return type::Scalar(bits, false);
 }
 
 static type parse_type() {
@@ -445,7 +445,7 @@ void match_vars(llvm::Function &F, vector<unique_ptr<minotaur::Inst>>&exprs) {
 namespace minotaur {
 
 vector<Rewrite> Parser::parse(const llvm::Function &F, std::string_view buf) {
-  debug() << "[parser] parsing: " << buf << '\n';
+  debug() << "parsing: " << buf << '\n';
 
   parse::yylex_init(buf);
   if (parse::tokenizer.empty())

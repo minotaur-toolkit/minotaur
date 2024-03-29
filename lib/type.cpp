@@ -18,10 +18,11 @@ namespace minotaur {
 
 type::type(llvm::Type *t) {
   if (t->isIntegerTy() || t->isIEEELikeFPTy()) {
-    lane = 1;
+    scalar = true;
     bits = t->getPrimitiveSizeInBits();
     fp = t->isIEEELikeFPTy();
   } else if (t->isVectorTy()) {
+    scalar = false;
     if (isa<llvm::ScalableVectorType>(t))
       report_fatal_error("scalable vector type not yet supported");
 
@@ -43,7 +44,8 @@ type::type(llvm::Type *t) {
 }
 
 bool type::operator==(const type &rhs) const {
-  return lane == rhs.lane && bits == rhs.bits && fp == rhs.fp;
+  return lane == rhs.lane && bits == rhs.bits &&
+         fp == rhs.fp && scalar == rhs.scalar;
 }
 
 bool type::same_width(const type &rhs) const {
@@ -78,7 +80,7 @@ Type* type::toLLVM(LLVMContext &C) const {
     Ty = Type::getIntNTy(C, bits);
   }
 
-  if (lane != 1) {
+  if (isVector()) {
     Ty = FixedVectorType::get(Ty, lane);
   }
 
@@ -106,15 +108,15 @@ bool type::isValid() const{
 }
 
 bool type::isBool() const {
-  return lane == 1 && bits == 1;
+  return scalar && bits == 1;
 }
 
-type type::getScalarTy() const {
-  return type(1, bits, fp);
+type type::getAsScalar() const {
+  return type(1, bits, true, fp);
 }
 
 type type::getAsIntTy() const {
-  return fp ? type (1, getWidth(), false): type(lane, bits, false);
+  return fp ? type::Integer(getWidth()): type::IntegerVector(lane, bits);
 }
 
 raw_ostream& operator<<(raw_ostream &os, const type &val) {
@@ -149,18 +151,18 @@ raw_ostream& operator<<(raw_ostream &os, const type &val) {
 }
 
 type getIntrinsicOp0Ty(IR::X86IntrinBinOp::Op op) {
-  return type(IR::X86IntrinBinOp::shape_op0[op].first,
-              IR::X86IntrinBinOp::shape_op0[op].second, false);
+  return type::IntegerVector(IR::X86IntrinBinOp::shape_op0[op].first,
+                             IR::X86IntrinBinOp::shape_op0[op].second);
 }
 
 type getIntrinsicOp1Ty(IR::X86IntrinBinOp::Op op) {
-  return type(IR::X86IntrinBinOp::shape_op1[op].first,
-              IR::X86IntrinBinOp::shape_op1[op].second, false);
+  return type::IntegerVector(IR::X86IntrinBinOp::shape_op1[op].first,
+                             IR::X86IntrinBinOp::shape_op1[op].second);
 }
 
 type getIntrinsicRetTy(IR::X86IntrinBinOp::Op op) {
-  return type(IR::X86IntrinBinOp::shape_ret[op].first,
-              IR::X86IntrinBinOp::shape_ret[op].second, false);
+  return type::IntegerVector(IR::X86IntrinBinOp::shape_ret[op].first,
+                             IR::X86IntrinBinOp::shape_ret[op].second);
 }
 
 vector<type> getIntegerVectorTypes(type ty) {
@@ -172,7 +174,7 @@ vector<type> getIntegerVectorTypes(type ty) {
   }
   for (unsigned i = 0 ; i < bits.size() ; ++ i) {
     if (width % bits[i] == 0 && width >= bits[i]) {
-      types.push_back(type(width/bits[i], bits[i], false));
+      types.push_back(type::IntegerVector(width/bits[i], bits[i]));
     }
   }
   return types;

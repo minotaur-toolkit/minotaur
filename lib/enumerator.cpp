@@ -232,9 +232,9 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
         continue;
     }
 
-    auto T = make_unique<ReservedConst>(type(1, 8, false));
+    auto T = make_unique<ReservedConst>(type::Integer(8));
     ReservedConst *idx = T.get();
-    auto ety = type(1, expected.getWidth(), expected.isFP());
+    auto ety = type::Scalar(expected.getWidth(), expected.isFP());
     set<ReservedConst*> RCs;
     RCs.insert(T.get());
     exprs.emplace_back(std::move(T));
@@ -243,7 +243,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
     exprs.emplace_back(std::move(EE));
   }
 
-  auto RC1 = make_unique<ReservedConst>(type());
+  auto RC1 = make_unique<ReservedConst>(type::Null());
   Comps.emplace_back(RC1.get());
 
   // binop
@@ -350,7 +350,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
               if (Cond == ICmp::sle || Cond == ICmp::ule)
                 continue;
               I = L;
-              auto jty = type(lanes, elem_bits, false);
+              auto jty = type::IntegerVector(lanes, elem_bits);
               auto T = make_unique<ReservedConst>(jty);
               J = T.get();
               RCs.insert(T.get());
@@ -436,12 +436,12 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
         auto worktys = getInsertElementWorkTypes(expected);
         for (auto ty : worktys) {
           set<ReservedConst*> RCs;
-          auto T1 = make_unique<ReservedConst>(ty.getScalarTy());
+          auto T1 = make_unique<ReservedConst>(ty.getAsScalar());
           Value *Elm = T1.get();
           RCs.insert(T1.get());
           exprs.emplace_back(std::move(T1));
 
-          auto T2 = make_unique<ReservedConst>(type(1, 8, false));
+          auto T2 = make_unique<ReservedConst>(type::Integer(8));
           ReservedConst *idx = T2.get();
           RCs.insert(T2.get());
           exprs.emplace_back(std::move(T2));
@@ -479,11 +479,11 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
         } else {
           auto lane = v_ty.getWidth() / elm_ty.getWidth();
           auto bits = elm_ty.getWidth();
-          v_ty = type(lane, bits, false);
-          elm_ty = type(1, bits, false);
+          v_ty = type::IntegerVector(lane, bits);
+          elm_ty = type::Integer(bits);
         }
 
-        auto T = make_unique<ReservedConst>(type(1, 8, false));
+        auto T = make_unique<ReservedConst>(type::Integer(8));
         ReservedConst *idx = T.get();
         RCs.insert(T.get());
         exprs.emplace_back(std::move(T));
@@ -562,9 +562,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
 
     auto tys = getShuffleWorkTypes(expected);
     for (auto ty : tys) {
-      type mask_ty = type(ty.getLane(), 32, false);
-      if (mask_ty.isScalar())
-        continue;
+      type mask_ty = type::IntegerVector(ty.getLane(), 32);
 
       if (op_ty.getWidth() % ty.getBits())
         continue;
@@ -591,8 +589,8 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
             continue;
           J = R;
         } else if (dynamic_cast<ReservedConst *>(*Op1)) {
-          type op_ty =
-            type((*Op0)->getType().getWidth() / ty.getBits(), ty.getBits(), false);
+          unsigned lanes = (*Op0)->getType().getWidth() / ty.getBits();
+          type op_ty = type::IntegerVector(lanes, ty.getBits());
           auto T = make_unique<ReservedConst>(op_ty);
           J = T.get();
           RCs.insert(T.get());
@@ -609,7 +607,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
   }
 
   // adding new reserved constants for ternary operators
-  auto RC2 = make_unique<ReservedConst>(type(0, 0, false));
+  auto RC2 = make_unique<ReservedConst>(type::Null());
   Comps.emplace_back(RC2.get());
 
   // select (i1, op, op)

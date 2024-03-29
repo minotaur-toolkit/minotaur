@@ -187,7 +187,7 @@ type FakeShuffleInst::getRetTy() {
 type FakeShuffleInst::getInputTy() {
   type lhs_ty = lhs->getType();
   unsigned lane = lhs_ty.getWidth()/getElementBits();
-  return type(lane, getElementBits(), lhs_ty.isFP());
+  return type::Vector(lane, getElementBits(), lhs_ty.isFP());
 }
 
 
@@ -202,7 +202,7 @@ void ExtractElement::print(raw_ostream &os) const {
 type ExtractElement::getInputTy() {
   type lhs_ty = v->getType();
   unsigned lane = lhs_ty.getWidth()/ty.getWidth();
-  return type(lane, ty.getWidth(), ty.isFP());
+  return type::Vector(lane, ty.getWidth(), ty.isFP());
 }
 
 
@@ -220,7 +220,7 @@ type InsertElement::getInputTy() const {
   type lhs_ty = v->getType();
   unsigned elt_width = elt->getType().getWidth();
   unsigned lane = lhs_ty.getWidth() / elt_width;
-  return type(lane, elt_width, ty.isFP());
+  return type::Vector(lane, elt_width, ty.isFP());
 }
 
 
@@ -269,7 +269,7 @@ type FPConversion::getPrevTy() const {
     return v->getType();
   } else {
     int bits = v->getType().getWidth() / ty.getLane();
-    return type(ty.getLane(), bits, false);
+    return type::IntegerVector(ty.getLane(), bits);
   }
 }
 
@@ -281,7 +281,7 @@ type FPConversion::getNewTy() const {
   type v_ty = v->getType();
   if (v_ty.isFP()) {
     int bits = ty.getWidth() / v_ty.getLane();
-    return type(v_ty.getLane(), bits, false);
+    return type::IntegerVector(v_ty.getLane(), bits);
   } else {
     return ty;
   }
@@ -314,7 +314,7 @@ vector<type> getUnaryOpWorkTypes(type ty, UnaryOp::Op op) {
     vector<type> types;
     for (unsigned i = 0 ; i < bits.size() ; ++ i) {
       if (width % bits[i] == 0 && width >= bits[i]) {
-        types.push_back(type(width/bits[i], bits[i], false));
+        types.push_back(type::IntegerVector(width/bits[i], bits[i]));
       }
     }
     return types;
@@ -353,7 +353,7 @@ vector<type> getConversionOpWorkTypes(type to, type from) {
 vector<type> getInsertElementWorkTypes(type ty) {
   if (ty.isFP()) {
     if (ty.getLane() != 1) {
-      return { ty.getScalarTy() };
+      return { ty.getAsScalar() };
     } else {
       return {};
     }
@@ -363,7 +363,7 @@ vector<type> getInsertElementWorkTypes(type ty) {
 
   if (width % 16 != 0) {
     if (ty.getLane() != 1) {
-      return { ty.getScalarTy() };
+      return { ty.getAsScalar() };
     } else {
       return {};
     }
@@ -374,7 +374,7 @@ vector<type> getInsertElementWorkTypes(type ty) {
 
   for (unsigned i = 0 ; i < bits.size() ; ++ i) {
     if (width % bits[i] == 0 && width > bits[i]) {
-      types.push_back(type(width/bits[i], bits[i], false));
+      types.push_back(type::IntegerVector(width/bits[i], bits[i]));
     }
   }
   return types;
