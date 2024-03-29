@@ -116,7 +116,6 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
     for (auto workty : tys) {
       unsigned op_bits = workty.getBits();
       unsigned lane = workty.getLane();
-
       if (expected.getWidth() % lane != 0)
         continue;
 
@@ -458,8 +457,8 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
           RCs.insert(T.get());
           exprs.emplace_back(std::move(T));
         }
-        auto v_ty = V->getType();
-        auto elm_ty = Elm->getType();
+        type v_ty = V->getType();
+        type elm_ty = Elm->getType();
 
         if (v_ty.getWidth() != expected.getWidth())
           continue;

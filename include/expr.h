@@ -142,10 +142,6 @@ public:
            op == fmaximum || op == fminimum;
   }
 
-  static bool isLaneIndependent(Op op) {
-    return op == band || op == bor || op == bxor;
-  }
-
   static bool isLogical(Op op) {
     return op == band || op == bor || op == bxor;
   }

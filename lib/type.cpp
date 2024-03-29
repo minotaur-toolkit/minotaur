@@ -19,6 +19,7 @@ namespace minotaur {
 type::type(llvm::Type *t) {
   if (t->isIntegerTy() || t->isIEEELikeFPTy()) {
     scalar = true;
+    lane = 1;
     bits = t->getPrimitiveSizeInBits();
     fp = t->isIEEELikeFPTy();
   } else if (t->isVectorTy()) {
@@ -119,15 +120,15 @@ type type::getAsIntTy() const {
   return fp ? type::Integer(getWidth()): type::IntegerVector(lane, bits);
 }
 
-raw_ostream& operator<<(raw_ostream &os, const type &val) {
-  if (!val.isValid()) {
+raw_ostream& operator<<(raw_ostream &os, const type &ty) {
+  if (!ty.isValid()) {
     os<<"null";
     return os;
   }
-
-  if (val.fp) {
-    os<<"<"<<val.lane<<" x ";
-    switch(val.bits) {
+  if (ty.isVector())
+    os<<"<"<<ty.lane<<" x ";
+  if (ty.isFP()) {
+    switch(ty.bits) {
     case 16:
       os<<"half";
       break;
@@ -143,10 +144,11 @@ raw_ostream& operator<<(raw_ostream &os, const type &val) {
     default:
       UNREACHABLE();
     }
-    os<<">";
   } else {
-    os<<"<"<<val.lane<<" x i"<<val.bits<<">";
+    os<<"i"<<ty.bits;
   }
+  if (ty.isVector())
+    os<<">";
   return os;
 }
 
@@ -167,12 +169,14 @@ type getIntrinsicRetTy(IR::X86IntrinBinOp::Op op) {
 
 vector<type> getIntegerVectorTypes(type ty) {
   unsigned width = ty.getWidth();
-  vector<unsigned> bits = {64, 32, 16, 8};
-  vector<type> types;
+
   if (width % 8 != 0) {
     return { ty };
   }
-  for (unsigned i = 0 ; i < bits.size() ; ++ i) {
+
+  vector<unsigned> bits{64, 32, 16, 8};
+  vector<type> types;
+  for (unsigned i = 0 ; i < 4 ; ++ i) {
     if (width % bits[i] == 0 && width >= bits[i]) {
       types.push_back(type::IntegerVector(width/bits[i], bits[i]));
     }

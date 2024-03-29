@@ -330,7 +330,7 @@ vector<type> getBinaryOpWorkTypes(type ty, BinaryOp::Op op) {
     } else {
       return {};
     }
-  } else if (BinaryOp::isLaneIndependent(op)) {
+  } else if (BinaryOp::isLogical(op)) {
     return { ty.getAsIntTy() };
   } else {
     return getIntegerVectorTypes(ty);
