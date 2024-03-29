@@ -25,7 +25,7 @@ struct debug {
   debug &operator<<(const T &s)
   {
     if (minotaur::config::debug_parser)
-      minotaur::config::dbg()<<"[parser] "<<s;
+      minotaur::config::dbg()<<s;
     return *this;
   }
 };
@@ -445,11 +445,11 @@ void match_vars(llvm::Function &F, vector<unique_ptr<minotaur::Inst>>&exprs) {
 namespace minotaur {
 
 vector<Rewrite> Parser::parse(const llvm::Function &F, std::string_view buf) {
-  debug() << "parsing: " << buf << '\n';
+  debug() << "[parser] parsing: " << buf << '\n';
 
   parse::yylex_init(buf);
   if (parse::tokenizer.empty())
-    debug()<<"cannot parse empty string\n";
+    debug()<<"[parser] cannot parse empty string\n";
 
   Inst *I = parse::parse_expr(exprs);
 
