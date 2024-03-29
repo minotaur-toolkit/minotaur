@@ -231,7 +231,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
         continue;
     }
 
-    auto T = make_unique<ReservedConst>(type::Integer(8));
+    auto T = make_unique<ReservedConst>(type::Integer(16));
     ReservedConst *idx = T.get();
     auto ety = type::Scalar(expected.getWidth(), expected.isFP());
     set<ReservedConst*> RCs;
@@ -440,7 +440,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
           RCs.insert(T1.get());
           exprs.emplace_back(std::move(T1));
 
-          auto T2 = make_unique<ReservedConst>(type::Integer(8));
+          auto T2 = make_unique<ReservedConst>(type::Integer(16));
           ReservedConst *idx = T2.get();
           RCs.insert(T2.get());
           exprs.emplace_back(std::move(T2));
@@ -482,7 +482,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
           elm_ty = type::Integer(bits);
         }
 
-        auto T = make_unique<ReservedConst>(type::Integer(8));
+        auto T = make_unique<ReservedConst>(type::Integer(16));
         ReservedConst *idx = T.get();
         RCs.insert(T.get());
         exprs.emplace_back(std::move(T));
