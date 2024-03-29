@@ -349,7 +349,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
               if (Cond == ICmp::sle || Cond == ICmp::ule)
                 continue;
               I = L;
-              auto jty = type::IntegerVector(lanes, elem_bits);
+              auto jty = type::IntegerVectorizable(lanes, elem_bits);
               auto T = make_unique<ReservedConst>(jty);
               J = T.get();
               RCs.insert(T.get());
@@ -478,7 +478,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
         } else {
           auto lane = v_ty.getWidth() / elm_ty.getWidth();
           auto bits = elm_ty.getWidth();
-          v_ty = type::IntegerVector(lane, bits);
+          v_ty = type::IntegerVectorizable(lane, bits);
           elm_ty = type::Integer(bits);
         }
 
@@ -561,7 +561,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
 
     auto tys = getShuffleWorkTypes(expected);
     for (auto ty : tys) {
-      type mask_ty = type::IntegerVector(ty.getLane(), 32);
+      type mask_ty = type::IntegerVectorizable(ty.getLane(), 32);
 
       if (op_ty.getWidth() % ty.getBits())
         continue;
@@ -589,7 +589,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
           J = R;
         } else if (dynamic_cast<ReservedConst *>(*Op1)) {
           unsigned lanes = (*Op0)->getType().getWidth() / ty.getBits();
-          type op_ty = type::IntegerVector(lanes, ty.getBits());
+          type op_ty = type::IntegerVectorizable(lanes, ty.getBits());
           auto T = make_unique<ReservedConst>(op_ty);
           J = T.get();
           RCs.insert(T.get());

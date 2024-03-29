@@ -187,7 +187,7 @@ type FakeShuffleInst::getRetTy() {
 type FakeShuffleInst::getInputTy() {
   type lhs_ty = lhs->getType();
   unsigned lane = lhs_ty.getWidth()/getElementBits();
-  return type::Vector(lane, getElementBits(), lhs_ty.isFP());
+  return type::Vectorizable(lane, getElementBits(), lhs_ty.isFP());
 }
 
 
@@ -202,7 +202,7 @@ void ExtractElement::print(raw_ostream &os) const {
 type ExtractElement::getInputTy() {
   type lhs_ty = v->getType();
   unsigned lane = lhs_ty.getWidth()/ty.getWidth();
-  return type::Vector(lane, ty.getWidth(), ty.isFP());
+  return type::Vectorizable(lane, ty.getWidth(), ty.isFP());
 }
 
 
@@ -220,7 +220,7 @@ type InsertElement::getInputTy() const {
   type lhs_ty = v->getType();
   unsigned elt_width = elt->getType().getWidth();
   unsigned lane = lhs_ty.getWidth() / elt_width;
-  return type::Vector(lane, elt_width, ty.isFP());
+  return type::Vectorizable(lane, elt_width, ty.isFP());
 }
 
 
@@ -269,7 +269,7 @@ type FPConversion::getPrevTy() const {
     return v->getType();
   } else {
     int bits = v->getType().getWidth() / ty.getLane();
-    return type::IntegerVector(ty.getLane(), bits);
+    return type::IntegerVectorizable(ty.getLane(), bits);
   }
 }
 
@@ -281,7 +281,7 @@ type FPConversion::getNewTy() const {
   type v_ty = v->getType();
   if (v_ty.isFP()) {
     int bits = ty.getWidth() / v_ty.getLane();
-    return type::IntegerVector(v_ty.getLane(), bits);
+    return type::IntegerVectorizable(v_ty.getLane(), bits);
   } else {
     return ty;
   }
@@ -314,7 +314,7 @@ vector<type> getUnaryOpWorkTypes(type ty, UnaryOp::Op op) {
     vector<type> types;
     for (unsigned i = 0 ; i < bits.size() ; ++ i) {
       if (width % bits[i] == 0 && width >= bits[i]) {
-        types.push_back(type::IntegerVector(width/bits[i], bits[i]));
+        types.push_back(type::IntegerVectorizable(width/bits[i], bits[i]));
       }
     }
     return types;
@@ -374,7 +374,7 @@ vector<type> getInsertElementWorkTypes(type ty) {
 
   for (unsigned i = 0 ; i < bits.size() ; ++ i) {
     if (width % bits[i] == 0 && width > bits[i]) {
-      types.push_back(type::IntegerVector(width/bits[i], bits[i]));
+      types.push_back(type::IntegerVectorizable(width/bits[i], bits[i]));
     }
   }
   return types;

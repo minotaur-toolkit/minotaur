@@ -120,7 +120,7 @@ static type parse_vector_type() {
   tokenizer.ensure(INT_TYPE);
   unsigned bits = yylval.num;
   tokenizer.ensure(CSGT);
-  return type::Vector(lanes, bits, false);
+  return type::Vectorizable(lanes, bits, false);
 }
 
 static type parse_scalar_type() {

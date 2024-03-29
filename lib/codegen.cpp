@@ -258,7 +258,7 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
   } else if (auto IC = dynamic_cast<ICmp*>(I)) {
     auto op0 = codeGenImpl(IC->L(), VMap);
     auto IC_ty = IC->getType();
-    auto workty = type::IntegerVector(IC_ty.getLane(), IC->getBits());
+    auto workty = type::IntegerVectorizable(IC_ty.getLane(), IC->getBits());
     op0 = bitcastTo(op0, workty.toLLVM(C));
 
     auto op1 = codeGenImpl(IC->R(), VMap);

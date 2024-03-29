@@ -18,12 +18,10 @@ namespace minotaur {
 
 type::type(llvm::Type *t) {
   if (t->isIntegerTy() || t->isIEEELikeFPTy()) {
-    scalar = true;
     lane = 1;
     bits = t->getPrimitiveSizeInBits();
     fp = t->isIEEELikeFPTy();
   } else if (t->isVectorTy()) {
-    scalar = false;
     if (isa<llvm::ScalableVectorType>(t))
       report_fatal_error("scalable vector type not yet supported");
 
@@ -46,7 +44,7 @@ type::type(llvm::Type *t) {
 
 bool type::operator==(const type &rhs) const {
   return lane == rhs.lane && bits == rhs.bits &&
-         fp == rhs.fp && scalar == rhs.scalar;
+         fp == rhs.fp;
 }
 
 bool type::same_width(const type &rhs) const {
@@ -109,15 +107,15 @@ bool type::isValid() const{
 }
 
 bool type::isBool() const {
-  return scalar && bits == 1;
+  return lane == 1 && bits == 1;
 }
 
 type type::getAsScalar() const {
-  return type(1, bits, true, fp);
+  return type(1, bits, fp);
 }
 
 type type::getAsIntTy() const {
-  return fp ? type::Integer(getWidth()): type::IntegerVector(lane, bits);
+  return fp ? type::Integer(getWidth()): type::IntegerVectorizable(lane, bits);
 }
 
 raw_ostream& operator<<(raw_ostream &os, const type &ty) {
@@ -153,18 +151,18 @@ raw_ostream& operator<<(raw_ostream &os, const type &ty) {
 }
 
 type getIntrinsicOp0Ty(IR::X86IntrinBinOp::Op op) {
-  return type::IntegerVector(IR::X86IntrinBinOp::shape_op0[op].first,
-                             IR::X86IntrinBinOp::shape_op0[op].second);
+  return type::IntegerVectorizable(IR::X86IntrinBinOp::shape_op0[op].first,
+                                   IR::X86IntrinBinOp::shape_op0[op].second);
 }
 
 type getIntrinsicOp1Ty(IR::X86IntrinBinOp::Op op) {
-  return type::IntegerVector(IR::X86IntrinBinOp::shape_op1[op].first,
-                             IR::X86IntrinBinOp::shape_op1[op].second);
+  return type::IntegerVectorizable(IR::X86IntrinBinOp::shape_op1[op].first,
+                                   IR::X86IntrinBinOp::shape_op1[op].second);
 }
 
 type getIntrinsicRetTy(IR::X86IntrinBinOp::Op op) {
-  return type::IntegerVector(IR::X86IntrinBinOp::shape_ret[op].first,
-                             IR::X86IntrinBinOp::shape_ret[op].second);
+  return type::IntegerVectorizable(IR::X86IntrinBinOp::shape_ret[op].first,
+                                   IR::X86IntrinBinOp::shape_ret[op].second);
 }
 
 vector<type> getIntegerVectorTypes(type ty) {
@@ -178,7 +176,7 @@ vector<type> getIntegerVectorTypes(type ty) {
   vector<type> types;
   for (unsigned i = 0 ; i < 4 ; ++ i) {
     if (width % bits[i] == 0 && width >= bits[i]) {
-      types.push_back(type::IntegerVector(width/bits[i], bits[i]));
+      types.push_back(type::IntegerVectorizable(width/bits[i], bits[i]));
     }
   }
   return types;

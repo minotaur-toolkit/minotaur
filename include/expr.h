@@ -158,7 +158,7 @@ private:
   Value *rhs;
 public:
   ICmp(Cond cond, Value &lhs, Value &rhs, unsigned lanes)
-  : Value(type::Vector(lanes, 1, false)) , cond(cond), lhs(&lhs), rhs(&rhs) {}
+  : Value(type::IntegerVectorizable(lanes, 1)) , cond(cond), lhs(&lhs), rhs(&rhs) {}
   void print(llvm::raw_ostream &os) const override;
   Value *L() { return lhs; }
   Value *R() { return rhs; }
@@ -177,7 +177,7 @@ private:
   Value *rhs;
 public:
   FCmp(Cond cond, Value &lhs, Value &rhs, unsigned lanes)
-  : Value(type::Vector(lanes, 1, false)) , cond(cond), lhs(&lhs), rhs(&rhs) {}
+  : Value(type::IntegerVectorizable(lanes, 1)) , cond(cond), lhs(&lhs), rhs(&rhs) {}
   void print(llvm::raw_ostream &os) const override;
   Value *L() { return lhs; }
   Value *R() { return rhs; }
@@ -309,13 +309,13 @@ private:
   unsigned lane, prev_bits, new_bits;
 public:
   IntConversion(Op op, Value &v, unsigned l, unsigned pb, unsigned nb)
-  : Value(type::IntegerVector(l, nb)), k(op), v(&v), lane(l),
+  : Value(type::IntegerVectorizable(l, nb)), k(op), v(&v), lane(l),
     prev_bits(pb), new_bits(nb) {}
   void print(llvm::raw_ostream &os) const override;
   Value *V() { return v; }
   Op K() { return k; }
-  type getPrevTy () const { return type::IntegerVector(lane, prev_bits); }
-  type getNewTy () const { return type::IntegerVector(lane, new_bits); }
+  type getPrevTy () const { return type::IntegerVectorizable(lane, prev_bits); }
+  type getNewTy () const { return type::IntegerVectorizable(lane, new_bits); }
 };
 
 
