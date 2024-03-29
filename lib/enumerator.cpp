@@ -698,8 +698,7 @@ vector<Rewrite> Enumerator::solve(llvm::Function &F, llvm::Instruction *I) {
 
   llvm::Triple Triple = llvm::Triple(F.getParent()->getTargetTriple());
   llvm::TargetLibraryInfoWrapperPass TLI(Triple);
-  AliveEngine AE_TV(TLI, false);
-  AliveEngine AE_CS(TLI, true);
+  AliveEngine AE(TLI, true);
 
   unsigned costBefore = get_machine_cost(&F);
 
@@ -853,9 +852,9 @@ push:
 
     try {
       if (!HaveC) {
-        Good = AE_TV.compareFunctions(*Src, *Tgt);
+        Good = AE.compareFunctions(*Src, *Tgt);
       } else {
-        Good = AE_CS.constantSynthesis(*Src, *Tgt, ConstantResults);
+        Good = AE.constantSynthesis(*Src, *Tgt, ConstantResults);
       }
     } catch (AliveException E) {
       debug() << E.msg << "\n";
