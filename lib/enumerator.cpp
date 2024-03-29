@@ -223,8 +223,6 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
     if (op0_ty.getWidth() % expected.getWidth())
       continue;
     unsigned lanes = op0_ty.getWidth() / expected.getWidth();
-    if (lanes > 1024)
-      continue;
     if (op0_ty.isFP() ^ expected.isFP())
       continue;
     if (op0_ty.isFP()) {
