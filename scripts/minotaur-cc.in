@@ -54,6 +54,10 @@ if (getenv("MINOTAUR_DEBUG_SLICER")) {
   push @ARGV, ("-mllvm", "-minotaur-no-infer");
 }
 
+if (getenv("MINOTAUR_DEBUG")) {
+  push @ARGV, ("-mllvm", "-minotaur-debug-enumerator");
+}
+
 if (getenv("MINOTAUR_NO_INFER")) {
   push @ARGV, ("-mllvm", "-minotaur-no-infer");
 }
