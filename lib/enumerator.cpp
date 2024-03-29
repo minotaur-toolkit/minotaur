@@ -851,7 +851,7 @@ push:
 
     try {
       if (!HaveC) {
-        AliveEngine AE(TLI, false);
+        AliveEngine AE(TLI, true);
         Good = AE.compareFunctions(*Src, *Tgt);
       } else {
         AliveEngine AE(TLI, true);
