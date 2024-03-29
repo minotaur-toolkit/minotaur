@@ -138,20 +138,15 @@ static type parse_type() {
 }
 
 static Var* parse_var(vector<unique_ptr<minotaur::Inst>>&exprs) {
-  /*
   tokenizer.ensure(BITS);
   unsigned width = yylval.num;
   tokenizer.ensure(REGISTER);
   string id(yylval.str);
   tokenizer.ensure(RPAREN);
 
-  auto V = make_unique<Var>(id, type);
+  /*auto V = make_unique<Var>(id, );
   Var *T = V.get();
-  exprs.emplace_back(std::move(V));
-  return T;
-  */
-
-  // TODO: fix me
+  exprs.emplace_back(std::move(V));*/
   return nullptr;
 }
 
@@ -259,7 +254,7 @@ Value* parse_binary(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
   default:
     UNREACHABLE();
   }
-  auto workty = parse_vector_type();
+  auto workty = parse_type();
   auto a = parse_expr(exprs);
   auto b = parse_expr(exprs);
 

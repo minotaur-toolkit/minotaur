@@ -166,7 +166,7 @@ Slice::extractExpr(Value &v) {
     auto &[w, depth] = worklist.front();
     worklist.pop();
 
-    if (depth > config::slicer_max_depth)
+    if (depth >= config::slicer_max_depth)
       continue;
 
     if (!visited.insert(w).second)
