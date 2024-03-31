@@ -7,5 +7,4 @@ set -e
   -minotaur-enable-caching=true \
   -minotaur-no-slice=true \
   -minotaur-force-infer=true \
-  -minotaur-debug-enumerator=true \
   -S
