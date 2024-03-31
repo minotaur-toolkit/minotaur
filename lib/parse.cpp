@@ -396,6 +396,33 @@ IntConversion *Parser::parse_intconv(token op_token) {
   return T;
 }
 
+FPConversion *Parser::parse_fpconv(token op_token) {
+  FPConversion::Op op;
+  switch (op_token) {
+  case CONV_FPEXT:
+    op = FPConversion::fpext; break;
+  case CONV_FPTRUNC:
+    op = FPConversion::fptrunc; break;
+  case CONV_SITOFP:
+    op = FPConversion::sitofp; break;
+  case CONV_UITOFP:
+    op = FPConversion::uitofp; break;
+  case CONV_FPTOSI:
+    op = FPConversion::fptosi; break;
+  case CONV_FPTOUI:
+    op = FPConversion::fptoui; break;
+  default:
+    UNREACHABLE();
+  }
+  auto a = parse_expr();
+  auto ty = parse_type();
+
+  tokenizer.ensure(RPAREN);
+  auto CI = make_unique<FPConversion>(op, *a, ty);
+  FPConversion *T = CI.get();
+  exprs.emplace_back(std::move(CI));
+  return T;
+}
 
 SIMDBinOpInst *Parser::parse_x86(string_view ops) {
   IR::X86IntrinBinOp::Op op;
@@ -524,6 +551,14 @@ Value* Parser::parse_expr() {
   case CONV_SEXT:
   case CONV_TRUNC:
     return parse_intconv(t);
+  case CONV_FPTRUNC:
+  case CONV_FPEXT:
+  case CONV_SITOFP:
+  case CONV_UITOFP:
+  case CONV_FPTOSI:
+  case CONV_FPTOUI:
+    return parse_fpconv(t);
+
   case X86BINARY:
     return parse_x86(yylval.str);
   case VAR:
