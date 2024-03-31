@@ -170,7 +170,7 @@ infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, parse::Par
       if (rewrite == "<no-sol>") {
         debug() << "[online] cache matched, but no solution found in "
                     "previous run, skipping function: "
-                << F.getName();
+                << F.getName() << "\n";
         return nullopt;
       } else {
         debug() << "[online] cache matched, using previous solution for "

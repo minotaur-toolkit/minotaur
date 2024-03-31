@@ -107,6 +107,7 @@ if ($DUMPALL) {
         my $time   = $h{"timestamp"};
         my $fn     = $h{"fn"};
         my $ir     = parse($opt);
+        my $rewrite = $h{"rewrite"};
         if ($TOFILES) {
             open(my $fh, ">", "dump_$count.ll");
             print $fh $ir;
@@ -114,6 +115,7 @@ if ($DUMPALL) {
             close $fh;
         } else {
             print $ir, "\n";
+            print "rewrite: $rewrite\n";
             print "timestamp: $time\n";
             print "in fn: $fn\n";
             print "\n------------------------------------------------------\n";
