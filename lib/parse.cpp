@@ -406,42 +406,6 @@ Value* Parser::parse_expr() {
   }
 }
 
-void match_vars(llvm::Function &F, vector<unique_ptr<minotaur::Inst>>&exprs) {
-  unordered_map<std::string, llvm::Value*> name_map;
-  for (llvm::inst_iterator I = llvm::inst_begin(F), E = inst_end(F); I != E; ++I) {
-    if (I->getType()->isVoidTy())
-      continue;
-    string name;
-    llvm::raw_string_ostream ss(name);
-    I->printAsOperand(ss, false);
-    ss.flush();
-    if (name_map.contains(name)) {
-      llvm::report_fatal_error("why there's duplicated names");
-    }
-    name_map[name] = &*I;
-  }
-  for (unsigned i = 0 ; i < F.arg_size() ; ++i) {
-    llvm::Argument *arg = F.getArg(i);
-    string name;
-    llvm::raw_string_ostream ss(name);
-    arg->printAsOperand(ss, false);
-    ss.flush();
-    if (name_map.contains(name)) {
-      llvm::report_fatal_error("why there's duplicated names");
-    }
-    name_map[name] = arg;
-  }
-  for (auto &expr : exprs) {
-    auto E = expr.get();
-    if (Var *V = dynamic_cast<Var*>(E)) {
-      if (!name_map.contains(V->getName()))
-        llvm::report_fatal_error("value not found");
-      else
-        V->setValue(name_map.at(V->getName()));
-    }
-  }
-}
-
 vector<Rewrite> Parser::parse(const llvm::Function &F, std::string_view buf) {
   debug() << "[parser] parsing: " << buf << '\n';
 
