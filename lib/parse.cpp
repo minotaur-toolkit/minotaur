@@ -179,12 +179,9 @@ unsigned parse_number() {
 }
 
 ReservedConst* Parser::parse_const() {
-  //fixme: parse const
   string id(yylval.str);
 
   type t = parse_type();
-
-  debug() << t << '\n';
 
   tokenizer.ensure(LITERAL);
   string lt(yylval.str);
@@ -315,7 +312,6 @@ ICmp *Parser::parse_icmp(token op_token) {
 }
 
 FakeShuffleInst *Parser::parse_shuffle(token op_token) {
-
   auto workty = parse_vector_type();
   auto lhs = parse_expr();
   auto rhs = op_token == BLEND ? parse_expr() : nullptr;
