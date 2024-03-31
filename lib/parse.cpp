@@ -179,8 +179,6 @@ unsigned parse_number() {
 }
 
 ReservedConst* Parser::parse_const() {
-  string id(yylval.str);
-
   type t = parse_type();
 
   tokenizer.ensure(LITERAL);
