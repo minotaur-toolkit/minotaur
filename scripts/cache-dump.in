@@ -184,7 +184,7 @@ foreach my $opt (sort $byx keys %toprint) {
     my $rewrite = $rewrite{$opt};
     my $ca = $costafter{$opt};
     my $cb = $costbefore{$opt};
-    my $obc = $optbc{$opt};
+    # my $obc = $optbc{$opt};
 
     if ($TOFILES) {
         open(my $fh, ">", "dump_$count.src.ll");
@@ -198,8 +198,8 @@ foreach my $opt (sort $byx keys %toprint) {
     } else {
         print "; src ---------------------------------------------------\n";
         print $ir, "\n";
-        print "; tgt ---------------------------------------------------\n";
-        print $obc, "\n";
+        # print "; tgt ---------------------------------------------------\n";
+        # print $obc, "\n";
         print "; stats -------------------------------------------------\n";
         print "; minotaur_rewrite: $rewrite \n";
         print "; minotaur_cost-before: $cb\n";
