@@ -28,8 +28,6 @@
 #include <functional>
 #include <optional>
 #include <queue>
-#include <unordered_map>
-#include <unordered_set>
 
 using namespace llvm;
 using namespace std;
@@ -80,13 +78,13 @@ static bool isUnsupportedTy(llvm::Type *ty) {
 }
 
 static bool walk(BasicBlock* current, BasicBlock* target,
-                 unordered_set<BasicBlock*> &blocks,
+                 set<BasicBlock*> &blocks,
                  DominatorTree &DT) {
   auto s = [&DT](auto self,
                  BasicBlock* current,
                  BasicBlock* target,
-                 unordered_set<BasicBlock*>& visited,
-                 unordered_set<BasicBlock*>& result) -> bool {
+                 set<BasicBlock*>& visited,
+                 set<BasicBlock*>& result) -> bool {
     if (visited.size() > 20) {
       debug() << "[slicer] block too distant from root, skipping\n";
       return false;
@@ -112,7 +110,7 @@ static bool walk(BasicBlock* current, BasicBlock* target,
   /*debug () << "[slicer] start walking from " << current->getName() << " to "
            << target->getName() << "\n";*/
 
-  unordered_set<BasicBlock*> visited = { current };
+  set<BasicBlock*> visited = { current };
 
   return s(s, current, target, visited, blocks);
 }
@@ -152,7 +150,7 @@ Slice::extractExpr(Value &v) {
 
   ValueToValueMapTy vmap;
   set<Instruction*> insts;
-  unordered_map<BasicBlock*, vector<pair<Instruction*,unsigned>>> bb_insts;
+  map<BasicBlock*, vector<pair<Instruction*,unsigned>>> bb_insts;
 
   worklist.push({&v, 0});
 
@@ -284,9 +282,9 @@ Slice::extractExpr(Value &v) {
     return nullopt;
   }
 
-  unordered_set<BasicBlock*> blocks;
+  set<BasicBlock*> blocks;
   blocks.insert(vbb);
-  unordered_map<BasicBlock*, unordered_set<BasicBlock*>> bb_deps;
+  map<BasicBlock*, set<BasicBlock*>> bb_deps;
   for (auto i : insts) {
     blocks.insert(i->getParent());
     // incoming block -> def block
@@ -381,7 +379,6 @@ Slice::extractExpr(Value &v) {
   unsigned name_count = 0;
   // clone instructions
   vector<Instruction *> cloned_insts;
-  unordered_set<Value *> inst_set(insts.begin(), insts.end());
   for (auto inst : insts) {
     Instruction *c = inst->clone();
     vmap[inst] = c;
@@ -399,8 +396,8 @@ Slice::extractExpr(Value &v) {
   BasicBlock *sinkbb = BasicBlock::Create(ctx, "sink");
   new UnreachableInst(ctx, sinkbb);
 
-  unordered_set<BasicBlock *> cloned_blocks;
-  unordered_map<BasicBlock *, BasicBlock *> bmap;
+  set<BasicBlock *> cloned_blocks;
+  map<BasicBlock *, BasicBlock *> bmap;
   {
     // pass 3.1.1;
     // + duplicate BB;
@@ -470,8 +467,8 @@ Slice::extractExpr(Value &v) {
   // pass 4;
   // + remap the operands of duplicated instructions with vmap from pass 1
   // + if a operand value is unknown, reserve a function parameter for it
-  SmallVector<Type *, 4> argTys;
-  DenseMap<Value *, unsigned> argMap;
+  vector<Type *> argTys;
+  map<Value *, unsigned> argMap;
   unsigned idx = 0;
   for (auto &i : cloned_insts) {
     RemapInstruction(i, vmap, RF_IgnoreMissingLocals);
@@ -495,7 +492,7 @@ Slice::extractExpr(Value &v) {
   }
   argTys.push_back(Type::getInt16Ty(ctx));
 
-  unordered_set<BasicBlock *> block_without_preds;
+  set<BasicBlock *> block_without_preds;
   for (auto block : cloned_blocks) {
     auto preds = predecessors(block);
     if (preds.empty()) {
