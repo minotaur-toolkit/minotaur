@@ -156,6 +156,23 @@ space+ {
 "icmp_sgt" { return SGT; }
 "icmp_sge" { return SGE; }
 
+"fcmp_t"   { return FCMP_TRUE;   }
+"fcmp_oeq" { return FCMP_OEQ; }
+"fcmp_ogt" { return FCMP_OGT; }
+"fcmp_oge" { return FCMP_OGE; }
+"fcmp_olt" { return FCMP_OLT; }
+"fcmp_ole" { return FCMP_OLE; }
+"fcmp_one" { return FCMP_ONE; }
+"fcmp_ord" { return FCMP_ORD; }
+"fcmp_ueq" { return FCMP_UEQ; }
+"fcmp_ugt" { return FCMP_UGT; }
+"fcmp_uge" { return FCMP_UGE; }
+"fcmp_ult" { return FCMP_ULT; }
+"fcmp_ule" { return FCMP_ULE; }
+"fcmp_une" { return FCMP_UNE; }
+"fcmp_uno" { return FCMP_UNO; }
+"fcmp_f"   { return FCMP_FALSE; }
+
 "blend"   { return BLEND;   }
 "shuffle" { return SHUFFLE; }
 "select"  { return SELECT;  }

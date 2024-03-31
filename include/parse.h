@@ -25,6 +25,7 @@ class Parser {
   minotaur::UnaryOp         *parse_unary(token);
   minotaur::BinaryOp        *parse_binary(token);
   minotaur::ICmp            *parse_icmp(token);
+  minotaur::FCmp            *parse_fcmp(token);
   minotaur::FakeShuffleInst *parse_shuffle(token);
   minotaur::IntConversion   *parse_intconv(token);
   minotaur::FPConversion    *parse_fpconv(token);

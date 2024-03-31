@@ -225,9 +225,9 @@ type InsertElement::getInputTy() const {
 void IntConversion::print(raw_ostream &os) const {
   const char *str = nullptr;
   switch (k) {
-  case sext:  str = "conv_sext"; break;
-  case zext:  str = "conv_zext"; break;
-  case trunc: str = "conv_trunc"; break;
+  case sext:  str = "sext"; break;
+  case zext:  str = "zext"; break;
+  case trunc: str = "trunc"; break;
   }
 
   os << "(conv_"<< str << " ";
@@ -241,12 +241,12 @@ void IntConversion::print(raw_ostream &os) const {
 void FPConversion::print(raw_ostream &os) const {
   const char *str = nullptr;
   switch (k) {
-  case fptrunc: str = "conv_fptrunc"; break;
-  case fpext:   str = "conv_fpext";   break;
-  case fptoui:  str = "conv_fptoui";  break;
-  case fptosi:  str = "conv_fptosi";  break;
-  case uitofp:  str = "conv_uitofp";  break;
-  case sitofp:  str = "conv_sitofp";  break;
+  case fptrunc: str = "fptrunc"; break;
+  case fpext:   str = "fpext";   break;
+  case fptoui:  str = "fptoui";  break;
+  case fptosi:  str = "fptosi";  break;
+  case uitofp:  str = "uitofp";  break;
+  case sitofp:  str = "sitofp";  break;
   }
 
   os << "(conv_"<< str << " ";

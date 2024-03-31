@@ -360,6 +360,56 @@ ICmp *Parser::parse_icmp(token op_token) {
   return T;
 }
 
+FCmp *Parser::parse_fcmp(token op_token) {
+  FCmp::Cond op;
+  switch (op_token) {
+  case FCMP_TRUE:
+    op = FCmp::t; break;
+  case FCMP_OEQ:
+    op = FCmp::oeq; break;
+  case FCMP_OGT:
+    op = FCmp::ogt; break;
+  case FCMP_OGE:
+    op = FCmp::oge; break;
+  case FCMP_OLT:
+    op = FCmp::olt; break;
+  case FCMP_OLE:
+    op = FCmp::ole; break;
+  case FCMP_ONE:
+    op = FCmp::one; break;
+  case FCMP_ORD:
+    op = FCmp::ord; break;
+  case FCMP_UEQ:
+    op = FCmp::ueq; break;
+  case FCMP_UGT:
+    op = FCmp::ugt; break;
+  case FCMP_UGE:
+    op = FCmp::uge; break;
+  case FCMP_ULT:
+    op = FCmp::ult; break;
+  case FCMP_ULE:
+    op = FCmp::ule; break;
+  case FCMP_UNE:
+    op = FCmp::une; break;
+  case FCMP_UNO:
+    op = FCmp::uno; break;
+  case FCMP_FALSE:
+    op = FCmp::f; break;
+  default:
+    UNREACHABLE();
+  }
+  auto a = parse_expr();
+  auto b = parse_expr();
+
+  unsigned width = parse_number();
+
+  tokenizer.ensure(RPAREN);
+  auto FI = make_unique<FCmp>(op, *a, *b, width);
+  FCmp *T = FI.get();
+  exprs.emplace_back(std::move(FI));
+  return T;
+}
+
 FakeShuffleInst *Parser::parse_shuffle(token op_token) {
   auto workty = parse_vector_type();
   auto lhs = parse_expr();
@@ -538,6 +588,23 @@ Value* Parser::parse_expr() {
   case SGT:
   case SGE:
     return parse_icmp(t);
+  case FCMP_TRUE:
+  case FCMP_OEQ:
+  case FCMP_OGT:
+  case FCMP_OGE:
+  case FCMP_OLT:
+  case FCMP_OLE:
+  case FCMP_ONE:
+  case FCMP_ORD:
+  case FCMP_UEQ:
+  case FCMP_UGT:
+  case FCMP_UGE:
+  case FCMP_ULT:
+  case FCMP_ULE:
+  case FCMP_UNE:
+  case FCMP_UNO:
+  case FCMP_FALSE:
+    return parse_fcmp(t);
   case SHUFFLE:
   case BLEND:
     return parse_shuffle(t);
