@@ -2,9 +2,10 @@
 // Distributed under the MIT license that can be found in the LICENSE file.
 #pragma once
 #include "expr.h"
+#include "lexer.h"
 #include "llvm/IR/Function.h"
 
-namespace minotaur {
+namespace parse {
 
 struct ParseException {
   std::string str;
@@ -16,8 +17,24 @@ struct ParseException {
 
 class Parser {
   std::vector<std::unique_ptr<minotaur::Inst>> exprs;
+  llvm::Function &F;
+
+  minotaur::Var             *parse_var();
+  minotaur::ReservedConst   *parse_const();
+  minotaur::Copy            *parse_copy();
+  minotaur::UnaryOp         *parse_unary(token);
+  minotaur::BinaryOp        *parse_binary(token);
+  minotaur::ICmp            *parse_icmp(token);
+  minotaur::FakeShuffleInst *parse_shuffle(token);
+  minotaur::IntConversion   *parse_intconv(token);
+  minotaur::SIMDBinOpInst   *parse_x86(std::string_view ops);
+  minotaur::Value* parse_expr();
+
+
+
 public:
-  std::vector<Rewrite> parse(const llvm::Function&, std::string_view);
+  Parser(llvm::Function &F) : F(F) {}
+  std::vector<minotaur::Rewrite> parse(const llvm::Function&, std::string_view);
 };
 
 

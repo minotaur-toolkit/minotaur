@@ -152,7 +152,7 @@ debug &operator<<(const T &s)
 };
 
 static optional<Rewrite>
-infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, Parser &P) {
+infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, parse::Parser &P) {
   string bytecode;
 
   vector<Rewrite> RHSs;
@@ -299,7 +299,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
     }
 
     Enumerator EN;
-    Parser P;
+    parse::Parser P(F);
     auto R = infer(F, retI, ctx, EN, P);
     if (!R.has_value()) {
       goto final;
@@ -326,7 +326,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
           continue;
 
         Enumerator EN;
-        Parser P;
+        parse::Parser P(NewF->first);
         auto R = infer(NewF->first, NewF->second, ctx, EN, P);
 
         if (!R.has_value())

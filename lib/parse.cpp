@@ -9,9 +9,13 @@
 #include "ir/instr.h"
 #include "util/compiler.h"
 #include "llvm/ADT/APInt.h"
+#include "llvm/AsmParser/Parser.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/ValueSymbolTable.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
 #include <string_view>
 
@@ -111,8 +115,6 @@ private:
 
 static tokenizer_t tokenizer;
 
-static Value* parse_expr(vector<unique_ptr<minotaur::Inst>>&);
-
 static type parse_vector_type() {
   tokenizer.ensure(VECTOR_TYPE_PREFIX);
   unsigned lanes = yylval.num;
@@ -137,13 +139,19 @@ static type parse_type() {
   UNREACHABLE();
 }
 
-static Var* parse_var(vector<unique_ptr<minotaur::Inst>>&exprs) {
+Var *Parser::parse_var() {
   type ty = parse_type();
   tokenizer.ensure(REGISTER);
   string id(yylval.str);
+  id.erase(id.begin());
   tokenizer.ensure(RPAREN);
 
-  auto V = make_unique<Var>(id, ty);
+  llvm::Value *LV = F.getValueSymbolTable()->lookup(id);
+  if (!LV) {
+    debug()<<"[parser] value not found: "<<id<<"\n";
+    llvm::report_fatal_error("[parser] terminating");
+  }
+  auto V = make_unique<Var>(LV);
   Var *T = V.get();
   exprs.emplace_back(std::move(V));
   return T;
@@ -154,50 +162,49 @@ unsigned parse_number() {
   return yylval.num;;
 }
 
-ReservedConst* parse_const(vector<unique_ptr<minotaur::Inst>>&exprs) {
+ReservedConst* Parser::parse_const() {
   //fixme: parse const
-  return nullptr;
-  /*
-  type t = parse_type();
-  vector<llvm::APInt> values;
+  string id(yylval.str);
 
-  if (t.isVector()) {
-    tokenizer.ensure(LCURLY);
-    for (unsigned i = 0 ; i < t.getLane() ; i ++) {
-      tokenizer.ensure(NUM_STR);
-      values.push_back(llvm::APInt(t.getBits(), yylval.str, 10));
-      if (i != t.getLane() - 1)
-        tokenizer.ensure(COMMA);
-    }
-    tokenizer.ensure(RCURLY);
-  } else if (t.isScalar()) {
-    tokenizer.ensure(NUM_STR);
-    values.push_back(llvm::APInt(t.getBits(), yylval.str, 10));
-  } else {
-    UNREACHABLE();
-  }
+  type t = parse_type();
+
+  debug() << t << '\n';
+
+  tokenizer.ensure(LITERAL);
+  string lt(yylval.str);
+  lt.pop_back();
+  lt.erase(lt.begin());
+
+  debug() << "literal: " << lt << '\n';
+
   tokenizer.ensure(RPAREN);
-  auto RC = make_unique<ReservedConst>(t, values);
-  ReservedConst *T = RC.get();
-  exprs.emplace_back(move(RC));
-  return T;
-  */
+  llvm::SMDiagnostic diag;
+  auto C = llvm::parseConstantValue(lt, diag, *F.getParent());
+  C->dump();
+  llvm::errs()<<"got const\n";
+
+
+  auto T = make_unique<ReservedConst>(t, C);
+  ReservedConst *RC = T.get();
+  exprs.emplace_back(std::move(T));
+
+  return RC;
 }
 
 
-Value* parse_copy(vector<unique_ptr<minotaur::Inst>>&exprs) {
+Copy* Parser::parse_copy() {
   tokenizer.ensure(LPAREN);
   tokenizer.ensure(CONST);
-  auto a = parse_const(exprs);
+  auto a = parse_const();
   tokenizer.ensure(RPAREN);
 
   auto CI = make_unique<Copy>(*a);
-  Value *T = CI.get();
+  Copy *T = CI.get();
   exprs.emplace_back(std::move(CI));
   return T;
 }
 
-Value* parse_unary(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
+UnaryOp* Parser::parse_unary(token op_token) {
   UnaryOp::Op op;
   switch (op_token) {
   case BITREVERSE:
@@ -215,16 +222,16 @@ Value* parse_unary(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
     UNREACHABLE();
   }
   auto workty = parse_vector_type();
-  auto a = parse_expr(exprs);
+  auto a = parse_expr();
 
   tokenizer.ensure(RPAREN);
   auto UI = make_unique<UnaryOp>(op, *a, workty);
-  Value *T = UI.get();
+  UnaryOp *T = UI.get();
   exprs.emplace_back(std::move(UI));
   return T;
 }
 
-Value* parse_binary(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
+BinaryOp *Parser::parse_binary(token op_token) {
   BinaryOp::Op op;
   switch (op_token) {
   case BAND:
@@ -254,17 +261,17 @@ Value* parse_binary(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
     UNREACHABLE();
   }
   auto workty = parse_type();
-  auto a = parse_expr(exprs);
-  auto b = parse_expr(exprs);
+  auto a = parse_expr();
+  auto b = parse_expr();
 
   tokenizer.ensure(RPAREN);
   auto BI = make_unique<BinaryOp>(op, *a, *b, workty);
-  Value *T = BI.get();
+  BinaryOp *T = BI.get();
   exprs.emplace_back(std::move(BI));
   return T;
 }
 
-Value* parse_icmp(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
+ICmp *Parser::parse_icmp(token op_token) {
   ICmp::Cond op;
   switch (op_token) {
   case EQ:
@@ -283,33 +290,33 @@ Value* parse_icmp(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
   default:
     UNREACHABLE();
   }
-  auto a = parse_expr(exprs);
-  auto b = parse_expr(exprs);
+  auto a = parse_expr();
+  auto b = parse_expr();
 
   unsigned width = parse_number();
 
   tokenizer.ensure(RPAREN);
   auto II = make_unique<ICmp>(op, *a, *b, width);
-  Value *T = II.get();
+  ICmp *T = II.get();
   exprs.emplace_back(std::move(II));
   return T;
 }
 
-Value* parse_shuffle(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
+FakeShuffleInst *Parser::parse_shuffle(token op_token) {
 
   auto workty = parse_vector_type();
-  auto lhs = parse_expr(exprs);
-  auto rhs = op_token == BLEND ? parse_expr(exprs) : nullptr;
+  auto lhs = parse_expr();
+  auto rhs = op_token == BLEND ? parse_expr() : nullptr;
   tokenizer.ensure(LPAREN);
   tokenizer.ensure(CONST);
-  auto mask = parse_const(exprs);
+  auto mask = parse_const();
   auto SI = make_unique<FakeShuffleInst>(*lhs, rhs, *mask, workty);
-  Value *T = SI.get();
+  FakeShuffleInst *T = SI.get();
   exprs.emplace_back(std::move(SI));
   return T;
 }
 
-Value* parse_conv(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
+IntConversion *Parser::parse_intconv(token op_token) {
   IntConversion::Op op;
   switch (op_token) {
   case CONV_ZEXT:
@@ -321,46 +328,46 @@ Value* parse_conv(token op_token, vector<unique_ptr<minotaur::Inst>>&exprs) {
   default:
     UNREACHABLE();
   }
-  auto a = parse_expr(exprs);
+  auto a = parse_expr();
   auto from = parse_vector_type();
   auto to   = parse_vector_type();
 
   tokenizer.ensure(RPAREN);
   auto CI = make_unique<IntConversion>(op, *a, from.getLane(), from.getBits(), to.getBits());
-  Value *T = CI.get();
+  IntConversion *T = CI.get();
   exprs.emplace_back(std::move(CI));
   return T;
 }
 
 
-Value* parse_x86(string_view ops, vector<unique_ptr<minotaur::Inst>>&exprs) {
+SIMDBinOpInst *Parser::parse_x86(string_view ops) {
   IR::X86IntrinBinOp::Op op;
   #define PROCESS(NAME,A,B,C,D,E,F) if (ops == #NAME) op = IR::X86IntrinBinOp::NAME;
   #include "ir/intrinsics_binop.h"
   #undef PROCESS
 
-  auto a = parse_expr(exprs);
-  auto b = parse_expr(exprs);
+  auto a = parse_expr();
+  auto b = parse_expr();
 
   tokenizer.ensure(RPAREN);
   auto CI = make_unique<SIMDBinOpInst>(op, *a, *b);
-  Value *T = CI.get();
+  SIMDBinOpInst *T = CI.get();
   exprs.emplace_back(std::move(CI));
   return T;
 }
 
-Value* parse_expr(vector<unique_ptr<minotaur::Inst>>&exprs) {
+Value* Parser::parse_expr() {
   tokenizer.ensure(LPAREN);
 
   switch (auto t = *tokenizer) {
   case COPY:
-    return parse_copy(exprs);
+    return parse_copy();
   case BITREVERSE:
   case BSWAP:
   case CTPOP:
   case CTLZ:
   case CTTZ:
-    return parse_unary(t, exprs);
+    return parse_unary(t);
   case BAND:
   case BOR:
   case BXOR:
@@ -372,27 +379,27 @@ Value* parse_expr(vector<unique_ptr<minotaur::Inst>>&exprs) {
   case LSHR:
   case ASHR:
   case SHL:
-    return parse_binary(t, exprs);
+    return parse_binary(t);
   case EQ:
   case NE:
   case ULT:
   case ULE:
   case SLT:
   case SLE:
-    return parse_icmp(t, exprs);
+    return parse_icmp(t);
   case SHUFFLE:
   case BLEND:
-    return parse_shuffle(t, exprs);
+    return parse_shuffle(t);
   case CONV_ZEXT:
   case CONV_SEXT:
   case CONV_TRUNC:
-    return parse_conv(t, exprs);
+    return parse_intconv(t);
   case X86BINARY:
-    return parse_x86(yylval.str, exprs);
+    return parse_x86(yylval.str);
   case VAR:
-    return parse_var(exprs);
+    return parse_var();
   case CONST:
-    return parse_const(exprs);
+    return parse_const();
 
   default:
     UNREACHABLE();
@@ -435,9 +442,6 @@ void match_vars(llvm::Function &F, vector<unique_ptr<minotaur::Inst>>&exprs) {
   }
 }
 
-}
-namespace minotaur {
-
 vector<Rewrite> Parser::parse(const llvm::Function &F, std::string_view buf) {
   debug() << "[parser] parsing: " << buf << '\n';
 
@@ -446,7 +450,7 @@ vector<Rewrite> Parser::parse(const llvm::Function &F, std::string_view buf) {
     debug()<<"[parser] cannot parse empty string\n";
 
   try {
-    Inst *I = parse::parse_expr(exprs);
+    Inst *I = parse_expr();
     return { Rewrite(I, 0, 0) };
   } catch (ParseException &e) {
     debug()<<"[parser] " << e.str << '\n';

@@ -29,9 +29,7 @@ void Var::print(raw_ostream &os) const {
 
 void ReservedConst::print(raw_ostream &os) const {
   if (C) {
-    os << "(reservedconst " << ty << " [" ;
-    os << *C;
-    os << "])";
+    os << "(reservedconst " << ty << " |" << *C << "|)";
   } else {
     os << "(reservedconst " << ty << " " << "null" << ")";
   }

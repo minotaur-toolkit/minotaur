@@ -146,6 +146,11 @@ space+ {
 }
 ">"  { return CSGT; }
 
+"\|" @tag1 [<>0-9a-z- ,]* "\|"  {
+  COPY_STR();
+  return LITERAL;
+}
+
 "b" "-"?[0-9]+ {
   yylval.num = strtoull((char*)YYTEXT + 1, nullptr, 10);
   return BITS;
@@ -164,22 +169,12 @@ space+ {
   YYRESTART();
 }
 
-"Name:" [ \t]* @tag1 [^\r\n]+ {
-  COPY_STR(tag1 - YYTEXT);
-  return NAME;
-}
-
-"Pre:" {
-  return PRE;
-}
-
-
 "<" space* @tag1 [1-9][0-9]* space* "x" {
   yylval.num = strtoull((char*)tag1, nullptr, 10);
   return VECTOR_TYPE_PREFIX;
 }
 
-"[" space* @tag1 [0-9]+ space* "x" {
+"[" space* @tag1 [0-9]+ space* "x"  {
   yylval.num = strtoull((char*)tag1, nullptr, 10);
   return ARRAY_TYPE_PREFIX;
 }
