@@ -1,6 +1,7 @@
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
 
+#include "lexer.h"
 TOKEN(END)
 TOKEN(COMMA)
 TOKEN(LPAREN)
@@ -32,8 +33,12 @@ TOKEN(EQ)
 TOKEN(NE)
 TOKEN(ULT)
 TOKEN(ULE)
+TOKEN(UGT)
+TOKEN(UGE)
 TOKEN(SLT)
 TOKEN(SLE)
+TOKEN(SGT)
+TOKEN(SGE)
 
 TOKEN(SHUFFLE)
 TOKEN(BLEND)

@@ -291,11 +291,18 @@ ICmp *Parser::parse_icmp(token op_token) {
     op = ICmp::ult; break;
   case ULE:
     op = ICmp::ule; break;
+  case UGT:
+    op = ICmp::ugt; break;
+  case UGE:
+    op = ICmp::uge; break;
   case SLT:
     op = ICmp::slt; break;
   case SLE:
     op = ICmp::sle; break;
-  // TODO: add
+  case SGT:
+    op = ICmp::sgt; break;
+  case SGE:
+    op = ICmp::sge; break;
   default:
     UNREACHABLE();
   }
@@ -433,8 +440,12 @@ Value* Parser::parse_expr() {
   case NE:
   case ULT:
   case ULE:
+  case UGT:
+  case UGE:
   case SLT:
   case SLE:
+  case SGT:
+  case SGE:
     return parse_icmp(t);
   case SHUFFLE:
   case BLEND:

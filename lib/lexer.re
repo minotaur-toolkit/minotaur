@@ -115,8 +115,12 @@ space+ {
 "icmp_ne"  { return NE;  }
 "icmp_ult" { return ULT; }
 "icmp_ule" { return ULE; }
+"icmp_ugt" { return UGT; }
+"icmp_uge" { return UGE; }
 "icmp_slt" { return SLT; }
 "icmp_sle" { return SLE; }
+"icmp_sgt" { return SGT; }
+"icmp_sge" { return SGE; }
 
 "blend"   { return BLEND;   }
 "shuffle" { return SHUFFLE; }
