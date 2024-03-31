@@ -220,15 +220,33 @@ UnaryOp* Parser::parse_unary(token op_token) {
     op = UnaryOp::bswap; break;
   case CTPOP:
     op = UnaryOp::ctpop; break;
-  /*case CTLZ:
+  case CTLZ:
     op = UnaryOp::ctlz; break;
   case CTTZ:
-    op = UnaryOp::cttz; break;*/
+    op = UnaryOp::cttz; break;
+  case FNEG:
+    op = UnaryOp::fneg; break;
+  case FABS:
+    op = UnaryOp::fabs; break;
+  case FCEIL:
+    op = UnaryOp::fceil; break;
+  case FFLOOR:
+    op = UnaryOp::ffloor; break;
+  case FRINT:
+    op = UnaryOp::frint; break;
+  case FNEARBYINT:
+    op = UnaryOp::fnearbyint; break;
+  case FROUND:
+    op = UnaryOp::fround; break;
+  case FROUNDEVEN:
+    op = UnaryOp::froundeven; break;
+  case FTRUNC:
+    op = UnaryOp::ftrunc; break;
   // TODO: add
   default:
     UNREACHABLE();
   }
-  auto workty = parse_vector_type();
+  type workty = parse_type();
   auto a = parse_expr();
 
   tokenizer.ensure(RPAREN);
@@ -447,6 +465,15 @@ Value* Parser::parse_expr() {
   case CTPOP:
   case CTLZ:
   case CTTZ:
+  case FNEG:
+  case FABS:
+  case FCEIL:
+  case FFLOOR:
+  case FRINT:
+  case FNEARBYINT:
+  case FROUND:
+  case FROUNDEVEN:
+  case FTRUNC:
     return parse_unary(t);
   case BAND:
   case BOR:

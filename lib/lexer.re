@@ -98,6 +98,15 @@ space+ {
 "ctpop"      { return CTPOP;      }
 "ctlz"       { return CTLZ;       }
 "cttz"       { return CTTZ;       }
+"fneg"       { return FNEG;       }
+"fabs"       { return FABS;       }
+"fceil"      { return FCEIL;      }
+"ffloor"     { return FFLOOR;     }
+"frint"      { return FRINT;      }
+"fnearbyint" { return FNEARBYINT; }
+"fround"     { return FROUND;     }
+"froundeven" { return FROUNDEVEN; }
+"ftrunc"     { return FTRUNC;     }
 
 "and"  { return BAND; }
 "or"   { return BOR;  }
