@@ -17,9 +17,6 @@ eval { require Sys::CPU; Sys::CPU->import(); };
 my $NPROCS = 40;
 $NPROCS = Sys::CPU::cpu_count() if defined(&Sys::CPU::cpu_count);
 
-my $CPU_LIMIT = 15 * 60;
-my $RAM_LIMIT = 4 * 1024 * 1024 * 1024;
-
 sub usage() {
     print <<"END";
 Options:
@@ -108,43 +105,6 @@ sub infer($) {
         exit 1;
     }
 }
-
-    # my $ok = 0;
-    # my $failed = 0;
-    # my @lines = <$INF>;
-    # for (@lines) {
-    #     if ($_ =~ /Failed/) {
-    #         $failed = 1;
-    #         next;
-    #     }
-    #     if ($_ =~ /successfully/) {
-    #         $ok = 1;
-    #         next;
-    #     }
-    # }
-    # close $INF;
-    # close $fh;
-    # unlink $tmpfn;
-
-    # my $red;
-    # if ($UNIX) {
-    # $red = Redis->new(sock => "@CMAKE_BINARY_DIR@/cache.sock");
-    # } else {
-    # $red = Redis->new(server => "localhost:" . $REDISPORT);
-    # }
-    # $red->ping || die "no server?";
-    # $red->hset($k, "cache-infer-tag" => $tag);
-
-    # if ($ok) {
-    #     open(FH, '>', "rewrite-${pid}") or die $!;
-    #     for(@lines) {
-    #       print FH $_;
-    #     }
-    #     close(FH);
-    #     exit 0;
-    # } else {
-    #     exit 1;
-    # }
 
 my $num_running = 0;
 my $good = 0;

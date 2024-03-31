@@ -127,6 +127,11 @@ llvm::cl::opt<bool> no_slice(
     llvm::cl::desc("minotaur: do not run slicer"),
     llvm::cl::init(false));
 
+llvm::cl::opt<bool> force_infer(
+    "minotaur-force-infer",
+    llvm::cl::desc("minotaur: force infer even if cache exists"),
+    llvm::cl::init(false));
+
 llvm::cl::opt<string> report_dir("minotaur-report-dir",
   llvm::cl::desc("Save report to disk"), llvm::cl::value_desc("directory"));
 
@@ -160,7 +165,7 @@ infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, parse::Par
   bool from_cache = false;
 
   // try to parse the cached solution
-  if (enable_caching) {
+  if (enable_caching && !force_infer) {
     llvm::raw_string_ostream bs(bytecode);
     WriteBitcodeToFile(*F.getParent(), bs);
     bs.flush();

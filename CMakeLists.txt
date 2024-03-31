@@ -166,6 +166,11 @@ configure_file(
   @ONLY
 )
 configure_file(
+  "${PROJECT_SOURCE_DIR}/scripts/infer-cut.sh.in"
+  "${PROJECT_BINARY_DIR}/infer-cut.sh"
+  @ONLY
+)
+configure_file(
   "${PROJECT_SOURCE_DIR}/scripts/slice-cc.in"
   "${PROJECT_BINARY_DIR}/slice-cc"
   @ONLY
