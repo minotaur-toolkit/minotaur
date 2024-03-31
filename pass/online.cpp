@@ -173,7 +173,7 @@ infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, Parser &P)
                 << F.getName();
         return nullopt;
       } else {
-        /*debug() << "[online] cache matched, using previous solution for "
+        debug() << "[online] cache matched, using previous solution for "
                     "function: "
                 << F.getName() << "\n";
         RHSs = P.parse(F, rewrite);
@@ -182,7 +182,7 @@ infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, Parser &P)
           return nullopt;
         }
         debug() << *RHSs[0].I << "\n";
-        from_cache = true;*/
+        from_cache = true;
       }
     }
   }

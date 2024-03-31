@@ -10,6 +10,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Metadata.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "ir/instr.h"
@@ -46,6 +47,7 @@ public:
     v->printAsOperand(ss, false);
     ss.flush();
   }
+  Var(std::string name, type ty) : Value(ty), name(name), v(nullptr) {}
   auto& getName() const { return name; }
   void setValue(llvm::Value *vv) { v = vv; }
   void print(llvm::raw_ostream &os) const override;

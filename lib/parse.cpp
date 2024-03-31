@@ -138,16 +138,15 @@ static type parse_type() {
 }
 
 static Var* parse_var(vector<unique_ptr<minotaur::Inst>>&exprs) {
-  tokenizer.ensure(BITS);
-  unsigned width = yylval.num;
+  type ty = parse_type();
   tokenizer.ensure(REGISTER);
   string id(yylval.str);
   tokenizer.ensure(RPAREN);
 
-  /*auto V = make_unique<Var>(id, );
+  auto V = make_unique<Var>(id, ty);
   Var *T = V.get();
-  exprs.emplace_back(std::move(V));*/
-  return nullptr;
+  exprs.emplace_back(std::move(V));
+  return T;
 }
 
 unsigned parse_number() {
@@ -446,9 +445,14 @@ vector<Rewrite> Parser::parse(const llvm::Function &F, std::string_view buf) {
   if (parse::tokenizer.empty())
     debug()<<"[parser] cannot parse empty string\n";
 
-  Inst *I = parse::parse_expr(exprs);
-
-  return { Rewrite(I, 0, 0) };
+  try {
+    Inst *I = parse::parse_expr(exprs);
+    return { Rewrite(I, 0, 0) };
+  } catch (ParseException &e) {
+    debug()<<"[parser] " << e.str << '\n';
+    exit(1);
+    //return {};
+  }
 }
 
 }

@@ -126,7 +126,7 @@ space+ {
 "conv_trunc" { return CONV_TRUNC; }
 
 "var" { return VAR;  }
-"const" { return CONST; }
+"reservedconst" { return CONST; }
 
 "x86_" [a-zA-Z0-9_]+ { COPY_STR(); return X86BINARY; }
 
