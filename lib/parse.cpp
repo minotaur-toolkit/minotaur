@@ -265,6 +265,32 @@ BinaryOp *Parser::parse_binary(token op_token) {
     op = BinaryOp::ashr; break;
   case SHL:
     op = BinaryOp::shl; break;
+  case SMAX:
+    op = BinaryOp::smax; break;
+  case SMIN:
+    op = BinaryOp::smin; break;
+  case UMAX:
+    op = BinaryOp::umax; break;
+  case UMIN:
+    op = BinaryOp::umin; break;
+  case FADD:
+    op = BinaryOp::fadd; break;
+  case FSUB:
+    op = BinaryOp::fsub; break;
+  case FMUL:
+    op = BinaryOp::fmul; break;
+  case FDIV:
+    op = BinaryOp::fdiv; break;
+  case FMAXNUM:
+    op = BinaryOp::fmaxnum; break;
+  case FMINNUM:
+    op = BinaryOp::fminnum; break;
+  case FMAXIMUM:
+    op = BinaryOp::fmaximum; break;
+  case FMINIMUM:
+    op = BinaryOp::fminimum; break;
+  case COPYSIGN:
+    op = BinaryOp::copysign; break;
   // TODO: add
   default:
     UNREACHABLE();
@@ -427,14 +453,27 @@ Value* Parser::parse_expr() {
   case BAND:
   case BOR:
   case BXOR:
+  case LSHR:
+  case ASHR:
+  case SHL:
   case ADD:
   case SUB:
   case MUL:
   case SDIV:
   case UDIV:
-  case LSHR:
-  case ASHR:
-  case SHL:
+  case UMAX:
+  case UMIN:
+  case SMAX:
+  case SMIN:
+  case FADD:
+  case FSUB:
+  case FMUL:
+  case FDIV:
+  case FMAXNUM:
+  case FMINNUM:
+  case FMAXIMUM:
+  case FMINIMUM:
+  case COPYSIGN:
     return parse_binary(t);
   case EQ:
   case NE:

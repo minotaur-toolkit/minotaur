@@ -102,14 +102,32 @@ space+ {
 "and"  { return BAND; }
 "or"   { return BOR;  }
 "xor"  { return BXOR; }
+
 "add"  { return ADD;  }
 "sub"  { return SUB;  }
 "mul"  { return MUL;  }
 "sdiv" { return SDIV; }
 "udiv" { return UDIV; }
+
 "lshr" { return LSHR; }
 "ashr" { return ASHR; }
 "shl"  { return SHL;  }
+
+"umax" { return UMAX; }
+"umin" { return UMIN; }
+"smax" { return SMAX; }
+"smin" { return SMIN; }
+
+"fadd" { return FADD; }
+"fsub" { return FSUB; }
+"fmul" { return FMUL; }
+"fdiv" { return FDIV; }
+
+"fmaxnum" { return FMAXNUM; }
+"fminnum" { return FMINNUM; }
+"fmaximum" { return FMAXIMUM; }
+"fminimum" { return FMINIMUM; }
+"copysign" { return COPYSIGN; }
 
 "icmp_eq"  { return EQ;  }
 "icmp_ne"  { return NE;  }
