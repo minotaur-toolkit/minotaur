@@ -45,7 +45,7 @@ GetOptions(
 
 my $REDISPORT = 6379;
 
-my $minotaur = "@CMAKE_BINARY_DIR@/opt-minotaur.sh";
+my $minotaur = "@CMAKE_BINARY_DIR@/infer-cut.sh";
 my $llvmdis = "@LLVM_BINARY_DIR@/bin/llvm-dis";
 
 my $r;
@@ -62,18 +62,6 @@ sub infer($) {
     (my $fh, my $tmpfn) = File::Temp::tempfile();
     print $fh $opt;
     $fh->flush();
-    open INF, "${llvmdis} < $tmpfn 2>&1 |";
-    my $output = "";
-    my $success = 0;
-    while (my $line = <INF>) {
-        $success = 1 if ($line =~ /success/);
-        next if ($line =~ /^;/);
-        $output .= $line;
-    }
-    close INF;
-    close $fh;
-
-    #print("solving $output\n");
 
     my $pid = $$;
     my $ok = 0;
@@ -83,27 +71,9 @@ sub infer($) {
     open my $OF, ">>$OFN" or die;
     #print $OF "\n\n$cmd\n\n";
     #print $OF "$k\n\n";
-
-    my @lines = <$OF>;
-    for (@lines) {
-        if ($_ =~ /changed/) {
-            $ok = 1;
-            next;
-        }
-    }
     close $OF;
     unlink $tmpfn;
-
-    if ($ok) {
-        open(FH, '>', "rewrite-${pid}") or die $!;
-        for(@lines) {
-          print FH $_;
-        }
-        close(FH);
-        exit 0;
-    } else {
-        exit 1;
-    }
+    exit 0;
 }
 
 my $num_running = 0;

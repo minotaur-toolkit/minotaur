@@ -6,5 +6,5 @@ set -e
   -passes="minotaur-online" \
   -minotaur-enable-caching=true \
   -minotaur-no-slice=true \
-  -miontaur-force-infer=true \
-  $TV_REPORT_DIR
+  -minotaur-force-infer=true \
+  -S
