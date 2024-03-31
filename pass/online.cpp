@@ -129,7 +129,7 @@ llvm::cl::opt<bool> no_slice(
 
 llvm::cl::opt<bool> force_infer(
     "minotaur-force-infer",
-    llvm::cl::desc("minotaur: force infer even if cache exists"),
+    llvm::cl::desc("minotaur: force infer even if cache hits"),
     llvm::cl::init(false));
 
 llvm::cl::opt<string> report_dir("minotaur-report-dir",
@@ -159,6 +159,9 @@ debug &operator<<(const T &s)
 static optional<Rewrite>
 infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, parse::Parser &P) {
   string bytecode;
+  llvm::raw_string_ostream bs(bytecode);
+  WriteBitcodeToFile(*F.getParent(), bs);
+  bs.flush();
 
   vector<Rewrite> RHSs;
 
@@ -166,9 +169,7 @@ infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, parse::Par
 
   // try to parse the cached solution
   if (enable_caching && !force_infer) {
-    llvm::raw_string_ostream bs(bytecode);
-    WriteBitcodeToFile(*F.getParent(), bs);
-    bs.flush();
+
     std::string rewrite;
 
     if (minotaur::hGet(bytecode.c_str(), bytecode.size(), rewrite, ctx)) {
@@ -208,8 +209,10 @@ infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, parse::Par
   }
 
   auto R = RHSs[0];
+  debug() << "[online] synthesized solution:\n" << *R.I << "\n";
 
   if (!from_cache && enable_caching) {
+    debug()<<"[online] caching solution\n";
     string rewrite;
     raw_string_ostream rs(rewrite);
     R.I->print(rs);
