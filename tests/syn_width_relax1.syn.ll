@@ -1,4 +1,4 @@
-; CHECK: successful
+; CHECK: changed
 define <2 x i16> @syn_add_3(<2 x i16> %w, <2 x i16> %u) {
   %x = bitcast <2 x i16> %w to <4 x i8>
   %y = bitcast <2 x i16> %u to <4 x i8>

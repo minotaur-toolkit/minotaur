@@ -210,7 +210,7 @@ space+ {
 }
 ">"  { return CSGT; }
 
-"\|" @tag1 [<>0-9a-zA-Z- ,]* "\|"  {
+"\|" @tag1 [<>0-9a-zA-Z- ,.\+]* "\|"  {
   COPY_STR();
   return LITERAL;
 }

@@ -436,8 +436,8 @@ IntConversion *Parser::parse_intconv(token op_token) {
     UNREACHABLE();
   }
   auto a = parse_expr();
-  auto from = parse_vector_type();
-  auto to   = parse_vector_type();
+  auto from = parse_type();
+  auto to   = parse_type();
 
   tokenizer.ensure(RPAREN);
   auto CI = make_unique<IntConversion>(op, *a, from.getLane(), from.getBits(), to.getBits());
