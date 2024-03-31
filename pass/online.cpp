@@ -160,7 +160,8 @@ static optional<Rewrite>
 infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, parse::Parser &P) {
   string bytecode;
   llvm::raw_string_ostream bs(bytecode);
-  WriteBitcodeToFile(*F.getParent(), bs);
+  //WriteBitcodeToFile(*F.getParent(), bs);
+  F.getParent()->print(bs, nullptr);
   bs.flush();
 
   vector<Rewrite> RHSs;
@@ -304,14 +305,20 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
     }
 
     Instruction *retI = dyn_cast<Instruction>(ret->getReturnValue());
+
+    DataLayout DL(F.getParent());
+    minotaur::Slice S(F, LI, DT);
+    auto NewF = S.extractExpr(*retI);
+    auto m = S.getNewModule();
+
     if (!retI) {
       debug() << "[online] return value is not an instruction, skipping\n";
       goto final;
     }
 
     Enumerator EN;
-    parse::Parser P(F);
-    auto R = infer(F, retI, ctx, EN, P);
+    parse::Parser P(NewF->first);
+    auto R = infer(NewF->first, NewF->second, ctx, EN, P);
     if (!R.has_value()) {
       goto final;
     }

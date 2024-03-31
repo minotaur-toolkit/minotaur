@@ -50,8 +50,8 @@ void hSetRewrite(const char *k, unsigned sz_k,
                  redisContext *c,
                  unsigned costAfter, unsigned costBefore, StringRef FnName) {
   redisReply *reply = (redisReply *)redisCommand(c,
-    "HSET %b optimizedbc %b rewrite %s  costafter %s costbefore %s timestamp %s fn %s",
-    k, sz_k, v, sz_v, rewrite.data(),
+    "HSET %b rewrite %s  costafter %s costbefore %s timestamp %s fn %s",
+    k, sz_k, rewrite.data(),
     to_string(costAfter).c_str(), to_string(costBefore).c_str(),
     to_string((unsigned long)time(NULL)).c_str(), FnName.data());
   if (!reply || c->err)

@@ -6,5 +6,5 @@ if.end27:
   ret i32 %2
 
 sink:                                             ; No predecessors!
-  unreachable
+  unreachable`
 }

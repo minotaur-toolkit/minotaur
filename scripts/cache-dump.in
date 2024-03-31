@@ -13,7 +13,7 @@ use Time::HiRes;
 
 my $llvmas  = "@LLVM_BINARY_DIR@/bin/llvm-as";
 my $llvmopt = "@LLVM_BINARY_DIR@/bin/opt";
-my $llvmdis = "@LLVM_BINARY_DIR@/bin/llvm-dis";
+#my $llvmdis = "@LLVM_BINARY_DIR@/bin/llvm-dis";
 
 sub runit ($) {
     my $cmd = shift;
@@ -70,7 +70,7 @@ sub parse($) {
     (my $fh, my $tmpfn) = File::Temp::tempfile();
     print $fh $opt;
     $fh->flush();
-    open INF, "${llvmdis} < $tmpfn 2>&1 |";
+    open INF, "cat < $tmpfn 2>&1 |";
     my $output = "";
     my $success = 0;
     while (my $line = <INF>) {
@@ -142,14 +142,12 @@ foreach my $opt (@all_keys) {
     } else {
         my $ca     = $h{"costafter"};
         my $cb     = $h{"costbefore"};
-        my $obc    = $h{"optimizedbc"};
         if ($cb == 0) {
             $cb = 1;
         }
         if ($ca == 0) {
             $ca = 1;
         }
-        $optbc{$opt} = parse($obc);
         $toprint{$opt} = 1;
         $costafter{$opt} = $ca;
         $costbefore{$opt} = $cb;
