@@ -1,7 +1,5 @@
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
-#include "util/compiler.h"
-#include "util/sort.h"
 #include "config.h"
 #include "slice.h"
 #include "utils.h"
@@ -41,34 +39,6 @@ struct debug {
     return *this;
   }
 };
-
-
-// place instructions within a basicblock with topology sort
-static bool cmp(const pair<Instruction*, unsigned>& lhs,
-                const pair<Instruction*, unsigned>& rhs) {
-  return lhs.second < rhs.second;
-}
-
-static vector<Instruction*>
-schedule_insts(vector<pair<Instruction*, unsigned>> &iis) {
-  std::sort(iis.begin(), iis.end(), cmp);
-
-  vector<Instruction*> sorted_iis;
-  for (auto ii : iis) {
-    sorted_iis.push_back(ii.first);
-  }
-  return sorted_iis;
-}
-
-static unsigned getInstructionIdx(const Instruction *I) {
-  unsigned idx = 0;
-  for (auto &ii : *(I->getParent())) {
-    if (&ii == I)
-      break;
-    ++idx;
-  }
-  return idx;
-}
 
 static bool isUnsupportedTy(llvm::Type *ty) {
   Type *vsty = ty->getScalarType();
@@ -150,7 +120,6 @@ Slice::extractExpr(Value &v) {
 
   ValueToValueMapTy vmap;
   set<Instruction*> insts;
-  map<BasicBlock*, vector<pair<Instruction*,unsigned>>> bb_insts;
 
   worklist.push({&v, 0});
 
@@ -264,7 +233,6 @@ Slice::extractExpr(Value &v) {
       }
 
       insts.insert(i);
-      bb_insts[ibb].push_back({i, getInstructionIdx(i)});
 
       for (auto &op : i->operands()) {
         if (!isa<Instruction>(op))
@@ -383,11 +351,6 @@ Slice::extractExpr(Value &v) {
     Instruction *c = inst->clone();
     vmap[inst] = c;
     mapping[c] = inst;
-    string name;
-    raw_string_ostream ss(name);
-    ss << "__n" << name_count++;
-    ss.flush();
-    c->setName(name);
     cloned_insts.push_back(c);
   }
 
@@ -410,15 +373,20 @@ Slice::extractExpr(Value &v) {
 
     // pass 3.1.2:
     // + put in instructions
-    for (auto bis : bb_insts) {
-      auto is = schedule_insts(bis.second);
-      for (Instruction *inst : is) {
-        if (isa<BranchInst>(inst))
+    for (auto &bb : f) {
+      for (auto &i : bb) {
+        if (!insts.count(&i))
           continue;
-        BasicBlock *bb = bmap.at(bis.first);
-        cast<Instruction>(vmap[inst])->insertInto(bb, bb->end());
+        BasicBlock *bb = bmap.at(i.getParent());
+        cast<Instruction>(vmap[&i])->insertInto(bb, bb->end());
+        string name;
+        raw_string_ostream ss(name);
+        ss << "__n" << name_count++;
+        ss.flush();
+        vmap[&i]->setName(name);
       }
     }
+
     // pass 3.1.2:
     // + wire branch
     for (BasicBlock *orig_bb : blocks) {
