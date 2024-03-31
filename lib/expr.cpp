@@ -190,7 +190,7 @@ type FakeShuffleInst::getInputTy() {
 
 
 void ExtractElement::print(raw_ostream &os) const {
-  os << "(extractelement ";
+  os << "(extractelement " << ty << " ";
   v->print(os);
   os << " ";
   idx->print(os);

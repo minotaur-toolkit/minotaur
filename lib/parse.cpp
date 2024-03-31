@@ -391,6 +391,20 @@ InsertElement *Parser::parse_insertelement() {
   return T;
 }
 
+ExtractElement *Parser::parse_extractelement() {
+  type elem_ty = parse_type();
+  auto vec = parse_expr();
+  tokenizer.ensure(LPAREN);
+  tokenizer.ensure(CONST);
+  auto idx = parse_const();
+
+  tokenizer.ensure(RPAREN);
+  auto EI = make_unique<ExtractElement>(*vec, *idx, elem_ty);
+  ExtractElement *T = EI.get();
+  exprs.emplace_back(std::move(EI));
+  return T;
+}
+
 Value* Parser::parse_expr() {
   tokenizer.ensure(LPAREN);
 
@@ -429,6 +443,8 @@ Value* Parser::parse_expr() {
     return parse_select();
   case INSERTELEMENT:
     return parse_insertelement();
+  case EXTRACTELEMENT:
+    return parse_extractelement();
   case CONV_ZEXT:
   case CONV_SEXT:
   case CONV_TRUNC:

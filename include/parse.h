@@ -30,6 +30,7 @@ class Parser {
   minotaur::SIMDBinOpInst   *parse_x86(std::string_view ops);
   minotaur::Select          *parse_select();
   minotaur::InsertElement   *parse_insertelement();
+  minotaur::ExtractElement  *parse_extractelement();
   minotaur::Value* parse_expr();
 
 public:
