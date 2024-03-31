@@ -28,6 +28,7 @@ class Parser {
   minotaur::FakeShuffleInst *parse_shuffle(token);
   minotaur::IntConversion   *parse_intconv(token);
   minotaur::SIMDBinOpInst   *parse_x86(std::string_view ops);
+  minotaur::Select          *parse_select();
   minotaur::Value* parse_expr();
 
 

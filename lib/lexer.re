@@ -120,6 +120,8 @@ space+ {
 
 "blend"   { return BLEND;   }
 "shuffle" { return SHUFFLE; }
+"select"  { return SELECT;  }
+"insertelement" {return INSERTELEMENT; }
 
 "conv_zext"  { return CONV_ZEXT;  }
 "conv_sext"  { return CONV_SEXT;  }

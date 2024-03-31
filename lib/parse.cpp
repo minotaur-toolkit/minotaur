@@ -180,6 +180,7 @@ ReservedConst* Parser::parse_const() {
   tokenizer.ensure(RPAREN);
   llvm::SMDiagnostic diag;
   auto C = llvm::parseConstantValue(lt, diag, *F.getParent());
+  llvm::errs()<<diag.getMessage()<<'\n';
   C->dump();
   llvm::errs()<<"got const\n";
 
@@ -356,6 +357,18 @@ SIMDBinOpInst *Parser::parse_x86(string_view ops) {
   return T;
 }
 
+Select *Parser::parse_select() {
+  auto cond = parse_expr();
+  auto a = parse_expr();
+  auto b = parse_expr();
+
+  tokenizer.ensure(RPAREN);
+  auto SI = make_unique<Select>(*cond, *a, *b);
+  Select *T = SI.get();
+  exprs.emplace_back(std::move(SI));
+  return T;
+}
+
 Value* Parser::parse_expr() {
   tokenizer.ensure(LPAREN);
 
@@ -390,6 +403,8 @@ Value* Parser::parse_expr() {
   case SHUFFLE:
   case BLEND:
     return parse_shuffle(t);
+  case SELECT:
+    return parse_select();
   case CONV_ZEXT:
   case CONV_SEXT:
   case CONV_TRUNC:
