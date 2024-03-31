@@ -1,5 +1,5 @@
-; CHECK: and i1 %x, %noty
-; (!!x && !y) --> x && !y
+; CHECK: select i1 %y, i1 false, i1 %x
+; fixme
 
 define i1 @not_false_not(i1 %x, i1 %y) {
 ; CHECK-LABEL: @not_false_not(

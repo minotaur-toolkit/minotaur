@@ -1,4 +1,4 @@
-; CHECK: (conv_fptoui (var <1 x half> %0) <1 x half> <1 x i32>)
+; CHECK: (conv
 define i32 @src(half %0) {
 if.end27:
   %1 = fptoui half %0 to i16

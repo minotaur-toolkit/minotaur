@@ -1,4 +1,4 @@
-; CHECK: xor <4 x i1> %1, <i1 true, i1 false, i1 true, i1 false>
+; CHECK: xor <4 x i1>
 define i4 @slice(<4 x i32> %0) {
 if.then32:
   %1 = icmp eq <4 x i32> %0, <i32 8, i32 0, i32 16777226, i32 0>

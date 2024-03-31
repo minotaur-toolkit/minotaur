@@ -99,7 +99,7 @@ unsigned get_approx_cost(llvm::Function *F) {
   for (auto &BB : *F) {
     for (auto &I : BB) {
       if (isa<Argument>(&I)) {
-        cost += 0;
+        cost += 1;
         // reserved const
       } else if (CallInst *CI = dyn_cast<CallInst>(&I)) {
         auto CalledF = CI->getCalledFunction();

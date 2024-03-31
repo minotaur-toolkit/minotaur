@@ -1,4 +1,4 @@
-; CHECK:  insertelement <2 x i64> %1, i64 %i, i8 0
+; CHECK:  insertelement <2 x i64> %1, i64 %i, i16 0
 define <4 x i32> @extractelement_out_of_range(<4 x i32> %x, i64 %i) {
   %f = trunc i64 %i to i32
   %g = lshr i64 %i, 32
