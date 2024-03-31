@@ -15,7 +15,7 @@ use BSD::Resource;
 eval { require Sys::CPU; Sys::CPU->import(); };
 
 my $NPROCS = 40;
-$NPROCS = Sys::CPU::cpu_count() if defined(&Sys::CPU::cpu_count);
+$NPROCS = Sys::CPU::cpu_count() - 2 if defined(&Sys::CPU::cpu_count);
 
 sub usage() {
     print <<"END";
