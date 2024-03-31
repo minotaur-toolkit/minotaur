@@ -41,6 +41,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
@@ -287,8 +288,17 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
   if (no_slice) {
     // in this mode we assume only one return point, we do not run slicer,
     // we check if return value can be optimized
+
+
+    std::unique_ptr<llvm::Module> m;
+    ValueToValueMapTy vv;
+    auto newM = CloneModule(*F.getParent(), vv);
+    newM->dump();
+
+    auto newF = cast<Function>(vv[&F]);
+
     ReturnInst *ret = nullptr;
-    for (auto &BB : F) {
+    for (auto &BB : *newF) {
       for (auto &I : BB) {
         if (isa<ReturnInst>(I)) {
           ret = cast<ReturnInst>(&I);
@@ -306,10 +316,6 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
 
     Instruction *retI = dyn_cast<Instruction>(ret->getReturnValue());
 
-    DataLayout DL(F.getParent());
-    minotaur::Slice S(F, LI, DT);
-    auto NewF = S.extractExpr(*retI);
-    auto m = S.getNewModule();
 
     if (!retI) {
       debug() << "[online] return value is not an instruction, skipping\n";
@@ -317,8 +323,8 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
     }
 
     Enumerator EN;
-    parse::Parser P(NewF->first);
-    auto R = infer(NewF->first, NewF->second, ctx, EN, P);
+    parse::Parser P(*newF);
+    auto R = infer(*newF, retI, ctx, EN, P);
     if (!R.has_value()) {
       goto final;
     }
