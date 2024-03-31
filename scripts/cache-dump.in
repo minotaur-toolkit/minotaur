@@ -191,10 +191,10 @@ foreach my $opt (sort $byx keys %toprint) {
         print $fh $ir, "\n";
         $fh->flush();
         close $fh;
-        open($fh, ">", "dump_$count.tgt.ll");
-        print $fh $obc, "\n";
-        $fh->flush();
-        close $fh;
+        # open($fh, ">", "dump_$count.tgt.ll");
+        # print $fh $obc, "\n";
+        # $fh->flush();
+        # close $fh;
     } else {
         print "; src ---------------------------------------------------\n";
         print $ir, "\n";
