@@ -114,6 +114,10 @@ type type::getAsScalar() const {
   return type(1, bits, fp);
 }
 
+type type::getAsVector(unsigned lane) const {
+  return type(lane, bits, fp);
+}
+
 type type::getAsIntTy() const {
   return fp ? type::Integer(getWidth()): type::IntegerVectorizable(lane, bits);
 }

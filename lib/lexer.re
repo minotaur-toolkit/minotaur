@@ -130,6 +130,12 @@ space+ {
 "var" { return VAR;  }
 "reservedconst" { return CONST; }
 
+"half"   { return HALF; }
+"float"  { return FLOAT; }
+"double" { return DOUBLE; }
+"fp128"  { return FP128; }
+
+
 "x86_" [a-zA-Z0-9_]+ { COPY_STR(); return X86BINARY; }
 
 "%" [a-zA-Z0-9_.]+ {
@@ -148,7 +154,7 @@ space+ {
 }
 ">"  { return CSGT; }
 
-"\|" @tag1 [<>0-9a-z- ,]* "\|"  {
+"\|" @tag1 [<>0-9a-zA-Z- ,]* "\|"  {
   COPY_STR();
   return LITERAL;
 }

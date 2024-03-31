@@ -33,6 +33,18 @@ public:
   static type Null() {
     return type(0, 0, false);
   }
+  static type Float() {
+    return Scalar(32, true);
+  }
+  static type Double() {
+    return Scalar(64, true);
+  }
+  static type Half() {
+    return Scalar(16, true);
+  }
+  static type FP128() {
+    return Scalar(128, true);
+  }
 
   type(const type &t)
   : lane(t.getLane()), bits(t.getBits()), fp(t.isFP()) {}
@@ -55,6 +67,7 @@ public:
   bool isValid() const;
   bool isBool() const;
   type getAsScalar() const;
+  type getAsVector(unsigned lane) const;
   type getAsIntTy() const;
 };
 

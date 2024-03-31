@@ -29,9 +29,8 @@ class Parser {
   minotaur::IntConversion   *parse_intconv(token);
   minotaur::SIMDBinOpInst   *parse_x86(std::string_view ops);
   minotaur::Select          *parse_select();
+  minotaur::InsertElement   *parse_insertelement();
   minotaur::Value* parse_expr();
-
-
 
 public:
   Parser(llvm::Function &F) : F(F) {}

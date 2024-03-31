@@ -92,7 +92,9 @@ struct tokenizer_t {
   }
 
   bool isScalarType() {
-    return peek() == INT_TYPE;
+    return peek() == INT_TYPE ||
+           peek() == FLOAT || peek() == DOUBLE ||
+           peek() == HALF || peek() == FP128;
   }
 
   bool isVectorType() {
@@ -115,20 +117,34 @@ private:
 
 static tokenizer_t tokenizer;
 
-static type parse_vector_type() {
-  tokenizer.ensure(VECTOR_TYPE_PREFIX);
-  unsigned lanes = yylval.num;
-
-  tokenizer.ensure(INT_TYPE);
-  unsigned bits = yylval.num;
-  tokenizer.ensure(CSGT);
-  return type::Vectorizable(lanes, bits, false);
+static type parse_scalar_type() {
+  switch (tokenizer.peek()) {
+  case FLOAT:
+    tokenizer.ensure(FLOAT);
+    return type::Float();
+  case DOUBLE:
+    tokenizer.ensure(DOUBLE);
+    return type::Double();
+  case HALF:
+    tokenizer.ensure(HALF);
+    return type::Half();
+  case FP128:
+    tokenizer.ensure(FP128);
+    return type::FP128();
+  case INT_TYPE:
+    tokenizer.ensure(INT_TYPE);
+    return type::Scalar(yylval.num, false);
+  default:
+    UNREACHABLE();
+  }
 }
 
-static type parse_scalar_type() {
-  tokenizer.ensure(INT_TYPE);
-  unsigned bits = yylval.num;
-  return type::Scalar(bits, false);
+static type parse_vector_type() {
+  tokenizer.ensure(VECTOR_TYPE_PREFIX);
+  unsigned lane = yylval.num;
+  auto type = parse_scalar_type();
+  tokenizer.ensure(CSGT);
+  return type.getAsVector(lane);
 }
 
 static type parse_type() {
@@ -179,12 +195,7 @@ ReservedConst* Parser::parse_const() {
 
   tokenizer.ensure(RPAREN);
   llvm::SMDiagnostic diag;
-  auto C = llvm::parseConstantValue(lt, diag, *F.getParent());
-  llvm::errs()<<diag.getMessage()<<'\n';
-  C->dump();
-  llvm::errs()<<"got const\n";
-
-
+  llvm::Constant *C = llvm::parseConstantValue(lt, diag, *F.getParent());
   auto T = make_unique<ReservedConst>(t, C);
   ReservedConst *RC = T.get();
   exprs.emplace_back(std::move(T));
@@ -369,6 +380,21 @@ Select *Parser::parse_select() {
   return T;
 }
 
+InsertElement *Parser::parse_insertelement() {
+  type elem_ty = parse_type();
+  auto vec = parse_expr();
+  auto elem = parse_expr();
+  tokenizer.ensure(LPAREN);
+  tokenizer.ensure(CONST);
+  auto idx = parse_const();
+
+  tokenizer.ensure(RPAREN);
+  auto II = make_unique<InsertElement>(*vec, *elem, *idx, elem_ty);
+  InsertElement *T = II.get();
+  exprs.emplace_back(std::move(II));
+  return T;
+}
+
 Value* Parser::parse_expr() {
   tokenizer.ensure(LPAREN);
 
@@ -405,6 +431,8 @@ Value* Parser::parse_expr() {
     return parse_shuffle(t);
   case SELECT:
     return parse_select();
+  case INSERTELEMENT:
+    return parse_insertelement();
   case CONV_ZEXT:
   case CONV_SEXT:
   case CONV_TRUNC:

@@ -205,7 +205,7 @@ type ExtractElement::getInputTy() {
 
 
 void InsertElement::print(raw_ostream &os) const {
-  os << "(insertelement " << ty << " " << getInputTy() << " ";
+  os << "(insertelement " << ty << " ";
   v->print(os);
   os << " ";
   elt->print(os);
