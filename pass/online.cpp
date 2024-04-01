@@ -196,10 +196,10 @@ infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, parse::Par
   }
 
   if (no_infer) {
-    if (enable_caching)
+    if (enable_caching && !from_cache) {
       hSetNoSolution(bytecode.c_str(), bytecode.size(), ctx, F.getName());
+    }
     debug() << "[online] skipping synthesizer\n";
-    return nullopt;
   } else if (!from_cache) {
     debug() << "[online] working on function:\n" << F;
     RHSs = EN.solve(F, I);
