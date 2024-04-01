@@ -198,6 +198,7 @@ infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, parse::Par
   if (no_infer) {
     if (enable_caching && !from_cache) {
       hSetNoSolution(bytecode.c_str(), bytecode.size(), ctx, F.getName());
+      return nullopt;
     }
     debug() << "[online] skipping synthesizer\n";
   } else if (!from_cache) {
