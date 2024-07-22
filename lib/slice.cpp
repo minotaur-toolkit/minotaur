@@ -166,12 +166,6 @@ Slice::extractExpr(Value &v) {
                   << callee->getName() << "\n";
           continue;
         }
-
-        FunctionCallee intrindecl =
-            m->getOrInsertFunction(callee->getName(), callee->getFunctionType(),
-                                   callee->getAttributes());
-
-        vmap[callee] = intrindecl.getCallee();
         ops = call->args();
       } else if (auto phi = dyn_cast<PHINode>(i)) {
         bool phiHasUnknownIncome = false;
@@ -230,6 +224,16 @@ Slice::extractExpr(Value &v) {
       }
       if (haveUnknownOperand) {
         continue;
+      }
+
+      // cache the intrinisic declarations
+      if (CallInst *call = dyn_cast<CallInst>(i)) {
+        auto callee = call->getCalledFunction();
+        FunctionCallee intrindecl =
+            m->getOrInsertFunction(callee->getName(), callee->getFunctionType(),
+                                   callee->getAttributes());
+
+        vmap[callee] = intrindecl.getCallee();
       }
 
       insts.insert(i);
