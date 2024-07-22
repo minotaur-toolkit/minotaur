@@ -42,7 +42,7 @@ struct debug {
 
 static bool isUnsupportedTy(llvm::Type *ty) {
   Type *vsty = ty->getScalarType();
-  return ty->isStructTy() || vsty->isPointerTy() ||
+  return ty->isStructTy() ||
          (vsty->isFloatingPointTy() && !vsty->isIEEELikeFPTy()) ||
          ty->isScalableTy() || vsty->isX86_MMXTy() || vsty->isX86_AMXTy();
 }
