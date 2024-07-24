@@ -192,6 +192,9 @@ Slice::extractExpr(Value &v) {
           debug() << "[slicer]" << *phi << " has external or constant income\n";
           continue;
         }
+      } else if (LoadInst *LI = dyn_cast<LoadInst>(i)) {
+        
+
       }
 
       // filter unknown operation by operand type

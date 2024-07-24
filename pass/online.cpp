@@ -238,6 +238,7 @@ infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, parse::Par
 
 static bool
 optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
+                  llvm::MemoryDependenceResults &MD,
                   TargetLibraryInfoWrapperPass &TLI) {
   // set up debug output
   raw_ostream *out_file = &errs();
@@ -352,7 +353,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
           continue;
 
         DataLayout DL(F.getParent());
-        minotaur::Slice S(F, LI, DT);
+        minotaur::Slice S(F, LI, DT, MD);
         auto NewF = S.extractExpr(I);
         auto m = S.getNewModule();
 
@@ -420,12 +421,12 @@ struct SuperoptimizerLegacyPass final : public llvm::FunctionPass {
       getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     DominatorTree &DT =
       getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-    /*MemoryDependenceResults &MD =
-      getAnalysis<MemoryDependenceWrapperPass>().getMemDep();*/
+    MemoryDependenceResults &MD =
+      getAnalysis<MemoryDependenceWrapperPass>().getMemDep();
 
     TargetLibraryInfoWrapperPass TLI(Triple(F.getParent()->getTargetTriple()));
 
-    return optimize_function(F, LI, DT, TLI);
+    return optimize_function(F, LI, DT, MD, TLI);
   }
 
   bool doInitialization(llvm::Module &module) override {
@@ -465,9 +466,9 @@ struct SuperoptimizerPass : PassInfoMixin<SuperoptimizerPass> {
 
     LoopInfo &LI = FAM.getResult<llvm::LoopAnalysis>(F);
     DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
-    // MemoryDependenceResults &MD = FAM.getResult<MemoryDependenceAnalysis>(F);
+    MemoryDependenceResults &MD = FAM.getResult<MemoryDependenceAnalysis>(F);
     TargetLibraryInfoWrapperPass TLI(Triple(F.getParent()->getTargetTriple()));
-    optimize_function(F, LI, DT, TLI);
+    optimize_function(F, LI, DT, MD, TLI);
     return PA;
   }
 };

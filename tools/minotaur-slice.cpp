@@ -73,12 +73,12 @@ int main(int argc, char **argv) {
     //FAM.registerPass(llvm::LoopInfo());
     LoopInfo &LI = FAM.getResult<LoopAnalysis>(F);
     DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
-    //MemoryDependenceResults &MD = FAM.getResult<MemoryDependenceAnalysis>(F);
+    MemoryDependenceResults &MD = FAM.getResult<MemoryDependenceAnalysis>(F);
 
     unsigned count = 0;
     for (auto &BB : F) {
       for (auto &I : BB) {
-        Slice S(F, LI, DT);
+        Slice S(F, LI, DT, MD);
         if (I.getType()->isVoidTy())
           continue;
         S.extractExpr(I);

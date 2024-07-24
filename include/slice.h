@@ -19,13 +19,15 @@ class Slice {
   llvm::Function &f;
   llvm::LoopInfo &LI;
   llvm::DominatorTree &DT;
+  llvm::MemoryDependenceResults &MD;
 
   std::unique_ptr<llvm::Module> m;
   llvm::ValueToValueMapTy mapping;
 
 public:
-  Slice(llvm::Function &f, llvm::LoopInfo &LI, llvm::DominatorTree &DT)
-    : f(f), LI(LI), DT(DT) {
+  Slice(llvm::Function &f, llvm::LoopInfo &LI, llvm::DominatorTree &DT,
+        llvm::MemoryDependenceResults &MD)
+    : f(f), LI(LI), DT(DT), MD(MD) {
     m = std::make_unique<llvm::Module>("", f.getContext());
     m->setDataLayout(f.getParent()->getDataLayout());
   }
