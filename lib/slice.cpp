@@ -5,6 +5,7 @@
 #include "utils.h"
 
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/MemoryDependenceAnalysis.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constant.h"
@@ -153,6 +154,7 @@ Slice::extractExpr(Value &v) {
       }
 
       auto ops = i->operands();
+      StoreInst *st = nullptr;
 
       // filter unknown operation by instruction
       if (CallInst *call = dyn_cast<CallInst>(i)) {
@@ -193,8 +195,17 @@ Slice::extractExpr(Value &v) {
           continue;
         }
       } else if (LoadInst *LI = dyn_cast<LoadInst>(i)) {
-        
+        MemDepResult Dep = MD.getDependency(LI);
+        if (Dep.isNonLocal())
+          continue;
+        if (!Dep.isClobber())
+          continue;
 
+        Instruction *Inst = Dep.getInst();
+        if (!isa<StoreInst>(Inst))
+          continue;
+
+        st = cast<StoreInst>(Inst);
       }
 
       // filter unknown operation by operand type
@@ -240,6 +251,9 @@ Slice::extractExpr(Value &v) {
       }
 
       insts.insert(i);
+
+      if (st)
+        worklist.push({st, depth + 1});
 
       for (auto &op : i->operands()) {
         if (!isa<Instruction>(op))
@@ -390,7 +404,8 @@ Slice::extractExpr(Value &v) {
         raw_string_ostream ss(name);
         ss << "__n" << name_count++;
         ss.flush();
-        vmap[&i]->setName(name);
+        if (!isa<StoreInst>(vmap[&i]))
+          vmap[&i]->setName(name);
       }
     }
 
