@@ -33,6 +33,7 @@ if [[ $SKIP == 0 ]]; then
   -minotaur-ignore-machine-cost=true \
   -minotaur-debug-codegen=false \
   -minotaur-debug-enumerator=$DEBUG \
+  -minotaur-debug-slicer=$DEBUG \
   #-minotaur-no-infer=true \
   $TV_REPORT_DIR
 else

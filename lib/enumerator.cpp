@@ -71,6 +71,8 @@ void Enumerator::findInputs(llvm::Function &F,
                             llvm::Instruction *root,
                             llvm::DominatorTree &DT) {
   for (auto &A : F.args()) {
+    if (A.getType()->isPointerTy())
+      continue;
     auto T = make_unique<Var>(&A);
     values.emplace_back(T.get());
     exprs.emplace_back(std::move(T));

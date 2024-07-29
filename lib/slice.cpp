@@ -153,6 +153,7 @@ Slice::extractExpr(Value &v) {
         continue;
       }
 
+      llvm::errs()<<*i<<"here\n";
       auto ops = i->operands();
       StoreInst *st = nullptr;
 
@@ -196,26 +197,24 @@ Slice::extractExpr(Value &v) {
         }
       } else if (LoadInst *LI = dyn_cast<LoadInst>(i)) {
         MemDepResult Dep = MD.getDependency(LI);
-        if (Dep.isNonLocal())
-          continue;
-        if (!Dep.isClobber())
-          continue;
+        if (Dep.isClobber()) {
+          Instruction *Inst = Dep.getInst();
+          if (!isa<StoreInst>(Inst))
+            continue;
 
-        Instruction *Inst = Dep.getInst();
-        if (!isa<StoreInst>(Inst))
-          continue;
-
-        st = cast<StoreInst>(Inst);
+          st = cast<StoreInst>(Inst);
+        }
       }
+      llvm::errs()<<*i<<"here2\n";
 
       // filter unknown operation by operand type
       bool haveUnknownOperand = false;
       for (auto &op : ops) {
-        if (isa<GlobalValue>(op)) {
-          debug() << "[slicer] found instruction that uses GlobalValue\n";
-          haveUnknownOperand = true;
-          break;
-        }
+        // if (isa<GlobalValue>(op)) {
+        //   debug() << "[slicer] found instruction that uses GlobalValue\n";
+        //   haveUnknownOperand = true;
+        //   break;
+        // }
         if (isa<ConstantExpr>(op)) {
           debug() << "[slicer] found instruction that uses ConstantExpr\n";
           haveUnknownOperand = true;
@@ -251,6 +250,7 @@ Slice::extractExpr(Value &v) {
       }
 
       insts.insert(i);
+
 
       if (st)
         worklist.push({st, depth + 1});
