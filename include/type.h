@@ -14,24 +14,34 @@ namespace minotaur {
 class type {
   unsigned lane, bits;
   bool fp;
-  type(unsigned l, unsigned b, bool f) :
-    lane(l), bits(b), fp(f) {};
+  bool ptr = false;
+  type(unsigned l, unsigned b, bool f, bool ptr) :
+    lane(l), bits(b), fp(f), ptr(ptr) {};
 
 public:
+  static type Ptr() {
+    type(1, 0, 0, true);
+  }
+
+  static ty
+
+  static type NonPtr (unsigned l, unsigned b, unsigned f) {
+    return type(l, b, f, false);
+  }
   static type Scalar(unsigned bits, bool fp) {
-    return type(1, bits, fp);
+    return NonPtr(1, bits, fp);
   }
   static type Integer(unsigned bits) {
     return Scalar(bits, false);
   }
   static type Vectorizable(unsigned lane, unsigned bits, bool fp) {
-    return type(lane, bits, fp);
+    return NonPtr(lane, bits, fp);
   }
   static type IntegerVectorizable(unsigned lane, unsigned bits) {
     return Vectorizable(lane, bits, false);
   }
   static type Null() {
-    return type(0, 0, false);
+    return NonPtr(0, 0, false);
   }
   static type Float() {
     return Scalar(32, true);
