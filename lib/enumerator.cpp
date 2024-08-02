@@ -70,27 +70,28 @@ namespace minotaur {
 void Enumerator::findInputs(llvm::Function &F,
                             llvm::Instruction *root,
                             llvm::DominatorTree &DT) {
+  vector<llvm::Value*> inputs;
   for (auto &A : F.args()) {
-    auto T = make_unique<Var>(&A);
-    values.emplace_back(T.get());
-    exprs.emplace_back(std::move(T));
+    inputs.push_back(&A);
   }
   for (auto &BB : F) {
     for (auto &I : BB) {
       if (&I == root)
         continue;
 
-      auto ty = I.getType()->getScalarType();
-      if (!ty->isIntegerTy() && !ty->isIEEELikeFPTy())
-        continue;
-
       if (!DT.dominates(&I, root))
         continue;
-
-      auto T = make_unique<Var>(&I);
-      values.emplace_back(T.get());
-      exprs.emplace_back(std::move(T));
+      inputs.push_back(&I);
     }
+  }
+
+  for (auto &i : inputs) {
+    auto ty = i->getType()->getScalarType();
+    if (!ty->isIntegerTy() && !ty->isIEEELikeFPTy())
+      continue;
+    auto T = make_unique<Var>(i);
+    values.emplace_back(T.get());
+    exprs.emplace_back(std::move(T));
   }
 }
 
