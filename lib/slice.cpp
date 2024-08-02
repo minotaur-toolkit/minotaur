@@ -153,7 +153,6 @@ Slice::extractExpr(Value &v) {
         continue;
       }
 
-      llvm::errs()<<*i<<"here\n";
       auto ops = i->operands();
       StoreInst *st = nullptr;
 
@@ -206,7 +205,7 @@ Slice::extractExpr(Value &v) {
         }
       }
 
-   g   // filter unknown operation by operand type
+      // filter unknown operation by operand type
       bool haveUnknownOperand = false;
       for (auto &op : ops) {
         // if (isa<GlobalValue>(op)) {
