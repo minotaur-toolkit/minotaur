@@ -20,44 +20,51 @@ class type {
 
 public:
   static type Ptr() {
-    type(1, 0, 0, true);
+    return type(1, 1, false, true);
   }
-
-  static ty
 
   static type NonPtr (unsigned l, unsigned b, unsigned f) {
     return type(l, b, f, false);
   }
+
   static type Scalar(unsigned bits, bool fp) {
     return NonPtr(1, bits, fp);
   }
+
   static type Integer(unsigned bits) {
     return Scalar(bits, false);
   }
+
   static type Vectorizable(unsigned lane, unsigned bits, bool fp) {
     return NonPtr(lane, bits, fp);
   }
+
   static type IntegerVectorizable(unsigned lane, unsigned bits) {
     return Vectorizable(lane, bits, false);
   }
+
   static type Null() {
     return NonPtr(0, 0, false);
   }
+
   static type Float() {
     return Scalar(32, true);
   }
+
   static type Double() {
     return Scalar(64, true);
   }
+
   static type Half() {
     return Scalar(16, true);
   }
+
   static type FP128() {
     return Scalar(128, true);
   }
 
   type(const type &t)
-  : lane(t.getLane()), bits(t.getBits()), fp(t.isFP()) {}
+  : lane(t.getLane()), bits(t.getBits()), fp(t.isFP()), ptr(t.isPtr()) {}
   type(llvm::Type *t);
 
   bool isVector() const { return lane  > 1; }
@@ -74,6 +81,7 @@ public:
   unsigned getLane() const;
   unsigned getBits() const;
   bool isFP() const;
+  bool isPtr() const;
   bool isValid() const;
   bool isBool() const;
   type getAsScalar() const;

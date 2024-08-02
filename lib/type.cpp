@@ -21,6 +21,7 @@ type::type(llvm::Type *t) {
     lane = 1;
     bits = t->getPrimitiveSizeInBits();
     fp = t->isIEEELikeFPTy();
+    ptr = false;
   } else if (t->isVectorTy()) {
     if (isa<llvm::ScalableVectorType>(t))
       report_fatal_error("scalable vector type not yet supported");
@@ -29,6 +30,7 @@ type::type(llvm::Type *t) {
     Type *elemty = fty->getElementType();
     lane = fty->getNumElements();
     bits = elemty->getPrimitiveSizeInBits();
+    ptr = false;
     if (elemty->isIntegerTy()) {
       fp = false;
     } else if (elemty->isIEEELikeFPTy()) {
@@ -36,6 +38,11 @@ type::type(llvm::Type *t) {
     } else {
       report_fatal_error("non-trivial vectors are not supported\n");
     }
+  } else if (t->isPointerTy()) {
+    lane = 1;
+    bits = 0;
+    fp = false;
+    ptr = true;
   } else {
     llvm::errs()<<"[expr] type: "<<*t<<"\n";
     report_fatal_error("[expr] unrecognized type");
@@ -102,6 +109,10 @@ bool type::isFP() const {
   return fp;
 }
 
+bool type::isPtr() const {
+  return ptr;
+}
+
 bool type::isValid() const{
   return lane != 0 && bits != 0;
 }
@@ -111,11 +122,11 @@ bool type::isBool() const {
 }
 
 type type::getAsScalar() const {
-  return type(1, bits, fp);
+  return type(1, bits, fp, false);
 }
 
 type type::getAsVector(unsigned lane) const {
-  return type(lane, bits, fp);
+  return type(lane, bits, fp, false);
 }
 
 type type::getAsIntTy() const {
