@@ -205,9 +205,8 @@ Slice::extractExpr(Value &v) {
           st = cast<StoreInst>(Inst);
         }
       }
-      llvm::errs()<<*i<<"here2\n";
 
-      // filter unknown operation by operand type
+   q   // filter unknown operation by operand type
       bool haveUnknownOperand = false;
       for (auto &op : ops) {
         // if (isa<GlobalValue>(op)) {
