@@ -99,6 +99,10 @@ Slice::extractExpr(Value &v) {
     debug() << "[slicer] unsupported type " << *vsty << "\n";
     return nullopt;
   }
+  if (vsty->isPointerTy()) {
+    debug() << "[slicer] minotaur does not support ptr as root\n";
+    return nullopt;
+  }n
 
   assert(isa<Instruction>(&v) && "Expr to be extracted must be a Instruction");
   Instruction *vi = cast<Instruction>(&v);
