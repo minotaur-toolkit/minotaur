@@ -102,7 +102,7 @@ Slice::extractExpr(Value &v) {
   if (vsty->isPointerTy()) {
     debug() << "[slicer] minotaur does not support ptr as root\n";
     return nullopt;
-  }n
+  }
 
   assert(isa<Instruction>(&v) && "Expr to be extracted must be a Instruction");
   Instruction *vi = cast<Instruction>(&v);
@@ -372,6 +372,7 @@ Slice::extractExpr(Value &v) {
   vector<Instruction *> cloned_insts;
   for (auto inst : insts) {
     Instruction *c = inst->clone();
+    c->eraseMetadataIf([](unsigned int, MDNode *){return true;});
     vmap[inst] = c;
     mapping[c] = inst;
     cloned_insts.push_back(c);

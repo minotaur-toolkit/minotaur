@@ -7,6 +7,7 @@
 
 #include "hiredis.h"
 
+#include <random>
 #include <unordered_set>
 
 using namespace std;
@@ -64,12 +65,23 @@ void hSetRewrite(const char *k, unsigned sz_k,
   freeReplyObject(reply);
 }
 
+std::string random_string()
+{
+  std::string str("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
+  std::random_device rd;
+  std::mt19937 generator(rd());
+  std::shuffle(str.begin(), str.end(), generator);
+  return str.substr(0, 32);    // assumes 32 < number of characters in str
+}
+
+
 void hSetNoSolution(const char *k, unsigned sz_k,
                     redisContext *c,
                     StringRef FnName) {
   redisReply *reply = (redisReply *)redisCommand(c,
-    "HSET %b rewrite <no-sol> timestamp %s fn %s",
-    k, sz_k, to_string((unsigned long)time(NULL)).c_str(), FnName.data());
+    "HSET %b rewrite <no-sol> timestamp %s fn %s id %s",
+    k, sz_k, to_string((unsigned long)time(NULL)).c_str(), FnName.data(),
+    random_string().c_str());
   if (!reply || c->err)
     report_fatal_error((StringRef)"Redis error: " + c->errstr);
   if (reply->type != REDIS_REPLY_INTEGER) {
