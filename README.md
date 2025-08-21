@@ -1,4 +1,4 @@
-# Minotaur: A SIMD-Oriented Synthesizing Superoptimizer
+# Minotaur: a Synthesizing Superoptimizer for LLVM
 
 [![Build](https://github.com/minotaur-toolkit/minotaur/actions/workflows/build.yml/badge.svg)](https://github.com/minotaur-toolkit/minotaur/actions/workflows/build.yml)
 

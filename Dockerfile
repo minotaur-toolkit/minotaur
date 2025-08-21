@@ -1,4 +1,4 @@
-FROM ubuntu:23.04
+FROM ubuntu:24.04
 
 # We install some useful packages.
 RUN apt-get update -qq
