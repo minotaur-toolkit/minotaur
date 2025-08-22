@@ -1,7 +1,8 @@
-// Copyright (c) 2018-present The Alive2 Authors.
+// Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
 #pragma once
 
+#include <stdint.h>
 #include <string>
 #include <string_view>
 
@@ -35,7 +36,6 @@ struct LexException {
   LexException(std::string &&str, unsigned lineno)
     : str(std::move(str)), lineno(lineno) {}
 };
-
 
 constexpr unsigned LEXER_READ_AHEAD = 20;
 
