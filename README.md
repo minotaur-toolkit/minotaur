@@ -7,11 +7,11 @@ https://arxiv.org/abs/2306.00229.
 
 ## Build Minotaur using Docker
 
-To build the docker container use:
+To build the docker container, use
 
     docker build -t minotaur-dev -f Dockerfile .
 
-To run the container use:
+To run the container, use
 
     docker run -it minotaur-dev bash
 
@@ -38,15 +38,14 @@ use the following command to fetch and build LLVM.
     cmake -GNinja -DLLVM_ENABLE_RTTI=ON -DLLVM_ENABLE_EH=ON -DBUILD_SHARED_LIBS=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_ENABLE_PROJECTS="llvm;clang" ../llvm
     ninja
 
-To fetch and build the Alive2 with semantics for intrinsics, use the
-following command.
+To fetch and build the Alive2 with semantics for intrinsics, use
 
     git clone git@github.com:minotaur-toolkit/alive2-intrinsics $HOME/alive2-intrinsics
     mkdir $HOME/alive2-intrinsics/build && cd $HOME/alive2-intrinsics/build
     cmake -GNinja -DLLVM_DIR=$HOME/llvm/build/lib/cmake/llvm -DBUILD_TV=1 -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
     ninja
 
-To build Minotaur, use the following command.
+To build Minotaur, use
 
     git clone git@github.com:minotaur-toolkit/minotaur $HOME/minotaur
     mkdir $HOME/minotaur/build && cd $HOME/minotaur/build

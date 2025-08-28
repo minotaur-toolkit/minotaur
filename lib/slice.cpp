@@ -41,10 +41,12 @@ struct debug {
 };
 
 static bool isUnsupportedTy(llvm::Type *ty) {
-  Type *vsty = ty->getScalarType();
-  return ty->isStructTy() || vsty->isPointerTy() ||
-         (vsty->isFloatingPointTy() && !vsty->isIEEELikeFPTy()) ||
-         ty->isScalableTy() || vsty->isX86_MMXTy() || vsty->isX86_AMXTy();
+  Type *el_ty = ty->getScalarType();
+
+  bool isAggregateTyUnsupported = ty->isStructTy() || ty->isScalableTy();
+  bool isElementTyUnsupported = el_ty->isPointerTy() || el_ty->isX86_AMXTy() ||
+                                el_ty->isX86_FP80Ty() || el_ty->isPPC_FP128Ty();
+  return isAggregateTyUnsupported || isElementTyUnsupported;
 }
 
 static bool walk(BasicBlock* current, BasicBlock* target,
