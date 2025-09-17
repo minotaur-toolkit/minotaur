@@ -40,7 +40,7 @@ RUN cmake -G Ninja -DLLVM_ENABLE_RTTI=ON -DLLVM_ENABLE_EH=ON   \
       -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_ENABLE_ASSERTIONS=ON  \
       -DLLVM_ENABLE_PROJECTS="llvm;clang" \
       $HOME/llvm/llvm
-RUN ninja clang
+RUN ninja
 
 # Fetch and build the Alive2 with the semantic for intrinsics
 WORKDIR $HOME
