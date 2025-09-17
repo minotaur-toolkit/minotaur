@@ -191,9 +191,6 @@ space+ {
 "double" { return DOUBLE; }
 "fp128"  { return FP128; }
 
-
-"x86_" [a-zA-Z0-9_]+ { COPY_STR(); return X86BINARY; }
-
 "%" [a-zA-Z0-9_.]+ {
   COPY_STR();
   return REGISTER;

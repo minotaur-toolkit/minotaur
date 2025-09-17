@@ -32,7 +32,6 @@ public:
   AliveEngine(llvm::TargetLibraryInfoWrapperPass &TLI, bool dpi) : TLI(TLI) {
     util::config::disable_undef_input = true;
     util::config::disable_poison_input = dpi;
-    util::config::use_exact_fp = dpi;
     debug = config::debug_tv ? &std::cerr : &NOP_OSTREAM;
   }
 

@@ -56,15 +56,12 @@ static expr preprocess(Transform &t, const set<expr> &qvars0,
   return expr::mkForAll(qvars, std::move(e));
 }
 
-void calculateAndInitConstants(Transform &t);
-
 namespace minotaur {
 
 bool
 AliveEngine::compareFunctions(llvm::Function &Func1, llvm::Function &Func2) {
   smt::smt_initializer smt_init;
   llvm_util::Verifier verifier(TLI, smt_init, *debug);
-  verifier.quiet = false;
   verifier.compareFunctions(Func1, Func2);
 
   return verifier.num_correct;
@@ -76,7 +73,7 @@ AliveEngine::find_model(Transform &t,
 
   t.preprocess();
   t.tgt.syncDataWithSrc(t.src);
-  ::calculateAndInitConstants(t);
+  //::calculateAndInitConstants(t);
 
   TransformPrintOpts print_opts;
   t.print(*debug, print_opts);
@@ -123,11 +120,13 @@ AliveEngine::find_model(Transform &t,
     }
 
     auto aty = ty.getAsAggregateType();
-    if (ty.isVectorType() && (aty->getChild(0).isIntType() || aty->getChild(0).isFloatType())) {
-      for (unsigned I = 0; I < aty->numElementsConst(); ++I) {
-        qvars.insert(aty->extract(val->val, I, false).value);
+    if (ty.isVectorType()) {
+      if (aty->getChild(0).isIntType() || aty->getChild(0).isFloatType()) {
+        for (unsigned I = 0; I < aty->numElementsConst(); ++I) {
+          qvars.insert(aty->extract(val->val, I, false).value);
+        }
+        continue;
       }
-      continue;
     }
 
     errs.add("Unknown type is found in argument list.", false);
@@ -163,7 +162,7 @@ AliveEngine::find_model(Transform &t,
 
   // TODO: dom check seems redundant
   // TODO: add memory back here
-  auto r = check_expr(mk_fml(poison_cnstr && value_cnstr));
+  auto r = check_expr(mk_fml(poison_cnstr && value_cnstr), "synthesis");
 
   if (r.isInvalid()) {
     errs.add("Invalid expr", false);

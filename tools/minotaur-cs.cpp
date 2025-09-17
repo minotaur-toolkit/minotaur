@@ -100,11 +100,10 @@ int main(int argc, char **argv) {
   sys::PrintStackTraceOnErrorSignal(argv[0]);
   PrettyStackTraceProgram X(argc, argv);
   EnableDebugBuffering = true;
-  llvm_shutdown_obj llvm_shutdown;  // Call llvm_shutdown() on exit.
   LLVMContext Context;
 
   cl::ParseCommandLineOptions(argc, argv,
-                                    "Minotaur stand-alone Constant Synthesizer\n");
+                              "Minotaur stand-alone Constant Synthesizer\n");
 
   smt::set_query_timeout(to_string(opt_smt_to));
   smt::solver_print_queries(opt_smt_verbose);

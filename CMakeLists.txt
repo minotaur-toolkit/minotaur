@@ -13,7 +13,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CMAKE_CXX_FLAGS                "-Wall -march=native -fPIC ${CMAKE_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS                "-Wall -fPIC ${CMAKE_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS_DEBUG          "-g -Og ${CMAKE_CXX_FLAGS_DEBUG}")
 set(CMAKE_CXX_FLAGS_RELEASE        "-O3 ${CMAKE_CXX_FLAGS_RELEASE}")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELEASE} -g ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
@@ -30,7 +30,6 @@ add_custom_command(OUTPUT "${PROJECT_BINARY_DIR}/lexer/lexer.cpp"
                    "-o" "${PROJECT_BINARY_DIR}/lexer/lexer.cpp"
                    "${PROJECT_SOURCE_DIR}/lib/lexer.re"
                    DEPENDS "lib/lexer.re")
-
 
 find_package(LLVM REQUIRED CONFIG)
 
@@ -119,27 +118,22 @@ target_link_libraries(synthesizer PRIVATE utils cost config)
 add_llvm_library(online MODULE "pass/online.cpp")
 
 target_link_libraries(online
-  PRIVATE synthesizer slice ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS}
-  $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
+  PRIVATE synthesizer slice ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS})
 
+# add_llvm_executable(minotaur-cs "tools/minotaur-cs.cpp")
 
-add_llvm_executable(minotaur-cs "tools/minotaur-cs.cpp")
-
-target_link_libraries(minotaur-cs
-  PRIVATE synthesizer ${ALIVE_LIBS} ${LLVM_LIBS} ${Z3_LIBRARIES}
-  $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
+# target_link_libraries(minotaur-cs
+#   PRIVATE synthesizer ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS})
 
 add_llvm_executable(minotaur-slice "tools/minotaur-slice.cpp")
 
 target_link_libraries(minotaur-slice
-  PRIVATE slice ${ALIVE_LIBS}
-  $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
+  PRIVATE slice ${ALIVE_LIBS})
 
 add_llvm_executable(parse-tests "unit-tests/parse-tests.cpp")
 set(GTEST_LIBS "-lgtest_main -lgtest -lpthread")
 target_link_libraries(parse-tests
-  PRIVATE synthesizer ${GTEST_LIBS} ${Z3_LIBRARIES}
-  $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>)
+  PRIVATE synthesizer ${GTEST_LIBS} ${Z3_LIBRARIES})
 
 if(APPLE)
     set_target_properties(online PROPERTIES

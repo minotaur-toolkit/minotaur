@@ -154,6 +154,7 @@ raw_ostream& operator<<(raw_ostream &os, const type &ty) {
   return os;
 }
 
+#if(false)
 type getIntrinsicOp0Ty(IR::X86IntrinBinOp::Op op) {
   return type::IntegerVectorizable(IR::X86IntrinBinOp::shape_op0[op].first,
                                    IR::X86IntrinBinOp::shape_op0[op].second);
@@ -168,6 +169,7 @@ type getIntrinsicRetTy(IR::X86IntrinBinOp::Op op) {
   return type::IntegerVectorizable(IR::X86IntrinBinOp::shape_ret[op].first,
                                    IR::X86IntrinBinOp::shape_ret[op].second);
 }
+#endif
 
 vector<type> getIntegerVectorTypes(type ty) {
   unsigned width = ty.getWidth();

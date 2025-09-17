@@ -152,14 +152,13 @@ void FCmp::print(raw_ostream &os) const {
   os << ")";
 }
 
-void SIMDBinOpInst::print(raw_ostream &os) const {
-  os << "(" << IR::X86IntrinBinOp::getOpName(op) << " ";
-  lhs->print(os);
-  os << " ";
-  rhs->print(os);
-  os << ")";
-}
-
+// void SIMDBinOpInst::print(raw_ostream &os) const {
+//   os << "(" << IR::X86IntrinBinOp::getOpName(op) << " ";
+//   lhs->print(os);
+//   os << " ";
+//   rhs->print(os);
+//   os << ")";
+// }
 
 void FakeShuffleInst::print(raw_ostream &os) const {
   if (rhs)

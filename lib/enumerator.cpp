@@ -493,6 +493,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
     }
   }
 
+#if(false)
   // BinaryIntrinsics
   for (unsigned K = 0; K < X86IntrinBinOp::numOfX86Intrinsics; ++K) {
     if (expected.isFP())
@@ -546,6 +547,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
       }
     }
   }
+#endif
 
   // shufflevector
   for (auto Op0 = Comps.begin(); Op0 != Comps.end(); ++Op0) {

@@ -156,7 +156,7 @@ static type parse_type() {
 }
 
 Var *Parser::parse_var() {
-  type ty = parse_type();
+  parse_type();
   tokenizer.ensure(REGISTER);
   string id(yylval.str);
   id.erase(id.begin());
@@ -474,6 +474,7 @@ FPConversion *Parser::parse_fpconv(token op_token) {
   return T;
 }
 
+#if(false)
 SIMDBinOpInst *Parser::parse_x86(string_view ops) {
   IR::X86IntrinBinOp::Op op;
   #define PROCESS(NAME,A,B,C,D,E,F) if (ops == #NAME) op = IR::X86IntrinBinOp::NAME;
@@ -489,6 +490,7 @@ SIMDBinOpInst *Parser::parse_x86(string_view ops) {
   exprs.emplace_back(std::move(CI));
   return T;
 }
+#endif
 
 Select *Parser::parse_select() {
   auto cond = parse_expr();
@@ -625,9 +627,6 @@ Value* Parser::parse_expr() {
   case CONV_FPTOSI:
   case CONV_FPTOUI:
     return parse_fpconv(t);
-
-  case X86BINARY:
-    return parse_x86(yylval.str);
   case VAR:
     return parse_var();
   case CONST:

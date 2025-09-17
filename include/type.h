@@ -71,9 +71,9 @@ public:
   type getAsIntTy() const;
 };
 
-type getIntrinsicRetTy(IR::X86IntrinBinOp::Op);
-type getIntrinsicOp0Ty(IR::X86IntrinBinOp::Op);
-type getIntrinsicOp1Ty(IR::X86IntrinBinOp::Op);
+// type getIntrinsicRetTy(IR::X86IntrinBinOp::Op);
+// type getIntrinsicOp0Ty(IR::X86IntrinBinOp::Op);
+// type getIntrinsicOp1Ty(IR::X86IntrinBinOp::Op);
 
 std::vector<type> getIntegerVectorTypes(type);
 

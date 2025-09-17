@@ -351,7 +351,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
         if (I.getType()->isVoidTy())
           continue;
 
-        DataLayout DL(F.getParent());
+        DataLayout DL(F.getParent()->getDataLayout());
         minotaur::Slice S(F, LI, DT);
         auto NewF = S.extractExpr(I);
         auto m = S.getNewModule();

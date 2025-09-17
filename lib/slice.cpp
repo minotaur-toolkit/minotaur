@@ -24,6 +24,7 @@
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
 #include <functional>
+#include <map>
 #include <optional>
 #include <queue>
 
