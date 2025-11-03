@@ -33,18 +33,7 @@ USER dev
 ENV HOME /home/dev
 WORKDIR $HOME
 
-# Add the keys and set permissions
-RUN mkdir -p /home/dev/.ssh
-ARG ssh_prv_key
-ARG ssh_pub_key
-RUN echo "$ssh_prv_key" > /home/dev/.ssh/id_ed25519 && \
-    echo "$ssh_pub_key" > /home/dev/.ssh/id_ed25519.pub && \
-    chmod 600 /home/dev/.ssh/id_ed25519 && \
-    chmod 644 /home/dev/.ssh/id_ed25519.pub
-RUN echo "Host *\n\tStrictHostKeyChecking no\n" > /home/dev/.ssh/config && \
-    chmod 644 /home/dev/.ssh/config
-
-RUN git clone --depth=1 -b llvmorg-20.1.8-patched git@github.com:minotaur-toolkit/llvm.git
+RUN git clone --depth=1 -b llvmorg-20.1.8-patched https://github.com/minotaur-toolkit/llvm.git
 WORKDIR $HOME/llvm/build
 RUN cmake -G Ninja -DLLVM_ENABLE_RTTI=ON -DLLVM_ENABLE_EH=ON   \
       -DBUILD_SHARED_LIBS=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo \
@@ -55,7 +44,7 @@ RUN ninja
 
 # Fetch and build the Alive2 with the semantic for intrinsics
 WORKDIR $HOME
-RUN git clone --depth=1 -b v20.0 git@github.com:alivetoolkit/alive2.git
+RUN git clone --depth=1 -b v20.0 https://github.com/AliveToolkit/alive2.git
 WORKDIR $HOME/alive2/build
 RUN cmake -G Ninja -DLLVM_DIR=$HOME/llvm/build/lib/cmake/llvm \
       -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_TV=1          \
@@ -64,7 +53,7 @@ RUN ninja
 
 # # To build Minotaur, use the following command.
 WORKDIR $HOME
-RUN git clone --depth=1 git@github.com:minotaur-toolkit/minotaur.git
+RUN git clone --depth=1 https://github.com/KiSchulz/minotaur.git
 WORKDIR $HOME/minotaur/build
 RUN cmake -DALIVE2_SOURCE_DIR=$HOME/alive2 \
       -DALIVE2_BUILD_DIR=$HOME/alive2/build \
