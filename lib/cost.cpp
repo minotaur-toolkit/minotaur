@@ -17,6 +17,8 @@
 #include <fstream>
 #include <map>
 
+#include <unistd.h>
+
 using namespace llvm;
 using namespace std;
 
