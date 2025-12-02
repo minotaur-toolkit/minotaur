@@ -2,3 +2,9 @@
 build/
 .cache
 compile_commands.json
+
+# Nix
+result
+result-*
+.direnv/
+
