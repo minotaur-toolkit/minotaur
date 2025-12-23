@@ -17,9 +17,6 @@ To run the container, use
 
 ## Build Minotaur from source code
 
-Clone the repo with
-    git clone git@github.com:minotaur-toolkit/minotaur $HOME/minotaur
-
 Minotaur requires `cmake`, `ninja-build`, `gcc-10`, `g++-10`,
 `redis`, `redis-server`, `libhiredis-dev`, `libbsd-resource-perl`,
 `libredis-perl`, `libgtest-dev`, and `re2c` as dependencies. On
@@ -32,6 +29,10 @@ or on mac, use
     brew install cmake re2c z3 hiredis redis
 
 to install dependencies.
+
+Clone Minotaur repository with
+
+    git clone git@github.com:minotaur-toolkit/minotaur $HOME/minotaur
 
 The Alive2 requires a LLVM compiled with RTTI and exceptions enabled,
 use the following command to fetch and build LLVM.
