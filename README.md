@@ -17,7 +17,10 @@ To run the container, use
 
 ## Build Minotaur from source code
 
-The project requires `cmake`, `ninja-build`, `gcc-10`, `g++-10`,
+Clone the repo with
+    git clone git@github.com:minotaur-toolkit/minotaur $HOME/minotaur
+
+Minotaur requires `cmake`, `ninja-build`, `gcc-10`, `g++-10`,
 `redis`, `redis-server`, `libhiredis-dev`, `libbsd-resource-perl`,
 `libredis-perl`, `libgtest-dev`, and `re2c` as dependencies. On
 Ubuntu/Debian, use
@@ -38,18 +41,17 @@ use the following command to fetch and build LLVM.
     cmake -GNinja -DLLVM_ENABLE_RTTI=ON -DLLVM_ENABLE_EH=ON -DBUILD_SHARED_LIBS=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_ENABLE_PROJECTS="llvm;clang" ../llvm
     ninja
 
-To fetch and build the Alive2 with semantics for intrinsics, use
+To fetch and build the Alive2, use
 
-    git clone git@github.com:minotaur-toolkit/alive2-intrinsics $HOME/alive2-intrinsics
-    mkdir $HOME/alive2-intrinsics/build && cd $HOME/alive2-intrinsics/build
+    git clone --depth=1 -b v20.0 https://github.com/alivetoolkit/alive2.git $HOME/alive2
+    mkdir $HOME/alive2/build && cd $HOME/alive2/build
     cmake -GNinja -DLLVM_DIR=$HOME/llvm/build/lib/cmake/llvm -DBUILD_TV=1 -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
     ninja
 
 To build Minotaur, use
 
-    git clone git@github.com:minotaur-toolkit/minotaur $HOME/minotaur
     mkdir $HOME/minotaur/build && cd $HOME/minotaur/build
-    cmake .. -DALIVE2_SOURCE_DIR=$HOME/alive2-intrinsics -DALIVE2_BUILD_DIR=$HOME/alive2-intrinsics/build -DCMAKE_PREFIX_PATH=$HOME/llvm/build -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DCMAKE_BUILD_TYPE=RelWithDebInfo -G Ninja
+    cmake .. -DALIVE2_SOURCE_DIR=$HOME/alive2 -DALIVE2_BUILD_DIR=$HOME/alive2/build -DCMAKE_PREFIX_PATH=$HOME/llvm/build -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DCMAKE_BUILD_TYPE=RelWithDebInfo -G Ninja
     ninja
 
 To run the test suite, use
