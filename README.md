@@ -19,10 +19,10 @@ To run the container, use
 
 Minotaur requires `cmake`, `ninja-build`, `gcc-10`, `g++-10`,
 `redis`, `redis-server`, `libhiredis-dev`, `libbsd-resource-perl`,
-`libredis-perl`, `libgtest-dev`, and `re2c` as dependencies. On
+`libredis-perl`, `libgtest-dev`, `libz3-dev` and `re2c` as dependencies. On
 Ubuntu/Debian, use
 
-    sudo apt-get install cmake ninja-build gcc-10 g++-10 redis redis-server libhiredis-dev libbsd-resource-perl libredis-perl re2c libgtest-dev
+    sudo apt-get install cmake ninja-build gcc-10 g++-10 redis redis-server libhiredis-dev libbsd-resource-perl libredis-perl re2c libgtest-dev libz3-dev
 
 or on mac, use
 
