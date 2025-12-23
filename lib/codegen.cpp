@@ -370,7 +370,7 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
       report_fatal_error("right operand width mismatch");
     op1 = bitcastTo(op1, op1_ty.toLLVM(C));
 
-    llvm::Function *decl = Intrinsic::getOrInsertDeclaration(M->getParent(), getIntrinsicID(B->K()));
+    llvm::Function *decl = Intrinsic::getOrInsertDeclaration(M, getIntrinsicID(B->K()));
     IntrinsicDecls.insert(decl);
 
     llvm::Value *CI = CallInst::Create(decl,
