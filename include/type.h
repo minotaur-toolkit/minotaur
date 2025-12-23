@@ -2,11 +2,10 @@
 // Distributed under the MIT license that can be found in the LICENSE file.
 #pragma once
 
-#include "ir/instr.h"
+#include "ir/x86_intrinsics.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Type.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 
 namespace minotaur {
@@ -71,9 +70,9 @@ public:
   type getAsIntTy() const;
 };
 
-// type getIntrinsicRetTy(IR::X86IntrinBinOp::Op);
-// type getIntrinsicOp0Ty(IR::X86IntrinBinOp::Op);
-// type getIntrinsicOp1Ty(IR::X86IntrinBinOp::Op);
+type getIntrinsicRetTy(IR::X86IntrinBinOp::Op);
+type getIntrinsicOp0Ty(IR::X86IntrinBinOp::Op);
+type getIntrinsicOp1Ty(IR::X86IntrinBinOp::Op);
 
 std::vector<type> getIntegerVectorTypes(type);
 

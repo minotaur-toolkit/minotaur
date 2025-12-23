@@ -72,3 +72,5 @@ RUN cmake -DALIVE2_SOURCE_DIR=$HOME/alive2 \
       -DCMAKE_BUILD_TYPE=RelWithDebInfo -G Ninja \
        $HOME/minotaur
 RUN ninja
+
+CMD ["bash", "-lc", "redis-server --save '' --appendonly no --dir /tmp --daemonize yes && exec bash"]

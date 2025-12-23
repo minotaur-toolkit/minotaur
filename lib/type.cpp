@@ -154,22 +154,38 @@ raw_ostream& operator<<(raw_ostream &os, const type &ty) {
   return os;
 }
 
-#if(false)
 type getIntrinsicOp0Ty(IR::X86IntrinBinOp::Op op) {
-  return type::IntegerVectorizable(IR::X86IntrinBinOp::shape_op0[op].first,
-                                   IR::X86IntrinBinOp::shape_op0[op].second);
+  switch (op) {
+#define PROCESS(NAME, A, B, C, D, E, F)                                          \
+  case IR::X86IntrinBinOp::NAME:                                                \
+    return type::IntegerVectorizable(C, D);
+#include "ir/x86_intrinsics_binop.inc"
+#undef PROCESS
+  }
+  UNREACHABLE();
 }
 
 type getIntrinsicOp1Ty(IR::X86IntrinBinOp::Op op) {
-  return type::IntegerVectorizable(IR::X86IntrinBinOp::shape_op1[op].first,
-                                   IR::X86IntrinBinOp::shape_op1[op].second);
+  switch (op) {
+#define PROCESS(NAME, A, B, C, D, E, F)                                          \
+  case IR::X86IntrinBinOp::NAME:                                                \
+    return type::IntegerVectorizable(E, F);
+#include "ir/x86_intrinsics_binop.inc"
+#undef PROCESS
+  }
+  UNREACHABLE();
 }
 
 type getIntrinsicRetTy(IR::X86IntrinBinOp::Op op) {
-  return type::IntegerVectorizable(IR::X86IntrinBinOp::shape_ret[op].first,
-                                   IR::X86IntrinBinOp::shape_ret[op].second);
+  switch (op) {
+#define PROCESS(NAME, A, B, C, D, E, F)                                          \
+  case IR::X86IntrinBinOp::NAME:                                                \
+    return type::IntegerVectorizable(A, B);
+#include "ir/x86_intrinsics_binop.inc"
+#undef PROCESS
+  }
+  UNREACHABLE();
 }
-#endif
 
 vector<type> getIntegerVectorTypes(type ty) {
   unsigned width = ty.getWidth();
