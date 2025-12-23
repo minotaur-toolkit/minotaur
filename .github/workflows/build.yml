@@ -53,7 +53,7 @@ jobs:
           brew install z3 re2c ninja
 
       - name: Compile
-        run: ./.github/scripts/build.sh
+        run: bash .github/scripts/build.sh
 
       - name: Run Tests
         run: ninja check
