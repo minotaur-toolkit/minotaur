@@ -67,13 +67,15 @@ AliveEngine::compareFunctions(llvm::Function &Func1, llvm::Function &Func2) {
   return verifier.num_correct;
 }
 
+extern void calculateAndInitConstants(tools::Transform &t);
+
 Errors
 AliveEngine::find_model(Transform &t,
                         unordered_map<const IR::Value*, smt::expr> &result) {
 
   t.preprocess();
   t.tgt.syncDataWithSrc(t.src);
-  //::calculateAndInitConstants(t);
+  calculateAndInitConstants(t);
 
   TransformPrintOpts print_opts;
   t.print(*debug, print_opts);
