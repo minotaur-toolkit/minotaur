@@ -1,0 +1,11 @@
+--- a/ir/type.cpp
++++ b/ir/type.cpp
+@@ -450,7 +450,7 @@ expr FloatType::fromFloat(State &s, const expr &fp, const Type &from_type0,
+   expr isnan = fp.isNaN();
+   expr val = fp.float2BV();
+ 
+-  if (isnan.isFalse())
++  //if (isnan.isFalse())
+     return val;
+ 
+   unsigned fraction_bits = fractionBits();
