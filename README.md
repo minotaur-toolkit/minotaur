@@ -36,14 +36,16 @@ to install dependencies.
 The Alive2 requires a LLVM compiled with RTTI and exceptions enabled,
 use the following command to fetch and build LLVM.
 
-    git clone git@github.com:zhengyang92/llvm $HOME/llvm
+    git clone --depth=1 git@github.com:llvm/llvm-project $HOME/llvm
+    cd $HOME/llvm && git apply $HOME/minotaur/llvm-main-minotaur.patch
     mkdir $HOME/llvm/build && cd $HOME/llvm/build
     cmake -GNinja -DLLVM_ENABLE_RTTI=ON -DLLVM_ENABLE_EH=ON -DBUILD_SHARED_LIBS=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_ENABLE_PROJECTS="llvm;clang" ../llvm
     ninja
 
 To fetch and build the Alive2, use
 
-    git clone --depth=1 -b v20.0 https://github.com/alivetoolkit/alive2.git $HOME/alive2
+    git clone --depth=1 git@github.com:alivetoolkit/alive2.git $HOME/alive2
+    cd $HOME/alive2 && git apply $HOME/minotaur/alive2-calculate-and-init-constants.patch && git apply $HOME/minotaur/alive2-fromfloat-line453.patch
     mkdir $HOME/alive2/build && cd $HOME/alive2/build
     cmake -GNinja -DLLVM_DIR=$HOME/llvm/build/lib/cmake/llvm -DBUILD_TV=1 -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
     ninja
