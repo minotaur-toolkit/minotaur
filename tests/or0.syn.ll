@@ -1,4 +1,4 @@
-; CHECK:  <i32 -2147483648, i32 -2147483648>
+; CHECK: splat (i32 -2147483648)
 define <2 x i32> @select_icmp_slt0_xor_vec(<2 x i32> %x) {
   %cmp = icmp slt <2 x i32> %x, zeroinitializer
   %xor = xor <2 x i32> %x, <i32 2147483648, i32 2147483648>

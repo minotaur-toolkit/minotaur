@@ -56,6 +56,8 @@ static expr preprocess(Transform &t, const set<expr> &qvars0,
   return expr::mkForAll(qvars, std::move(e));
 }
 
+extern void calculateAndInitConstants(tools::Transform &t);
+
 namespace minotaur {
 
 bool
@@ -67,15 +69,13 @@ AliveEngine::compareFunctions(llvm::Function &Func1, llvm::Function &Func2) {
   return verifier.num_correct;
 }
 
-extern void calculateAndInitConstants(tools::Transform &t);
-
 Errors
 AliveEngine::find_model(Transform &t,
                         unordered_map<const IR::Value*, smt::expr> &result) {
 
   t.preprocess();
   t.tgt.syncDataWithSrc(t.src);
-  calculateAndInitConstants(t);
+  ::calculateAndInitConstants(t);
 
   TransformPrintOpts print_opts;
   t.print(*debug, print_opts);

@@ -57,8 +57,10 @@ RUN ninja
 WORKDIR $HOME
 RUN git clone --depth=1 -b v20.0 git@github.com:alivetoolkit/alive2.git
 COPY alive2-calculate-and-init-constants.patch /tmp/alive2-calculate-and-init-constants.patch
+COPY alive2-fromfloat-line453.patch /tmp/alive2-fromfloat-line453.patch
 WORKDIR $HOME/alive2
 RUN git apply /tmp/alive2-calculate-and-init-constants.patch
+RUN git apply /tmp/alive2-fromfloat-line453.patch
 WORKDIR $HOME/alive2/build
 RUN cmake -G Ninja -DLLVM_DIR=$HOME/llvm/build/lib/cmake/llvm \
       -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_TV=1          \
