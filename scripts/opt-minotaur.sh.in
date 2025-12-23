@@ -29,7 +29,7 @@ if [[ $SKIP == 0 ]]; then
 @LLVM_BINARY_DIR@/bin/opt -load-pass-plugin=@ONLINE_PASS@ \
   $@ \
   -passes="minotaur" \
-  -minotaur-enable-caching=true \
+  -minotaur-enable-caching=false \
   -minotaur-ignore-machine-cost=true \
   -minotaur-debug-codegen=false \
   -minotaur-debug-enumerator=$DEBUG \
