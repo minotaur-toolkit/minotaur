@@ -11,12 +11,15 @@ jobs:
       matrix:
         os:         [ubuntu-22.04]
         compiler:   [g++-13, clang++-18, clang++-19]
-        build_type: [Release]
+        build_type: [Release, Debug]
         cache:      ['', Redis]
         include:
           - os: macos-14
             compiler: clang++
             build_type: Release
+          - os: macos-14
+            compiler: clang++
+            build_type: Debug
 
     steps:
       - name: Checkout code
