@@ -7,7 +7,6 @@ BUILD_DIR="${ROOT_DIR}/build"
 
 : "${CMAKE_BUILD_TYPE:=Release}"
 
-# Default locations for dependencies.
 LLVM_SOURCE_DIR_DEFAULT="$HOME/llvm"
 LLVM_BUILD_DIR_DEFAULT="$LLVM_SOURCE_DIR_DEFAULT/build"
 ALIVE2_SOURCE_DIR_DEFAULT="$HOME/alive2"
@@ -17,36 +16,6 @@ LLVM_SOURCE_DIR="${LLVM_SOURCE_DIR:-$LLVM_SOURCE_DIR_DEFAULT}"
 LLVM_BUILD_DIR="${LLVM_BUILD_DIR:-$LLVM_BUILD_DIR_DEFAULT}"
 ALIVE2_SOURCE_DIR="${ALIVE2_SOURCE_DIR:-$ALIVE2_SOURCE_DIR_DEFAULT}"
 ALIVE2_BUILD_DIR="${ALIVE2_BUILD_DIR:-$ALIVE2_BUILD_DIR_DEFAULT}"
-
-# Configuration for downloading a prebuilt LLVM toolchain instead of building it.
-# These can be overridden via environment variables if needed.
-# Default to LLVM 21.1.8 using the official prebuilt archives:
-#   - Linux: LLVM-21.1.8-Linux-X64.tar.xz
-#   - macOS: LLVM-21.1.8-macOS-ARM64.tar.xz
-LLVM_VERSION="${LLVM_VERSION:-21.1.8}"
-
-UNAME_S="$(uname -s)"
-case "${UNAME_S}" in
-  Darwin)
-    LLVM_PLATFORM_DEFAULT="macOS-ARM64"
-    LLVM_TARBALL_DEFAULT="LLVM-${LLVM_VERSION}-macOS-ARM64.tar.xz"
-    ;;
-  Linux)
-    LLVM_PLATFORM_DEFAULT="Linux-X64"
-    LLVM_TARBALL_DEFAULT="LLVM-${LLVM_VERSION}-Linux-X64.tar.xz"
-    ;;
-  *)
-    echo "Unsupported OS for automatic LLVM download: ${UNAME_S}" >&2
-    echo "Please set LLVM_DOWNLOAD_URL to a suitable archive." >&2
-    LLVM_PLATFORM_DEFAULT="unknown"
-    LLVM_TARBALL_DEFAULT=""
-    ;;
-esac
-
-LLVM_PLATFORM="${LLVM_PLATFORM:-$LLVM_PLATFORM_DEFAULT}"
-LLVM_TARBALL="${LLVM_TARBALL:-$LLVM_TARBALL_DEFAULT}"
-LLVM_DOWNLOAD_URL_DEFAULT="https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/${LLVM_TARBALL}"
-LLVM_DOWNLOAD_URL="${LLVM_DOWNLOAD_URL:-$LLVM_DOWNLOAD_URL_DEFAULT}"
 
 JOBS=4
 if command -v nproc >/dev/null 2>&1; then
@@ -58,37 +27,29 @@ fi
 echo "Using ${JOBS} parallel build jobs"
 echo "CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
 echo "CMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER:-<default>}"
-echo "LLVM_VERSION=${LLVM_VERSION}"
-echo "LLVM_PLATFORM=${LLVM_PLATFORM}"
-echo "LLVM_DOWNLOAD_URL=${LLVM_DOWNLOAD_URL}"
 
-echo "=== Ensuring LLVM is available at ${LLVM_BUILD_DIR} ==="
+echo "=== Ensuring LLVM is built at ${LLVM_BUILD_DIR} ==="
 if [ ! -x "${LLVM_BUILD_DIR}/bin/llvm-config" ] && [ ! -x "${LLVM_BUILD_DIR}/bin/clang" ]; then
-  echo "LLVM not found; downloading prebuilt LLVM from:"
-  echo "  ${LLVM_DOWNLOAD_URL}"
+  mkdir -p "$(dirname "${LLVM_SOURCE_DIR}")"
+  if [ ! -d "${LLVM_SOURCE_DIR}" ]; then
+    git clone --depth=1 https://github.com/llvm/llvm-project.git \
+      "${LLVM_SOURCE_DIR}"
+  fi
 
   mkdir -p "${LLVM_BUILD_DIR}"
-
-  if [ -z "${LLVM_TARBALL}" ]; then
-    echo "Error: LLVM_TARBALL is empty; cannot determine archive name." >&2
-    exit 1
-  fi
-
-  TARBALL_PATH="$(mktemp /tmp/llvm-XXXXXX.tar.xz)"
-  if command -v curl >/dev/null 2>&1; then
-    curl -L "${LLVM_DOWNLOAD_URL}" -o "${TARBALL_PATH}"
-  elif command -v wget >/dev/null 2>&1; then
-    wget -O "${TARBALL_PATH}" "${LLVM_DOWNLOAD_URL}"
-  else
-    echo "Error: neither curl nor wget is available to download LLVM." >&2
-    exit 1
-  fi
-
-  echo "Extracting LLVM into ${LLVM_BUILD_DIR}"
-  tar -xJf "${TARBALL_PATH}" --strip-components=1 -C "${LLVM_BUILD_DIR}"
-  rm -f "${TARBALL_PATH}"
+  cd "${LLVM_BUILD_DIR}"
+  cmake -G Ninja \
+    -DLLVM_ENABLE_RTTI=ON \
+    -DLLVM_ENABLE_EH=ON \
+    -DBUILD_SHARED_LIBS=ON \
+    -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -DLLVM_TARGETS_TO_BUILD=X86 \
+    -DLLVM_ENABLE_ASSERTIONS=ON \
+    -DLLVM_ENABLE_PROJECTS="llvm;clang" \
+    "${LLVM_SOURCE_DIR}/llvm"
+  ninja -j"${JOBS}"
 else
-  echo "Reusing existing LLVM installation at ${LLVM_BUILD_DIR}"
+  echo "Reusing existing LLVM build at ${LLVM_BUILD_DIR}"
 fi
 
 echo "=== Ensuring Alive2 is built at ${ALIVE2_BUILD_DIR} ==="
