@@ -120,20 +120,24 @@ add_llvm_library(online MODULE "pass/online.cpp")
 target_link_libraries(online
   PRIVATE synthesizer slice ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS})
 
-# add_llvm_executable(minotaur-cs "tools/minotaur-cs.cpp")
+add_llvm_executable(minotaur-cs "tools/minotaur-cs.cpp")
 
-# target_link_libraries(minotaur-cs
-#   PRIVATE synthesizer ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS})
+target_link_libraries(minotaur-cs
+  PRIVATE synthesizer ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS})
 
 add_llvm_executable(minotaur-slice "tools/minotaur-slice.cpp")
 
 target_link_libraries(minotaur-slice
   PRIVATE slice ${ALIVE_LIBS})
 
-add_llvm_executable(parse-tests "unit-tests/parse-tests.cpp")
-set(GTEST_LIBS "-lgtest_main -lgtest -lpthread")
-target_link_libraries(parse-tests
-  PRIVATE synthesizer ${GTEST_LIBS} ${Z3_LIBRARIES})
+option(ENABLE_PARSE_TESTS "Build parse-tests unit test" OFF)
+
+if (ENABLE_PARSE_TESTS)
+  add_llvm_executable(parse-tests "unit-tests/parse-tests.cpp")
+  set(GTEST_LIBS "-lgtest_main -lgtest -lpthread")
+  target_link_libraries(parse-tests
+    PRIVATE synthesizer ${GTEST_LIBS} ${Z3_LIBRARIES})
+endif()
 
 if(APPLE)
     set_target_properties(online PROPERTIES

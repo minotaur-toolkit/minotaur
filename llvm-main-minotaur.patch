@@ -1,48 +1,9 @@
-diff --git a/llvm/include/llvm/Passes/PassBuilder.h b/llvm/include/llvm/Passes/PassBuilder.h
-index 00d4874d5109..ac96fb6df324 100644
---- a/llvm/include/llvm/Passes/PassBuilder.h
-+++ b/llvm/include/llvm/Passes/PassBuilder.h
-@@ -425,6 +425,15 @@ public:
-     PeepholeEPCallbacks.push_back(C);
-   }
- 
-+  /// Register a callback for a vector-combine extension point.
-+  ///
-+  /// This extension point allows clients to plug passes that perform additional
-+  /// vector-specific combining after the target's core vector pipeline.
-+  void registerVectorCombineCallback(
-+      const std::function<void(FunctionPassManager &, OptimizationLevel)> &C) {
-+    VectorCombineCallBacks.push_back(C);
-+  }
-+
-   /// Register a callback for a default optimizer pipeline extension
-   /// point
-   ///
-@@ -684,6 +693,9 @@ public:
-                                                OptimizationLevel Level,
-                                                ThinOrFullLTOPhase Phase);
- 
-+  LLVM_ABI void invokeVectorCombineCallbacks(FunctionPassManager &FPM,
-+                                             OptimizationLevel Level);
-+
-   static bool checkParametrizedPassName(StringRef Name, StringRef PassName) {
-     if (!Name.consume_front(PassName))
-       return false;
-@@ -787,6 +799,8 @@ private:
-   // Extension Point callbacks
-   SmallVector<std::function<void(FunctionPassManager &, OptimizationLevel)>, 2>
-       PeepholeEPCallbacks;
-+  SmallVector<std::function<void(FunctionPassManager &, OptimizationLevel)>, 2>
-+      VectorCombineCallBacks;
-   SmallVector<std::function<void(LoopPassManager &, OptimizationLevel)>, 2>
-       LateLoopOptimizationsEPCallbacks;
-   SmallVector<std::function<void(LoopPassManager &, OptimizationLevel)>, 2>
 diff --git a/llvm/lib/IR/AsmWriter.cpp b/llvm/lib/IR/AsmWriter.cpp
 index 5cf9532a988f..5b128263f8fe 100644
 --- a/llvm/lib/IR/AsmWriter.cpp
 +++ b/llvm/lib/IR/AsmWriter.cpp
 @@ -3091,7 +3091,7 @@ void AssemblyWriter::printModule(const Module *M) {
- 
+
    if (ShouldPreserveUseListOrder)
      UseListOrders = predictUseListOrder(M);
 -
@@ -55,9 +16,9 @@ index 5cf9532a988f..5b128263f8fe 100644
      } while (!Asm.empty());
    }
 +  */
- 
+
    printTypeIdentities();
- 
+
 @@ -4294,7 +4295,7 @@ void AssemblyWriter::printBasicBlock(const BasicBlock *BB) {
      else
        Out << "<badref>:";
@@ -72,55 +33,5 @@ index 5cf9532a988f..5b128263f8fe 100644
      }
    }
 +#endif
- 
+
    Out << "\n";
- 
-diff --git a/llvm/lib/Passes/PassBuilderPipelines.cpp b/llvm/lib/Passes/PassBuilderPipelines.cpp
-index 67b9a61cc576..8bd1647b027c 100644
---- a/llvm/lib/Passes/PassBuilderPipelines.cpp
-+++ b/llvm/lib/Passes/PassBuilderPipelines.cpp
-@@ -91,6 +91,7 @@
- #include "llvm/Transforms/Scalar/CallSiteSplitting.h"
- #include "llvm/Transforms/Scalar/ConstraintElimination.h"
- #include "llvm/Transforms/Scalar/CorrelatedValuePropagation.h"
-+#include "llvm/Transforms/Scalar/DCE.h"
- #include "llvm/Transforms/Scalar/DFAJumpThreading.h"
- #include "llvm/Transforms/Scalar/DeadStoreElimination.h"
- #include "llvm/Transforms/Scalar/DivRemPairs.h"
-@@ -409,6 +410,12 @@ void PassBuilder::invokePipelineEarlySimplificationEPCallbacks(
-     C(MPM, Level, Phase);
- }
- 
-+void PassBuilder::invokeVectorCombineCallbacks(FunctionPassManager &FPM,
-+                                               OptimizationLevel Level) {
-+  for (auto &C : VectorCombineCallBacks)
-+    C(FPM, Level);
-+}
-+
- // Helper to add AnnotationRemarksPass.
- static void addAnnotationRemarksPass(ModulePassManager &MPM) {
-   MPM.addPass(createModuleToFunctionPassAdaptor(AnnotationRemarksPass()));
-@@ -1597,6 +1604,13 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
- 
-   invokeVectorizerEndEPCallbacks(OptimizePM, Level);
- 
-+  // Provide a hook for additional vector combining and late scalar cleanups.
-+  invokeVectorCombineCallbacks(OptimizePM, Level);
-+
-+  OptimizePM.addPass(InstCombinePass());
-+  OptimizePM.addPass(DCEPass());
-+  OptimizePM.addPass(SimplifyCFGPass());
-+
-   // LoopSink pass sinks instructions hoisted by LICM, which serves as a
-   // canonicalization pass that enables other optimizations. As a result,
-   // LoopSink pass needs to be a very late IR pass to avoid undoing LICM
-@@ -1606,6 +1620,9 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
-   // And finally clean up LCSSA form before generating code.
-   OptimizePM.addPass(InstSimplifyPass());
- 
-+  // Drop any now-dead globals.
-+  MPM.addPass(GlobalDCEPass());
-+
-   // This hoists/decomposes div/rem ops. It should run after other sink/hoist
-   // passes to avoid re-sinking, but before SimplifyCFG because it can allow
-   // flattening of blocks.
