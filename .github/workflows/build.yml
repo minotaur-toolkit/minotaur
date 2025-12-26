@@ -14,7 +14,7 @@ jobs:
         build_type: [Release]
         cache:      ['', Redis]
         include:
-          - os: macos-14
+          - os: macos-15
             compiler: clang++
             build_type: Release
 
