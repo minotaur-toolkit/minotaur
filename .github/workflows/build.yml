@@ -47,7 +47,7 @@ jobs:
       - name: Install dependencies (MacOS)
         if: runner.os == 'macOS'
         run: |
-          brew install z3 re2c ninja
+          brew install z3 re2c ninja redis hiredis
 
       - name: Compile
         run: bash .github/scripts/build.sh
