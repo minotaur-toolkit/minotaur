@@ -48,7 +48,7 @@ bool type::operator==(const type &rhs) const {
 }
 
 bool type::same_width(const type &rhs) const {
-  assert(valid());
+  assert(isValid());
   return getWidth() == rhs.getWidth();
 }
 
