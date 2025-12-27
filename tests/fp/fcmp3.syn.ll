@@ -1,4 +1,4 @@
-; CHECK: fcmp oge double %0, 0xC07AB00010000000
+; CHECK: fcmp ogt double %0, 0xC07AB00010000001
 define i1 @src(double %0) {
 if.end155:
   %1 = fptrunc double %0 to float

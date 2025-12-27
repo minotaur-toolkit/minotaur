@@ -1,4 +1,4 @@
-define half @test2(half %x, half %y) nounwind  {
+define half @test2(half %x, half %y)  {
 ; CHECK-LABEL: @test2(
 ; CHECK-NEXT:    [[T56:%.*]] = fmul half [[X:%.*]], [[Y:%.*]]
 ; CHECK-NEXT:    ret half [[T56]]

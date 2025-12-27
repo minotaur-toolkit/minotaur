@@ -22,6 +22,8 @@ using namespace std;
 
 namespace minotaur {
 
+unsigned get_approx_cost(llvm::Function *F);
+
 unsigned get_machine_cost(Function *F) {
   llvm::Module M("", F->getContext());
   auto newF = Function::Create(F->getFunctionType(), F->getLinkage(), "foo", M);
@@ -75,20 +77,53 @@ unsigned get_machine_cost(Function *F) {
   }
 
   vector<StringRef> ArgPtrs = {"get-cost", InputPath};
+  // Capture stderr to help debug llvm-mca/clang failures (common on macOS when
+  // host CPU names differ / tools are missing).
+  SmallString<64> ErrPath;
+  {
+    int ErrFD;
+    if (std::error_code EC =
+          sys::fs::createTemporaryFile("get-cost", "err", ErrFD, ErrPath)) {
+      llvm::report_fatal_error("cannot open error buffer");
+    }
+    ::close(ErrFD);
+  }
+
   optional<StringRef> Redirects[3] = { nullopt,
                                        StringRef(OutputPath),
-                                       StringRef("/dev/null") };
+                                       StringRef(ErrPath) };
 
-  int r = sys::ExecuteAndWait(GET_COST_COMMAND, ArgPtrs, nullopt, Redirects, 5);
+  // llvm-mca can be slow to start on some macOS setups; allow a larger timeout.
+  int r = sys::ExecuteAndWait(GET_COST_COMMAND, ArgPtrs, nullopt, Redirects, 30);
 
   if (r) {
     llvm::errs()<<"error when analysizing cost\n";
-    return 0;
+    std::ifstream err((std::string(ErrPath)));
+    if (err.good()) {
+      std::string line;
+      unsigned n = 0;
+      while (n++ < 20 && std::getline(err, line)) {
+        llvm::errs() << "[get-cost stderr] " << line << "\n";
+      }
+    }
+    err.close();
+    auto ignored_ec = sys::fs::remove(ErrPath);
+    (void)ignored_ec;
+    // Fall back to approximate cost so callers always get a usable number.
+    return get_approx_cost(F);
+  }
+  {
+    auto ignored_ec = sys::fs::remove(ErrPath);
+    (void)ignored_ec;
   }
 
   unsigned cycle;
   std::ifstream result((std::string(OutputPath)));
-  result >> cycle;
+  if (!(result >> cycle)) {
+    llvm::errs() << "error when reading get-cost output (empty or non-numeric)\n";
+    result.close();
+    return get_approx_cost(F);
+  }
   result.close();
 
   return cycle;

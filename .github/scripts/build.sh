@@ -36,6 +36,11 @@ if [ ! -x "${LLVM_BUILD_DIR}/bin/llvm-config" ] && [ ! -x "${LLVM_BUILD_DIR}/bin
       "${LLVM_SOURCE_DIR}"
   fi
 
+  cd "${LLVM_SOURCE_DIR}"
+  if [ -f "${ROOT_DIR}/llvm-main-minotaur.patch" ]; then
+    git apply "${ROOT_DIR}/llvm-main-minotaur.patch"
+  fi
+
   mkdir -p "${LLVM_BUILD_DIR}"
   cd "${LLVM_BUILD_DIR}"
   cmake -G Ninja \
@@ -58,18 +63,11 @@ if [ ! -d "${ALIVE2_SOURCE_DIR}" ]; then
 fi
 
 cd "${ALIVE2_SOURCE_DIR}"
-for patch in \
-  "${ROOT_DIR}/alive2-calculate-and-init-constants.patch" \
-  "${ROOT_DIR}/alive2-fromfloat-line453.patch"; do
-  if [ -f "${patch}" ]; then
-    if git apply --check "${patch}" >/dev/null 2>&1; then
-      echo "Applying patch $(basename "${patch}")"
-      git apply "${patch}"
-    else
-      echo "Skipping patch $(basename "${patch}") (already applied or not applicable)"
-    fi
-  fi
-done
+
+if [ -f "${ROOT_DIR}/alive2-fromfloat-line453.patch" ]; then
+  git apply "${ROOT_DIR}/alive2-fromfloat-line453.patch"
+fi
+
 
 mkdir -p "${ALIVE2_BUILD_DIR}"
 cd "${ALIVE2_BUILD_DIR}"

@@ -1,4 +1,4 @@
-; CHECK: rewrite: (var <1 x float> %1)
+; CHECK: rewrite: (var float %__n0)
 define float @src(float %0) {
 entry:
   %1 = fmul float %0, 0.000000e+00

@@ -2,14 +2,12 @@
 // Distributed under the MIT license that can be found in the LICENSE file.
 #include "type.h"
 
-#include "ir/instr.h"
 #include "util/compiler.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Type.h"
-#include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
-#include <string>
+
 
 using namespace std;
 using namespace llvm;

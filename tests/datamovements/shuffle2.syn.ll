@@ -1,4 +1,4 @@
-; CHECK: shufflevector <4 x i16> %a, <4 x i16> poison, <4 x i32> <i32 3, i32 2, i32 1, i32 0>
+; CHECK: shl i64 %0, 48
 define <4 x i16> @syn_sv1(<4 x i16> %a) {
 entry:
   %ext.1 = extractelement <4 x i16> %a, i32 0

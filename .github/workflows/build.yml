@@ -55,9 +55,9 @@ jobs:
       - name: Compile
         run: bash .github/scripts/build.sh
 
-      # - name: Run Tests
-      #   run: ninja check
-      #   working-directory: build
+      - name: Run Tests
+        run: ninja check
+        working-directory: build
 
     env:
       CMAKE_BUILD_TYPE: ${{ matrix.build_type }}
