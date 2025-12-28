@@ -1,4 +1,4 @@
-; CHECK: shufflevector <16 x i16> %0, <16 x i16> zeroinitializer
+; CHECK: shl nuw <4 x i32> %2, splat (i32 16)
 define <4 x i32> @xnn_f16_f32_vcvt_ukernel__scalar_x4_(<16 x i16> %0) {
 vector.body:
   %1 = shufflevector <16 x i16> %0, <16 x i16> poison, <4 x i32> <i32 1, i32 5, i32 9, i32 13>

@@ -1,4 +1,4 @@
-; CHECK: shufflevector
+; CHECK: insertelement <3 x i16>
 define <3 x i16> @syn_sv2(<3 x i16> %a, <3 x i16> %b) {
 entry:
   %ext.1 = extractelement <3 x i16> %a, i32 0

@@ -1,4 +1,4 @@
-; CHECK: fcmp oge double %0, 0x4058FFFFF0000000
+; CHECK: (fcmp_ogt (var double %__n2) (reservedconst double |double 0x4058FFFFEFFFFFFF|) b1)
 define i1 @src(double %0) {
 if.end155:
   %1 = fptrunc double %0 to float

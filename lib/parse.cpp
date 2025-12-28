@@ -5,18 +5,15 @@
 #include "config.h"
 #include "lexer.h"
 
-#include "iostream"
-#include "ir/instr.h"
 #include "util/compiler.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/AsmParser/Parser.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/ValueSymbolTable.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/IR/InstIterator.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/raw_ostream.h"
+
 #include <string_view>
 
 #define YYDEBUG 0

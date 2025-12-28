@@ -66,12 +66,12 @@ namespace {
 llvm::cl::opt<unsigned> smt_to(
     "minotaur-query-to",
     llvm::cl::desc("minotaur: timeout for SMT queries"),
-    llvm::cl::init(60), llvm::cl::value_desc("s"));
+    llvm::cl::init(120), llvm::cl::value_desc("s"));
 
 llvm::cl::opt<unsigned> slice_to(
     "minotaur-slice-to",
     llvm::cl::desc("minotaur: timeout per slice"),
-    llvm::cl::init(300), llvm::cl::value_desc("s"));
+    llvm::cl::init(600), llvm::cl::value_desc("s"));
 
 llvm::cl::opt<bool> smt_verbose(
     "minotaur-smt-verbose",
