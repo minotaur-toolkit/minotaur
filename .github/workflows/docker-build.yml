@@ -1,0 +1,40 @@
+name: Docker build
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    name: Build Docker image (no push)
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build (PR / fork-safe)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          tags: minotaur:ci
+
+      - name: Build (cache enabled)
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          tags: minotaur:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+
