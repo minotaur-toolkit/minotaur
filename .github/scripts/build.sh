@@ -17,6 +17,15 @@ LLVM_BUILD_DIR="${LLVM_BUILD_DIR:-$LLVM_BUILD_DIR_DEFAULT}"
 ALIVE2_SOURCE_DIR="${ALIVE2_SOURCE_DIR:-$ALIVE2_SOURCE_DIR_DEFAULT}"
 ALIVE2_BUILD_DIR="${ALIVE2_BUILD_DIR:-$ALIVE2_BUILD_DIR_DEFAULT}"
 
+
+if [ "${LLVM_TARGETS_TO_BUILD-}" = "" ]; then
+  if [ "$(uname -s)" = "Darwin" ]; then
+    LLVM_TARGETS_TO_BUILD="X86;AArch64"
+  else
+    LLVM_TARGETS_TO_BUILD="X86"
+  fi
+fi
+
 JOBS=4
 if command -v nproc >/dev/null 2>&1; then
   JOBS="$(nproc)"
@@ -27,6 +36,7 @@ fi
 echo "Using ${JOBS} parallel build jobs"
 echo "CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
 echo "CMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER:-<default>}"
+echo "LLVM_TARGETS_TO_BUILD=${LLVM_TARGETS_TO_BUILD}"
 
 echo "=== Ensuring LLVM is built at ${LLVM_BUILD_DIR} ==="
 if [ ! -x "${LLVM_BUILD_DIR}/bin/llvm-config" ] && [ ! -x "${LLVM_BUILD_DIR}/bin/clang" ]; then
@@ -50,6 +60,16 @@ if [ ! -x "${LLVM_BUILD_DIR}/bin/llvm-config" ] && [ ! -x "${LLVM_BUILD_DIR}/bin
     -DCMAKE_BUILD_TYPE=Release \
     -DLLVM_ENABLE_ASSERTIONS=ON \
     -DLLVM_ENABLE_PROJECTS="llvm;clang" \
+    -DLLVM_INCLUDE_TESTS=OFF \
+    -DLLVM_BUILD_TESTS=OFF \
+    -DLLVM_INCLUDE_EXAMPLES=OFF \
+    -DLLVM_INCLUDE_DOCS=OFF \
+    -DLLVM_ENABLE_TERMINFO=OFF \
+    -DLLVM_ENABLE_LIBEDIT=OFF \
+    -DLLVM_ENABLE_LIBXML2=OFF \
+    -DLLVM_ENABLE_ZLIB=OFF \
+    -DLLVM_ENABLE_ZSTD=OFF \
+    -DLLVM_TARGETS_TO_BUILD="${LLVM_TARGETS_TO_BUILD}" \
     "${LLVM_SOURCE_DIR}/llvm"
   ninja -j"${JOBS}"
 else
