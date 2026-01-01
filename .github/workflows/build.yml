@@ -4,16 +4,40 @@ on: [push, pull_request]
 
 jobs:
   build:
-    name: ${{ matrix.os }} ${{ matrix.compiler }} ${{ matrix.build_type }} ${{ matrix.cache }}
+    name: ${{ matrix.os }} ${{ matrix.compiler }} ${{ matrix.build_type }}
     runs-on: ${{ matrix.os }}
 
     strategy:
       matrix:
-        os:         [ubuntu-22.04]
-        compiler:   [g++-12, clang++-18, clang++-19]
-        build_type: [Release]
-        cache:      [Redis]
         include:
+          - os: ubuntu-22.04
+            compiler: g++-12
+            build_type: Release
+
+          - os: ubuntu-22.04
+            compiler: clang++-18
+            build_type: Release
+
+          - os: ubuntu-22.04
+            compiler: clang++-19
+            build_type: Release
+
+          - os: ubuntu-24.04
+            compiler: g++-13
+            build_type: Release
+
+          - os: ubuntu-24.04
+            compiler: g++-14
+            build_type: Release
+
+          - os: ubuntu-24.04
+            compiler: clang++-18
+            build_type: Release
+
+          - os: ubuntu-24.04
+            compiler: clang++-19
+            build_type: Release
+
           - os: macos-15
             compiler: clang++
             build_type: Release
@@ -25,26 +49,63 @@ jobs:
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
-          wget -O- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          if [[ ${{ matrix.compiler }} == "clang++-18" ]]; then
-            sudo add-apt-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main"
+          set -euxo pipefail
+
+          # Pick the correct Ubuntu codename for apt.llvm.org (jammy vs noble).
+          LLVM_SUITE=""
+          if [[ "${{ matrix.os }}" == "ubuntu-22.04" ]]; then
+            LLVM_SUITE="jammy"
+          elif [[ "${{ matrix.os }}" == "ubuntu-24.04" ]]; then
+            LLVM_SUITE="noble"
+          else
+            echo "Unsupported Linux runner: ${{ matrix.os }}"
+            exit 1
           fi
-          if [[ ${{ matrix.compiler }} == "clang++-19" ]]; then
-            sudo add-apt-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-19 main"
-          fi
+
           sudo apt-get update
-          sudo apt-get install z3 re2c ninja-build
-          if [[ ${{ matrix.compiler }} == "clang++-18" ]]; then
-            sudo apt-get install clang-18
+          sudo apt-get install -y --no-install-recommends \
+            ca-certificates \
+            gpg \
+            software-properties-common \
+            wget
+
+          # Core deps
+          sudo apt-get install -y --no-install-recommends \
+            z3 re2c ninja-build libhiredis-dev redis-server
+
+          # LLVM apt repo (for clang-18/19)
+          if [[ "${{ matrix.compiler }}" == "clang++-18" || "${{ matrix.compiler }}" == "clang++-19" ]]; then
+            sudo mkdir -p /etc/apt/keyrings
+            wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/llvm.gpg
+
+            if [[ "${{ matrix.compiler }}" == "clang++-18" ]]; then
+              echo "deb [signed-by=/etc/apt/keyrings/llvm.gpg] http://apt.llvm.org/${LLVM_SUITE}/ llvm-toolchain-${LLVM_SUITE}-18 main" | sudo tee /etc/apt/sources.list.d/llvm.list >/dev/null
+            fi
+            if [[ "${{ matrix.compiler }}" == "clang++-19" ]]; then
+              echo "deb [signed-by=/etc/apt/keyrings/llvm.gpg] http://apt.llvm.org/${LLVM_SUITE}/ llvm-toolchain-${LLVM_SUITE}-19 main" | sudo tee /etc/apt/sources.list.d/llvm.list >/dev/null
+            fi
+
+            sudo apt-get update
           fi
-          if [[ ${{ matrix.compiler }} == "clang++-19" ]]; then
-            sudo apt-get install clang-19
+
+          # Toolchains
+          if [[ "${{ matrix.compiler }}" == "clang++-18" ]]; then
+            sudo apt-get install -y --no-install-recommends clang-18
           fi
-          if [[ ${{ matrix.compiler }} == "g++-12" ]]; then
-            sudo apt-get install gcc-12 g++-12
+          if [[ "${{ matrix.compiler }}" == "clang++-19" ]]; then
+            sudo apt-get install -y --no-install-recommends clang-19
           fi
-          if [[ "${{ matrix.cache }}" == "Redis" ]]; then
-            sudo apt-get install libhiredis-dev redis-server
+          if [[ "${{ matrix.compiler }}" == "g++-12" ]]; then
+            sudo apt-get install -y --no-install-recommends gcc-12 g++-12
+          fi
+          if [[ "${{ matrix.compiler }}" == "g++-13" ]]; then
+            sudo apt-get install -y --no-install-recommends gcc-13 g++-13
+          fi
+          if [[ "${{ matrix.compiler }}" == "g++-14" ]]; then
+            # gcc-14 may not be available in the default Ubuntu repos depending on runner image state.
+            sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends gcc-14 g++-14
           fi
 
       - name: Install dependencies (MacOS)
