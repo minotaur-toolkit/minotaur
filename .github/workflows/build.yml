@@ -102,9 +102,6 @@ jobs:
             sudo apt-get install -y --no-install-recommends gcc-13 g++-13
           fi
           if [[ "${{ matrix.compiler }}" == "g++-14" ]]; then
-            # gcc-14 may not be available in the default Ubuntu repos depending on runner image state.
-            sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-            sudo apt-get update
             sudo apt-get install -y --no-install-recommends gcc-14 g++-14
           fi
 
