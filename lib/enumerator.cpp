@@ -842,10 +842,10 @@ push:
 
     try {
       if (!HaveC) {
-        AliveEngine AE(TLI, false);
+        AliveEngine AE(TLI);
         Good = AE.compareFunctions(*Src, *Tgt);
       } else {
-        AliveEngine AE(TLI, true);
+        AliveEngine AE(TLI);
         Good = AE.constantSynthesis(*Src, *Tgt, ConstantResults);
       }
     } catch (AliveException E) {

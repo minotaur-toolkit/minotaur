@@ -1,4 +1,4 @@
-; CHECK: rewrite: (fadd <2 x double> (var <2 x double> %__n1) (reservedconst <2 x double> |<2 x double> <double 4.000000e+00, double 0.000000e+00>|))
+; CHECK: rewrite: (fadd <2 x double> (var <2 x double> %__n1) (reservedconst <2 x double> |<2 x double> <double 4.000000e+00, double poison>|))
 define <2 x double> @src(double %0, double %1, i1 %2, i1 %3, i1 %4) {
 if.end:
   %5 = fadd double %1, -1.0

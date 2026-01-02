@@ -2,10 +2,7 @@
 // Distributed under the MIT license that can be found in the LICENSE file.
 #pragma once
 
-#include "expr.h"
 #include "config.h"
-#include "ir/function.h"
-#include "smt/smt.h"
 #include "tools/transform.h"
 #include "util/config.h"
 
@@ -25,13 +22,18 @@ private:
   llvm::TargetLibraryInfoWrapperPass &TLI;
   std::ostream *debug;
 
+  // For constant synthesis we may need to return 'poison' as a synthesized
+  // constant. Alive2 models poison via the non_poison predicate of StateValue.
+  // We return both the value and its non_poison condition in the model.
+  using ModelVal = std::pair<smt::expr, smt::expr>; // <value, non_poison>
+
   util::Errors find_model(tools::Transform &t,
-    std::unordered_map<const IR::Value*, smt::expr>&);
+    std::unordered_map<const IR::Value*, ModelVal>&);
 
 public:
-  AliveEngine(llvm::TargetLibraryInfoWrapperPass &TLI, bool dpi) : TLI(TLI) {
+  AliveEngine(llvm::TargetLibraryInfoWrapperPass &TLI) : TLI(TLI) {
     util::config::disable_undef_input = true;
-    util::config::disable_poison_input = dpi;
+    util::config::disable_poison_input = false;
     debug = config::debug_tv ? &std::cerr : &NOP_OSTREAM;
   }
 

@@ -13,7 +13,7 @@ static llvm::raw_ostream *debug_os = &llvm::nulls();
 namespace minotaur{
 namespace config {
 
-bool disable_poison_input = true;
+bool disable_poison_input = false;
 bool disable_undef_input = true;
 bool debug_slicer = false;
 bool debug_enumerator = false;

@@ -1,4 +1,4 @@
-; CHECK: fcmp ogt half %0, %1
+; CHECK:  (fcmp_ogt (var half %__n2) (var half %__n3) b1)
 define i1 @src(half %0, half %1) {
 if.then:
   %2 = fsub half %0, %1

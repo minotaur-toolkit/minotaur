@@ -122,7 +122,7 @@ AliveEngine::compareFunctions(llvm::Function &Func1, llvm::Function &Func2) {
 
 Errors
 AliveEngine::find_model(Transform &t,
-                        unordered_map<const IR::Value*, smt::expr> &result) {
+                        unordered_map<const IR::Value*, AliveEngine::ModelVal> &result) {
 
   t.preprocess();
 
@@ -156,6 +156,7 @@ AliveEngine::find_model(Transform &t,
 
   auto uvars = sv.undef_vars;
   set<expr> qvars;
+  AndExpr input_nonpoison_cnstr;
 
   Errors errs;
 
@@ -167,7 +168,8 @@ AliveEngine::find_model(Transform &t,
     if (!val)
       continue;
 
-    if (i.getName().rfind("%_reservedc") == 0) {
+    bool is_reservedc_input = i.getName().rfind("%_reservedc") == 0;
+    if (is_reservedc_input) {
       continue;
     }
 
@@ -175,6 +177,11 @@ AliveEngine::find_model(Transform &t,
 
     if (ty.isIntType() || ty.isFloatType()) {
       qvars.insert(val->val.value);
+      // Allow poison synthesis only for reserved constants; real inputs are
+      // constrained to be non-poison so synthesis can't "cheat" by picking
+      // poison for inputs.
+      auto &np = val->val.non_poison;
+      input_nonpoison_cnstr.add(np.isBool() ? expr(np) : (np == expr::mkInt(-1, np)));
       continue;
     }
 
@@ -184,6 +191,8 @@ AliveEngine::find_model(Transform &t,
         for (unsigned I = 0; I < aty->numElementsConst(); ++I) {
           qvars.insert(aty->extract(val->val, I, false).value);
         }
+        auto &np = val->val.non_poison;
+        input_nonpoison_cnstr.add(np.isBool() ? expr(np) : (np == expr::mkInt(-1, np)));
         continue;
       }
     }
@@ -215,7 +224,8 @@ AliveEngine::find_model(Transform &t,
     // Simplify aggressively: this can eliminate spurious NaN nondeterminism
     // introduced by Alive2's conservative FP-to-bits lowering (fromFloat) in
     // cases where the expression is in fact non-NaN (e.g. some maxnum patterns).
-    auto fml = (axioms_expr && (pre_tgt && pre_src.implies(refines))).simplify();
+    auto fml = (axioms_expr && input_nonpoison_cnstr() &&
+                (pre_tgt && pre_src.implies(refines))).simplify();
 
     // Quantification matters a lot for constant synthesis soundness:
     // any Alive2 "quantified vars" (undef-related, etc.) and "nondet vars"
@@ -311,7 +321,9 @@ AliveEngine::find_model(Transform &t,
       continue;
 
     if (i.getName().rfind("%_reservedc", 0) == 0) {
-      result[&i] = m.eval(val->val.value, true);
+      // Store both the value and its non_poison predicate so callers can
+      // synthesize LLVM poison constants (PoisonValue) when needed.
+      result[&i] = { m.eval(val->val.value, true), m.eval(val->val.non_poison, true) };
       s << i << " = ";
       tools::print_model_val(s, tgt_state, m, &i, i.getType(), val->val);
       s << '\n';
@@ -393,7 +405,7 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
   }
 
   // assume type verifies
-  std::unordered_map<const IR::Value*, smt::expr> result;
+  std::unordered_map<const IR::Value*, AliveEngine::ModelVal> result;
   Errors errs = find_model(t, result);
 
   bool ret(errs);
@@ -408,13 +420,31 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
       *debug << "unable to find model value for " << I.first->getName() << "\n";
       return false;
     }
-    auto &model_v = it->second;
+    auto &[model_v, model_np] = it->second;
     auto ty = I.second->getType();
+
+    auto is_poison = [&](const smt::expr &np) -> bool {
+      if (!np.isValid())
+        return false;
+      if (np.isBool())
+        return np.isFalse();
+      // non_poison is a BV mask; all-ones means non-poison
+      return !np.isAllOnes();
+    };
+
     if (ty->isIntegerTy()) {
+      if (is_poison(model_np)) {
+        ConstMap[I.second] = llvm::PoisonValue::get(ty);
+        continue;
+      }
       IntegerType *ity = cast<IntegerType>(ty);
       ConstMap[I.second] =
         ConstantInt::get(ity, model_v.numeral_string(), 10);
     } else if (ty->isIEEELikeFPTy()) {
+      if (is_poison(model_np)) {
+        ConstMap[I.second] = llvm::PoisonValue::get(ty);
+        continue;
+      }
       unsigned bits = ty->getPrimitiveSizeInBits();
       APInt integer(bits, model_v.numeral_string(), 10);
       APFloat fp(getFloatSemantics(bits), integer);
@@ -426,14 +456,37 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
       auto ety = vty->getElementType();
       unsigned bits = vty->getScalarSizeInBits();
       SmallVector<llvm::Constant*> v;
-      for (int i = vty->getElementCount().getKnownMinValue()-1; i >= 0; i --) {
+      unsigned n = vty->getElementCount().getKnownMinValue();
+
+      // Synthesize per-lane poison using the non_poison bitvector.
+      // Alive2 encodes vector non_poison as 1 bit per element, concatenated
+      // with element 0 as the MSB. This lets us construct e.g.
+      //   <half 0xH7C00, half poison>
+      // instead of collapsing to a fully-poison vector.
+      for (int i = (int)n - 1; i >= 0; --i) {
+        bool lane_poison = false;
+        if (model_np.isBV() && model_np.bits() == n) {
+          // element 0 is encoded in the MSB; with the extraction order below
+          // (i = n-1 .. 0) we have:
+          //   i = n-1  -> element 0 -> np bit index = n-1
+          //   i = 0    -> element n-1 -> np bit index = 0
+          unsigned bit = (unsigned)i;
+          auto np_bit = model_np.extract(bit, bit);
+          lane_poison = np_bit.isConst() && !np_bit.isAllOnes();
+        }
+
+        if (lane_poison) {
+          v.push_back(llvm::PoisonValue::get(ety));
+          continue;
+        }
+
         auto elem = flat.extract((i + 1) * bits - 1, i * bits);
         if (!elem.isConst())
           return false;
 
         if (ety->isIntegerTy()) {
-          IntegerType *ety = cast<IntegerType>(vty->getElementType());
-          v.push_back(ConstantInt::get(ety, elem.numeral_string(), 10));
+          IntegerType *etyi = cast<IntegerType>(vty->getElementType());
+          v.push_back(ConstantInt::get(etyi, elem.numeral_string(), 10));
         } else if (ety->isIEEELikeFPTy()) {
           APInt integer(bits, elem.numeral_string(), 10);
           APFloat fp(getFloatSemantics(bits), integer);
