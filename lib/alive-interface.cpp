@@ -281,7 +281,15 @@ AliveEngine::find_model(Transform &t,
 
   // TODO: dom check seems redundant
   // TODO: add memory back here
-  auto r = check_expr(mk_fml(poison_cnstr && value_cnstr), "synthesis");
+  //
+  // Prefer synthesizing *non-poison* reserved constants when possible:
+  // after finding a SAT model, greedily add constraints that force reserved
+  // constant(s) to be non-poison (or non-poison lanes) as long as the formula
+  // remains SAT. This is purely a model-preference heuristic.
+  expr base = mk_fml(poison_cnstr && value_cnstr);
+  smt::Solver solver;
+  solver.add(base);
+  auto r = solver.check("synthesis");
 
   if (r.isInvalid()) {
     errs.add("Invalid expr", false);
@@ -306,6 +314,56 @@ AliveEngine::find_model(Transform &t,
   if (r.isUnsat()) {
     errs.add("Unsat", false);
     return errs;
+  }
+
+  // Try to bias the model toward poison reserved constants (or poison lanes).
+  //
+  // This is implemented as a *greedy* post-SAT refinement: we add constraints
+  // that flip reserved constant(s) to poison (or specific lanes to poison) as
+  // long as the formula remains satisfiable.
+  //
+  // NOTE: We only do this for %_reservedc* inputs (existential vars).
+  if (r.isSat()) {
+    auto try_add_cnstr = [&](expr cnstr, const char *tag) {
+      smt::SolverPush push(solver);
+      solver.add(cnstr);
+      auto r2 = solver.check(tag);
+      if (r2.isSat()) {
+        r = std::move(r2);
+        // Keep the constraint if it is satisfiable, so later attempts build on it.
+        solver.add(std::move(cnstr));
+        return;
+      }
+    };
+
+    for (auto &i : tgt_state.getFn().getInputs()) {
+      if (!dynamic_cast<const Input*>(&i))
+        continue;
+      if (i.getName().rfind("%_reservedc", 0) != 0)
+        continue;
+      auto *val = tgt_state.at(i);
+      if (!val)
+        continue;
+
+      const expr &np = val->val.non_poison;
+
+      // Scalar poison: force non_poison=false if it's a bool.
+      if (np.isBool()) {
+        try_add_cnstr(!np, "synthesis_prefer_poison");
+        continue;
+      }
+
+      // Vector poison: if non_poison is a bitvector with 1 bit per lane,
+      // try to force each lane to be poison (bit=0) greedily.
+      unsigned bw = np.bits();
+      if (bw > 1) {
+        for (unsigned bit = 0; bit < bw; ++bit) {
+          auto np_bit = np.extract(bit, bit); // 1-bit BV
+          try_add_cnstr(np_bit == expr::mkInt(0, np_bit),
+                        "synthesis_prefer_poison_lane");
+        }
+      }
+    }
   }
 
   stringstream s;
