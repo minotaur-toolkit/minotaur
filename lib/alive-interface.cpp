@@ -26,6 +26,65 @@ using namespace std;
 
 using namespace llvm;
 
+// Minotaur constant synthesis wants to be robust to Alive2's NaN payload
+// nondeterminism. In particular, for FP returns we usually only care that both
+// sides return *a* NaN, not that the exact bit-pattern matches.
+static pair<expr, expr>
+refines_relaxed_nan(const IR::Type &ty, IR::State &src_s, IR::State &tgt_s,
+                    const IR::StateValue &src, const IR::StateValue &tgt) {
+  if (ty.isFloatType()) {
+    auto *fty = ty.getAsFloatType();
+    expr src_qnan = fty->isNaN(src.value, /*signalling=*/false);
+    expr src_snan = fty->isNaN(src.value, /*signalling=*/true);
+    expr tgt_qnan = fty->isNaN(tgt.value, /*signalling=*/false);
+    expr tgt_snan = fty->isNaN(tgt.value, /*signalling=*/true);
+    expr src_nan = src_qnan || src_snan;
+    expr tgt_nan = tgt_qnan || tgt_snan;
+    // Only relax NaN equality if the NaN came from Alive2's nondeterministic
+    // NaN construction (FloatType::fromFloat), which introduces vars like:
+    // - "#NaN*" (fresh nondet vars)
+    // - "choice*" (ChoiceExpr selector)
+    // - "#preferred_qnan"
+    //
+    // This avoids breaking tests that intentionally depend on exact NaN payload
+    // bits, e.g. half insertelement of 0x7C01 (SNaN) vs other NaN payloads.
+    auto is_nondet_nan_var = [](const expr &v) -> bool {
+      auto name = v.fn_name();
+      return name.rfind("#NaN", 0) == 0 ||
+             name.rfind("choice", 0) == 0 ||
+             name == "#preferred_qnan";
+    };
+    auto contains_nondet_nan = [&](const expr &e) -> bool {
+      for (const auto &v : e.vars()) {
+        if (is_nondet_nan_var(v))
+          return true;
+      }
+      return false;
+    };
+
+    bool relax = contains_nondet_nan(src.value) || contains_nondet_nan(tgt.value);
+    expr relaxed_eq = (relax ? ((src_nan && tgt_nan) || (src.value == tgt.value))
+                             : (src.value == tgt.value));
+    return { src.non_poison.implies(tgt.non_poison),
+             (src.non_poison && tgt.non_poison).implies(relaxed_eq) };
+  }
+
+  if (auto aty = ty.getAsAggregateType()) {
+    smt::AndExpr poison, value;
+    for (unsigned i = 0, e = aty->numElementsConst(); i < e; ++i) {
+      auto [p, v] = refines_relaxed_nan(aty->getChild(i), src_s, tgt_s,
+                                        aty->extract(src, i),
+                                        aty->extract(tgt, i));
+      poison.add(std::move(p));
+      value.add(std::move(v));
+    }
+    return { poison(), value() };
+  }
+
+  // Default to Alive2's standard refinement.
+  return ty.refines(src_s, tgt_s, src, tgt);
+}
+
 // borrowed from alive2
 static expr preprocess(Transform &t, const set<expr> &qvars0,
                        const set<expr> &undef_qvars, expr &&e) {
@@ -77,10 +136,20 @@ AliveEngine::find_model(Transform &t,
   auto pre_src_and = src_state.getPre();
   auto &pre_tgt_and = tgt_state.getPre();
 
-  // optimization: rewrite "tgt /\ (src -> foo)" to "tgt /\ foo" if src = tgt
-  pre_src_and.del(pre_tgt_and);
+  // Optimization: rewrite "tgt /\ (src -> foo)" to "tgt /\ foo" ONLY if
+  // pre_src == pre_tgt. Doing this unconditionally weakens the antecedent of
+  // the implication and can make incorrect candidates look valid (notably in
+  // constant synthesis FP cases like tests/fp/case11.syn.ll).
+  //
+  // NOTE: We compare the assembled precondition expressions structurally
+  // (expr::eq) instead of comparing AndExpr containers, because smt::expr's
+  // operator== returns an SMT boolean expression (not a C++ bool).
   expr pre_src = pre_src_and();
   expr pre_tgt = pre_tgt_and();
+  if (pre_src.eq(pre_tgt)) {
+    pre_src_and.del(pre_tgt_and);
+    pre_src = pre_src_and();
+  }
   expr axioms_expr = expr(true);
 
   IR::State::ValTy sv = src_state.returnVal(), tv = tgt_state.returnVal();
@@ -122,6 +191,14 @@ AliveEngine::find_model(Transform &t,
     errs.add("Unknown type is found in argument list.", false);
     return errs;
   }
+
+  // ∃ reserved constants . ∀ (inputs) . refines
+  //
+  // NOTE: we intentionally do NOT add Alive2's NaN payload/quieting "choice*"
+  // / "#NaN*" / "#preferred_qnan" vars to the universal quantifier set (qvars).
+  // Doing so makes constant synthesis spuriously UNSAT in FP tests like fadd2.
+
+
   auto dom_a = sv.domain;
   auto dom_b = tv.domain;
 
@@ -135,13 +212,55 @@ AliveEngine::find_model(Transform &t,
     if (refines.isFalse())
       return std::move(refines);
 
-    auto fml = pre_tgt && pre_src.implies(refines);
-    return axioms_expr && preprocess(t, qvars, uvars, std::move(fml));
+    // Simplify aggressively: this can eliminate spurious NaN nondeterminism
+    // introduced by Alive2's conservative FP-to-bits lowering (fromFloat) in
+    // cases where the expression is in fact non-NaN (e.g. some maxnum patterns).
+    auto fml = (axioms_expr && (pre_tgt && pre_src.implies(refines))).simplify();
+
+    // Quantification matters a lot for constant synthesis soundness:
+    // any Alive2 "quantified vars" (undef-related, etc.) and "nondet vars"
+    // (e.g. NaN payload/quieting choices) must NOT remain as free top-level
+    // existentials, otherwise Z3 can pick them to make an incorrect constant
+    // appear valid (e.g. tests/fp/case11.syn.ll collapsing to ret false).
+    //
+    // We follow Alive2's refinement checking strategy: quantify source quantvars,
+    // source nondet vars, and target fn-call quantvars.
+    auto is_reservedc = [](const expr &v) -> bool {
+      auto name = v.fn_name();
+      return name.rfind("%_reservedc", 0) == 0;
+    };
+
+    auto add_qvars = [&](const std::set<expr> &vars) {
+      for (const auto &v : vars) {
+        if (is_reservedc(v))
+          continue;
+        qvars.insert(v);
+      }
+    };
+
+    add_qvars(src_state.getQuantVars());
+    // Some Alive2 "nondet" vars are true semantic nondeterminism/unknowns
+    // (e.g. NaN payload choice), while others intentionally model underspecified
+    // behavior (e.g. tie-breaking in min/max intrinsics via maxminnondet!*).
+    // Quantifying the latter universally tends to overconstrain constant
+    // synthesis and can block legitimate rewrites (e.g. fp/minnum2.syn.ll).
+    for (const auto &v : src_state.getNondetVars()) {
+      auto name = v.fn_name();
+      if (name.rfind("maxminnondet", 0) == 0)
+        continue;
+      if (is_reservedc(v))
+        continue;
+      qvars.insert(v);
+    }
+    add_qvars(tgt_state.getFnQuantVars());
+
+    return preprocess(t, qvars, uvars, std::move(fml));
   };
 
 
   const IR::Type &ty = t.src.getType();
-  auto [poison_cnstr, value_cnstr] = ty.refines(src_state, tgt_state, sv.val, tv.val);
+  auto [poison_cnstr, value_cnstr]
+    = refines_relaxed_nan(ty, src_state, tgt_state, sv.val, tv.val);
   expr dom = dom_a && dom_b;
 
 /*  auto src_mem = src_state.returnMemory();

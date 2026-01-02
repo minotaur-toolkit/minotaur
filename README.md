@@ -46,7 +46,6 @@ use the following command to fetch and build LLVM.
 To fetch and build the Alive2, use
 
     git clone --depth=1 git@github.com:alivetoolkit/alive2.git $HOME/alive2
-    cd $HOME/alive2 && git apply $HOME/minotaur/alive2-fromfloat-line453.patch
     mkdir $HOME/alive2/build && cd $HOME/alive2/build
     cmake -GNinja -DLLVM_DIR=$HOME/llvm/build/lib/cmake/llvm -DBUILD_TV=1 -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
     ninja

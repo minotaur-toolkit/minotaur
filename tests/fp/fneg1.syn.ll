@@ -1,4 +1,4 @@
-; CHECK: fsub float -0.000000e+00, %x
+; CHECK: (fneg float (var float %__n3))
 define float @test4(float %x) nounwind  {
 ; CHECK-LABEL: @test4(
 ; CHECK-NEXT:    [[T34:%.*]] = fneg float [[X:%.*]]

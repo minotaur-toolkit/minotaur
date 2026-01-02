@@ -81,13 +81,6 @@ if [ ! -d "${ALIVE2_SOURCE_DIR}" ]; then
     "${ALIVE2_SOURCE_DIR}"
 fi
 
-cd "${ALIVE2_SOURCE_DIR}"
-
-if [ -f "${ROOT_DIR}/alive2-fromfloat-line453.patch" ]; then
-  git apply "${ROOT_DIR}/alive2-fromfloat-line453.patch"
-fi
-
-
 mkdir -p "${ALIVE2_BUILD_DIR}"
 cd "${ALIVE2_BUILD_DIR}"
 cmake -G Ninja \
