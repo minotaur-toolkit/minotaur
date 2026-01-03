@@ -57,11 +57,21 @@ if ($UNIX) {
 $r->ping || die "no server?";
 my @all_keys = $r->keys('*');
 
+# Redis keys are binary-safe. After switching Minotaur's cache key to LLVM
+# bitcode (instead of textual IR), each key is now raw bitcode bytes.
+sub write_key_to_tmp_bc($) {
+    (my $key) = @_;
+    (my $fh, my $tmpfn) = File::Temp::tempfile(SUFFIX => ".bc");
+    binmode($fh);
+    print $fh $key;
+    $fh->flush();
+    close $fh;
+    return $tmpfn;
+}
+
 sub infer($) {
     (my $opt) = @_;
-    (my $fh, my $tmpfn) = File::Temp::tempfile();
-    print $fh $opt;
-    $fh->flush();
+    my $tmpfn = write_key_to_tmp_bc($opt);
 
     my $pid = $$;
     my $ok = 0;

@@ -161,8 +161,12 @@ static optional<Rewrite>
 infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, parse::Parser &P) {
   string bytecode;
   llvm::raw_string_ostream bs(bytecode);
-  //WriteBitcodeToFile(*F.getParent(), bs);
-  F.getParent()->print(bs, nullptr);
+  // Use bitcode as the cache key input instead of textual IR printing.
+  // This avoids nondeterminism from AsmWriter-emitted comments like:
+  //  - "; ModuleID = ..."
+  //  - "; preds = ..."
+  // and removes the need for local LLVM AsmWriter patches to stabilize caching.
+  WriteBitcodeToFile(*F.getParent(), bs);
   bs.flush();
 
   vector<Rewrite> RHSs;
