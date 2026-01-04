@@ -44,6 +44,20 @@ def readFile(path):
   fd = open(path, 'r')
   return fd.read()
 
+def _excerpt_tail(lines, total_lines=100):
+  """Return the last total_lines lines (with line numbers)."""
+  if not lines:
+    return ""
+  total_lines = max(1, int(total_lines))
+  start = max(0, len(lines) - total_lines)
+  end = len(lines)
+  excerpt = lines[start:end]
+  header = f"=== Output tail (lines {start+1}-{end} of {len(lines)}) ===\n"
+  body = ""
+  for i, line in enumerate(excerpt, start=start + 1):
+    body += f"{i:6d}: {line}\n"
+  return header + body
+
 
 class MinotaurTest(TestFormat):
   def __init__(self):
@@ -85,6 +99,7 @@ class MinotaurTest(TestFormat):
 
     out, err, exitCode = executeCommand(cmd)
     output = out + err
+    output_lines = output.splitlines()
 
     xfail = self.regex_xfail.search(input)
     if xfail != None and output.find(xfail.group(1)) != -1:
@@ -93,24 +108,53 @@ class MinotaurTest(TestFormat):
     if is_timeout(output):
       return lit.Test.PASS, ''
 
-    chk = self.regex_check.search(input)
-    if chk != None and output.find(chk.group(1).strip()) == -1:
-      return lit.Test.FAIL, output
+    # CHECK / CHECK-NOT handling.
+    # We intentionally treat CHECK patterns as *literal substrings* (not regex),
+    # because many tests include characters like '|' which would be special in FileCheck.
+    checks = [s.strip() for s in self.regex_check.findall(input)]
+    if checks:
+      for needle in checks:
+        if output.find(needle) == -1:
+          msg = ""
+          msg += "CHECK failed: expected substring not found.\n"
+          msg += "Test: " + test + "\n"
+          msg += "Command: " + " ".join(cmd) + "\n\n"
+          msg += "Expected (CHECK):\n" + needle + "\n\n"
+          msg += _excerpt_tail(output_lines, total_lines=100)
+          return lit.Test.FAIL, msg
 
-    chk_not = self.regex_check_not.search(input)
-    if chk_not != None and output.find(chk_not.group(1).strip()) != -1:
-      return lit.Test.FAIL, output
+    check_nots = [s.strip() for s in self.regex_check_not.findall(input)]
+    if check_nots:
+      for needle in check_nots:
+        if output.find(needle) != -1:
+          msg = ""
+          msg += "CHECK-NOT failed: forbidden substring was found.\n"
+          msg += "Test: " + test + "\n"
+          msg += "Command: " + " ".join(cmd) + "\n\n"
+          msg += "Forbidden (CHECK-NOT):\n" + needle + "\n\n"
+          msg += _excerpt_tail(output_lines, total_lines=100)
+          return lit.Test.FAIL, msg
 
     expect_err = self.regex_errs.search(input)
-    if expect_err is None and xfail is None and chk is None and chk_not is None:
+    if expect_err is None and xfail is None and not checks and not check_nots:
       # If there's no other test, correctness of the transformation should be
       # checked.
       if exitCode == 0 and output.find(ok_string) != -1 and \
           self.regex_errs_out.search(output) is None:
         return lit.Test.PASS, ''
-      return lit.Test.FAIL, output
+      # Avoid dumping huge outputs in CI logs; show the last few lines.
+      msg = ""
+      msg += "Test: " + test + "\n"
+      msg += "Command: " + " ".join(cmd) + "\n\n"
+      msg += _excerpt_tail(output_lines, total_lines=100)
+      return lit.Test.FAIL, msg
 
     if expect_err != None and output.find(expect_err.group(1)) == -1:
-      return lit.Test.FAIL, output
+      msg = ""
+      msg += "Expected error not found.\n"
+      msg += "Test: " + test + "\n"
+      msg += "Command: " + " ".join(cmd) + "\n\n"
+      msg += _excerpt_tail(output_lines, total_lines=100)
+      return lit.Test.FAIL, msg
 
     return lit.Test.PASS, ''
