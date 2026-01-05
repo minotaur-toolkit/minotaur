@@ -84,6 +84,13 @@ set(SYNTHESIZER_SRC
 )
 
 find_package(Z3 4.8.5 REQUIRED)
+if(Z3_LIBRARIES)
+  list(GET Z3_LIBRARIES 0 _Z3_LIB)
+  if(IS_ABSOLUTE "${_Z3_LIB}")
+    get_filename_component(_Z3_LIBDIR "${_Z3_LIB}" DIRECTORY)
+    list(APPEND CMAKE_BUILD_RPATH "${_Z3_LIBDIR}")
+  endif()
+endif()
 
 find_path(HIREDIS_INCLUDE_DIR
   NAMES

@@ -131,6 +131,14 @@ jobs:
           cmake --build "${Z3_BUILD}" --target install
 
           echo "Z3_PREFIX=${Z3_INSTALL}" >> "${GITHUB_ENV}"
+          echo "Z3_LIBDIR=${Z3_INSTALL}/lib" >> "${GITHUB_ENV}"
+
+          # Runtime loader hints (fallback if RPATH isn't sufficient on a runner).
+          if [[ "${RUNNER_OS}" == "macOS" ]]; then
+            echo "DYLD_LIBRARY_PATH=${Z3_INSTALL}/lib:${DYLD_LIBRARY_PATH-}" >> "${GITHUB_ENV}"
+          else
+            echo "LD_LIBRARY_PATH=${Z3_INSTALL}/lib:${LD_LIBRARY_PATH-}" >> "${GITHUB_ENV}"
+          fi
 
       - name: Compile
         run: bash .github/scripts/build.sh
