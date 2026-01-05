@@ -71,7 +71,7 @@ jobs:
 
           # Core deps
           sudo apt-get install -y --no-install-recommends \
-            z3 re2c ninja-build libhiredis-dev redis-server
+            re2c ninja-build libhiredis-dev redis-server
 
           # LLVM apt repo (for clang-18/19)
           if [[ "${{ matrix.compiler }}" == "clang++-18" || "${{ matrix.compiler }}" == "clang++-19" ]]; then
@@ -108,7 +108,29 @@ jobs:
       - name: Install dependencies (MacOS)
         if: runner.os == 'macOS'
         run: |
-          brew install z3 re2c ninja redis hiredis
+          brew install re2c ninja redis hiredis
+
+      - name: Build Z3 (from source)
+        run: |
+          set -euxo pipefail
+
+          Z3_TAG="z3-4.15.4"
+          Z3_SRC="${GITHUB_WORKSPACE}/z3-src"
+          Z3_BUILD="${GITHUB_WORKSPACE}/z3-build"
+          Z3_INSTALL="${GITHUB_WORKSPACE}/z3-install"
+
+          rm -rf "${Z3_SRC}" "${Z3_BUILD}" "${Z3_INSTALL}"
+          git clone --depth 1 --branch "${Z3_TAG}" https://github.com/Z3Prover/z3.git "${Z3_SRC}"
+
+          cmake -S "${Z3_SRC}" -B "${Z3_BUILD}" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="${Z3_INSTALL}" \
+            -DZ3_BUILD_TEST_EXECUTABLES=OFF \
+            -DZ3_BUILD_EXECUTABLE=OFF
+
+          cmake --build "${Z3_BUILD}" --target install
+
+          echo "Z3_PREFIX=${Z3_INSTALL}" >> "${GITHUB_ENV}"
 
       - name: Compile
         run: bash .github/scripts/build.sh

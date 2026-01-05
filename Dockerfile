@@ -18,8 +18,18 @@ RUN apt-get -y install cmake                \
                        libbsd-resource-perl \
                        libredis-perl        \
                        re2c                 \
-                       libgtest-dev         \
-                       libz3-dev
+                       libgtest-dev
+
+# Build and install Z3 from source (pinned tag)
+ARG Z3_TAG=z3-4.15.4
+RUN git clone --depth 1 --branch ${Z3_TAG} https://github.com/Z3Prover/z3.git /tmp/z3 && \
+    cmake -S /tmp/z3 -B /tmp/z3/build -G Ninja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=/usr/local \
+      -DZ3_BUILD_TEST_EXECUTABLES=OFF \
+      -DZ3_BUILD_EXECUTABLE=OFF && \
+    cmake --build /tmp/z3/build --target install && \
+    rm -rf /tmp/z3
 
 # Create a non-root user and set up permissions
 RUN groupadd -r dev && useradd -m -r -g dev -s /bin/bash dev

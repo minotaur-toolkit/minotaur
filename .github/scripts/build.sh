@@ -7,6 +7,8 @@ BUILD_DIR="${ROOT_DIR}/build"
 
 : "${CMAKE_BUILD_TYPE:=Release}"
 
+Z3_PREFIX="${Z3_PREFIX-}"
+
 LLVM_SOURCE_DIR_DEFAULT="$HOME/llvm"
 LLVM_BUILD_DIR_DEFAULT="$LLVM_SOURCE_DIR_DEFAULT/build"
 ALIVE2_SOURCE_DIR_DEFAULT="$HOME/alive2"
@@ -36,6 +38,7 @@ echo "Using ${JOBS} parallel build jobs"
 echo "CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
 echo "CMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER:-<default>}"
 echo "LLVM_TARGETS_TO_BUILD=${LLVM_TARGETS_TO_BUILD}"
+echo "Z3_PREFIX=${Z3_PREFIX:-<system/default>}"
 
 echo "=== Ensuring LLVM is built at ${LLVM_BUILD_DIR} ==="
 if [ ! -x "${LLVM_BUILD_DIR}/bin/llvm-config" ] && [ ! -x "${LLVM_BUILD_DIR}/bin/clang" ]; then
@@ -83,10 +86,20 @@ fi
 
 mkdir -p "${ALIVE2_BUILD_DIR}"
 cd "${ALIVE2_BUILD_DIR}"
-cmake -G Ninja \
-  -DLLVM_DIR="${LLVM_BUILD_DIR}/lib/cmake/llvm" \
-  -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-  -DBUILD_TV=1 \
+
+ALIVE2_CMAKE_ARGS=(
+  -G Ninja
+  -DLLVM_DIR="${LLVM_BUILD_DIR}/lib/cmake/llvm"
+  -DCMAKE_BUILD_TYPE=RelWithDebInfo
+  -DBUILD_TV=1
+)
+
+if [ "${Z3_PREFIX}" != "" ]; then
+  # Help Alive2 find libz3 + headers from a non-system install.
+  ALIVE2_CMAKE_ARGS+=("-DCMAKE_PREFIX_PATH=${Z3_PREFIX}")
+fi
+
+cmake "${ALIVE2_CMAKE_ARGS[@]}" \
   "${ALIVE2_SOURCE_DIR}"
 ninja -j"${JOBS}"
 
@@ -101,6 +114,11 @@ CMAKE_ARGS=(
   -DCMAKE_PREFIX_PATH="${LLVM_BUILD_DIR}"
   -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}"
 )
+
+if [ "${Z3_PREFIX}" != "" ]; then
+  # Ensure Minotaur finds the same Z3 we built for CI.
+  CMAKE_ARGS+=("-DCMAKE_PREFIX_PATH=${LLVM_BUILD_DIR};${Z3_PREFIX}")
+fi
 
 if [ "${CMAKE_CXX_COMPILER-}" != "" ]; then
   CMAKE_ARGS+=("-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}")

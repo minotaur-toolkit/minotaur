@@ -19,16 +19,23 @@ To run the container, use
 
 Minotaur requires `cmake`, `ninja-build`, `gcc-10`, `g++-10`,
 `redis`, `redis-server`, `libhiredis-dev`, `libbsd-resource-perl`,
-`libredis-perl`, `libgtest-dev`, `libz3-dev` and `re2c` as dependencies. On
+`libredis-perl`, `libgtest-dev` and `re2c` as dependencies. Minotaur/Alive2
+also require Z3; we recommend building Z3 from source at tag `z3-4.15.4`. On
 Ubuntu/Debian, use
 
-    sudo apt-get install cmake ninja-build gcc-10 g++-10 redis redis-server libhiredis-dev libbsd-resource-perl libredis-perl re2c libgtest-dev libz3-dev
+    sudo apt-get install cmake ninja-build gcc-10 g++-10 redis redis-server libhiredis-dev libbsd-resource-perl libredis-perl re2c libgtest-dev
 
 or on mac, use
 
-    brew install cmake re2c z3 hiredis redis
+    brew install cmake re2c hiredis redis
 
 to install dependencies.
+
+Build and install Z3 from source (tag `z3-4.15.4`).
+
+    git clone --depth 1 --branch z3-4.15.4 https://github.com/Z3Prover/z3.git $HOME/z3
+    cmake -S $HOME/z3 -B $HOME/z3/build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$HOME/z3/install -DZ3_BUILD_TEST_EXECUTABLES=OFF -DZ3_BUILD_EXECUTABLE=ON
+    cmake --build $HOME/z3/build --target install
 
 Clone Minotaur repository with
 
@@ -47,13 +54,13 @@ To fetch and build the Alive2, use
 
     git clone --depth=1 git@github.com:alivetoolkit/alive2.git $HOME/alive2
     mkdir $HOME/alive2/build && cd $HOME/alive2/build
-    cmake -GNinja -DLLVM_DIR=$HOME/llvm/build/lib/cmake/llvm -DBUILD_TV=1 -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
+    cmake -GNinja -DLLVM_DIR=$HOME/llvm/build/lib/cmake/llvm -DBUILD_TV=1 -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_PREFIX_PATH=$HOME/z3/install ..
     ninja
 
 To build Minotaur, use
 
     mkdir $HOME/minotaur/build && cd $HOME/minotaur/build
-    cmake .. -DALIVE2_SOURCE_DIR=$HOME/alive2 -DALIVE2_BUILD_DIR=$HOME/alive2/build -DCMAKE_PREFIX_PATH=$HOME/llvm/build -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DCMAKE_BUILD_TYPE=RelWithDebInfo -G Ninja
+    cmake .. -DALIVE2_SOURCE_DIR=$HOME/alive2 -DALIVE2_BUILD_DIR=$HOME/alive2/build -DCMAKE_PREFIX_PATH="$HOME/llvm/build;$HOME/z3/install" -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DCMAKE_BUILD_TYPE=RelWithDebInfo -G Ninja
     ninja
 
 To run the test suite, use
