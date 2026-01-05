@@ -1,4 +1,4 @@
-; CHECK: insertelement <2 x i64> bitcast (<4 x i32> <i32 -1, i32 -1, i32 3, i32 4> to <2 x i64>)
+; CHECK: insertelement <2 x i64> bitcast (<4 x i32> <i32 poison, i32 poison, i32 3, i32 4> to <2 x i64>)
 define <4 x i32> @extractelement_out_of_range(<4 x i32> %x, i64 %i) {
   %f = trunc i64 %i to i32
   %g = lshr i64 %i, 32
