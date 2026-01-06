@@ -1,16 +1,13 @@
-
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
 #pragma once
 
-#include "alive-interface.h"
 #include "expr.h"
 
-#include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
 #include <unordered_set>
-#include <unordered_map>
 
 namespace minotaur {
 
@@ -31,4 +28,4 @@ private:
   llvm::Value *codeGenImpl(Inst*, llvm::ValueToValueMapTy&);
 };
 
-}
+} // namespace minotaur

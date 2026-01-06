@@ -105,12 +105,12 @@ llvm::cl::opt<bool> debug_tv(
 
 llvm::cl::opt<bool> debug_codegen(
     "minotaur-debug-codegen",
-    llvm::cl::desc("minotaur: enable alive2 debug output"),
+    llvm::cl::desc("minotaur: enable codegen debug output"),
     llvm::cl::init(false));
 
 llvm::cl::opt<bool> debug_parser(
     "minotaur-debug-parser",
-    llvm::cl::desc("minotaur: enable alive2 debug output"),
+    llvm::cl::desc("minotaur: enable parser debug output"),
     llvm::cl::init(false));
 
 llvm::cl::opt<unsigned> redis_port(
@@ -137,9 +137,9 @@ llvm::cl::opt<string> report_dir("minotaur-report-dir",
   llvm::cl::desc("Save report to disk"), llvm::cl::value_desc("directory"));
 
 static bool dom_check(llvm::Value *V, DominatorTree &DT, llvm::Use &U) {
-  if (auto I = dyn_cast<Instruction> (V)) {
+  if (auto I = dyn_cast<Instruction>(V)) {
     for (auto &op : I->operands()) {
-      if (auto opI = dyn_cast<Instruction> (op)) {
+      if (auto opI = dyn_cast<Instruction>(op)) {
         if (!DT.dominates(opI, U)) return false;
       }
     }

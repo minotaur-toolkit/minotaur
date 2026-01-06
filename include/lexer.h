@@ -39,4 +39,4 @@ struct LexException {
 
 constexpr unsigned LEXER_READ_AHEAD = 20;
 
-}
+} // namespace parse

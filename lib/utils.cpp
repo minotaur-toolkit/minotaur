@@ -89,7 +89,7 @@ void hSetNoSolution(const char *k, unsigned sz_k,
   freeReplyObject(reply);
 }
 
-void removeUnusedDecls(unordered_set<Function *> IntrinsicDecls) {
+void removeUnusedDecls(const unordered_set<Function *> &IntrinsicDecls) {
   for (auto Intr : IntrinsicDecls) {
     if (Intr->isDeclaration() && Intr->use_empty()) {
       Intr->eraseFromParent();

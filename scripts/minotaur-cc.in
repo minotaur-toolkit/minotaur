@@ -12,13 +12,24 @@ if ($0 =~ /minotaur-cc$/) {
 } elsif ($0 =~ /minotaur-c\+\+$/) {
   unshift @ARGV, "@LLVM_BINARY_DIR@/bin/clang++";
 } else {
-  die "Didn't expect minotuar-cc to be invoked as '$0'";
+  die "Didn't expect minotaur-cc to be invoked as '$0'";
 }
 
 foreach my $arg (@ARGV) {
   if ($arg eq "-help" || $arg eq "--help") {
     print <<EOF;
-HELP MESSAGE TO BE ADDED
+Minotaur compiler wrapper - a synthesizing superoptimizer for LLVM.
+
+Usage: minotaur-cc [options] <source files>
+       minotaur-c++ [options] <source files>
+
+Environment variables:
+  ENABLE_MINOTAUR     Enable Minotaur optimization pass
+  MINOTAUR_NO_INFER   Extract cuts without running synthesis
+  MINOTAUR_DEBUG      Enable enumerator debug output
+  MINOTAUR_DEBUG_SLICER  Enable slicer debug output
+
+For more information, see: https://github.com/minotaur-toolkit/minotaur
 EOF
     exit(-1);
   }

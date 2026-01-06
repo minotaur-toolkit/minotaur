@@ -97,7 +97,7 @@ unsigned get_machine_cost(Function *F) {
   int r = sys::ExecuteAndWait(GET_COST_COMMAND, ArgPtrs, nullopt, Redirects, 30);
 
   if (r) {
-    llvm::errs()<<"error when analysizing cost\n";
+    llvm::errs() << "error when analyzing cost\n";
     std::ifstream err((std::string(ErrPath)));
     if (err.good()) {
       std::string line;
@@ -175,7 +175,7 @@ unsigned get_approx_cost(llvm::Function *F) {
         } else if (opCode == Instruction::Unreachable ||
                    opCode == Instruction::Ret) {
           cost += 0;
-        } else if (opCode ==Instruction::Select) {
+        } else if (opCode == Instruction::Select) {
           cost += 4;
         } else if (opCode == Instruction::InsertElement ||
                    opCode == Instruction::ExtractElement ||

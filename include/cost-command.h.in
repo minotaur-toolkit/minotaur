@@ -2,6 +2,6 @@
 // Distributed under the MIT license that can be found in the LICENSE file.
 #pragma once
 
-#include "string"
+#include <string>
 
 constexpr const char *GET_COST_COMMAND="@CMAKE_BINARY_DIR@/get-cost";

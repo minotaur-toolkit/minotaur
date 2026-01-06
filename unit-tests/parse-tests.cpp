@@ -37,7 +37,7 @@ TEST(ParseTest, RoundTrip) {
       Parse p;
       I = parse::parse(T, exprs);
     } catch (parse::ParseException E) {
-      cerr<<E.str<<" at "<<E.lineno<<", in test case "<<T<<endl;
+      cerr << E.str << " at " << E.lineno << ", in test case " << T << endl;
     }
     ASSERT_TRUE(I != nullptr);
     std::stringstream rs;

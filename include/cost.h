@@ -8,6 +8,8 @@
 #include "llvm/IR/Function.h"
 
 namespace minotaur {
+
 unsigned get_machine_cost(llvm::Function *F);
-unsigned get_approx_cost (llvm::Function *F);
-}
+unsigned get_approx_cost(llvm::Function *F);
+
+} // namespace minotaur

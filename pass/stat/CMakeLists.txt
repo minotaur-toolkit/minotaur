@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.13.4)
+cmake_minimum_required(VERSION 3.14)
 project(llvm-tutor-hello-world)
 
 #===============================================================================
@@ -11,7 +11,7 @@ set(LT_LLVM_INSTALL_DIR "" CACHE PATH "LLVM installation directory")
 # find_package can locate it)
 list(APPEND CMAKE_PREFIX_PATH "${LT_LLVM_INSTALL_DIR}/lib/cmake/llvm/")
 
-# FIXME: This is a warkaround for #25. Remove once resolved and use
+# FIXME: This is a workaround for #25. Remove once resolved and use
 find_package(LLVM REQUIRED CONFIG)
 
 # HelloWorld includes headers from LLVM - update the include paths accordingly

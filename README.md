@@ -87,7 +87,7 @@ command
     $HOME/llvm/build/bin/opt -load-pass-plugin $HOME/minotaur/build/online.so -passes="minotaur" <LLVM bitcode>
 
 For C/C++ programs, we have a drop-in replacement of C/C++ compiler.
-Users can call `minotaur-cc` or `minotaur-cxx` in the `build`
+Users can call `minotaur-cc` or `minotaur-c++` in the `build`
 directory to compile C/C++ programs. Minotaur pass is disabled by
 default; the pass can be enabled by setting environment variable
 `ENABLE_MINOTAUR`.
@@ -104,15 +104,15 @@ To extract cuts, one can just set the environment variable
 
 For a single LLVM IR source,
 
-    MINOTAUR_NO_INFER=ON $HOME/llvm/build/bin/opt -load-pass-plugin $HOME/minotaur/build/minotaur.so -passes="minotaur" <LLVM bitcode>
+    MINOTAUR_NO_INFER=ON $HOME/llvm/build/bin/opt -load-pass-plugin $HOME/minotaur/build/online.so -passes="minotaur" <LLVM bitcode>
 
 For a single C/C++ source,
 
     ENABLE_MINOTAUR=ON MINOTAUR_NO_INFER=ON $HOME/minotaur/build/minotaur-cc <c source> [clang options]
 
-For a C/C++ project, simply set CC and CXX to `minotaur-cc` and `minotaur-cxx`, and run `configure` as usual. Set `ENABLE_MINOTAUR` and `MINOTAUR_NO_INFER` to `ON` for `make`.
+For a C/C++ project, simply set CC and CXX to `minotaur-cc` and `minotaur-c++`, and run `configure` as usual. Set `ENABLE_MINOTAUR` and `MINOTAUR_NO_INFER` to `ON` for `make`.
 
-    CC=$HOME/minotaur/build/minotaur-cc CXX=$HOME/minotaur/build/minotaur-cxx ./configure
+    CC=$HOME/minotaur/build/minotaur-cc CXX=$HOME/minotaur/build/minotaur-c++ ./configure
     ENABLE_MINOTAUR=ON MINOTAUR_NO_INFER=ON make
 
 #### Run synthesis on cuts
@@ -124,7 +124,7 @@ synthesis on them.
 
 After running `cache-infer`, the cache will be populated with the
 optimizations that Minotaur discovered. User can run the `opt`,
-`minotaur-cc`, `minotaur-cxx` or `make`  again, to compile the program
+`minotaur-cc`, `minotaur-c++` or `make`  again, to compile the program
 with the synthesized optimizations.
 
 ### Dump synthesized results from cache

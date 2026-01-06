@@ -4,17 +4,14 @@
 
 #include "type.h"
 
-#include "llvm/ADT/APInt.h"
+#include "llvm/IR/Argument.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Metadata.h"
+#include "llvm/IR/Value.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "ir/instr.h"
 
+#include <string>
 #include <vector>
 
 namespace minotaur {
@@ -27,7 +24,7 @@ public:
   virtual ~Inst() {}
 };
 
-// SSA Definations
+// SSA Definitions
 class Value : public Inst {
 protected:
   type ty;
@@ -395,4 +392,4 @@ std::vector<type> getShuffleWorkTypes(type expected);
 std::vector<type> getConversionOpWorkTypes(type to, type from);
 std::vector<type> getInsertElementWorkTypes(type expected);
 
-}
+} // namespace minotaur

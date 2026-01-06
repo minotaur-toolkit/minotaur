@@ -2,21 +2,19 @@
 // Distributed under the MIT license that can be found in the LICENSE file.
 #pragma once
 
-#include "alive-interface.h"
-#include "ir/function.h"
-
 #include "expr.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
+
 #include "llvm/IR/Dominators.h"
 
-#include <functional>
 #include <memory>
-#include <unordered_map>
+#include <set>
+#include <vector>
 
 namespace llvm {
 class Function;
-class TargetLibraryInfo;
-}
+class Instruction;
+class Value;
+} // namespace llvm
 
 namespace minotaur {
 
@@ -36,4 +34,4 @@ public:
   std::vector<Rewrite> solve(llvm::Function&, llvm::Instruction*);
 };
 
-}
+} // namespace minotaur

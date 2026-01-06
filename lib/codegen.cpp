@@ -1,8 +1,8 @@
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
 #include "codegen.h"
+#include "config.h"
 #include "expr.h"
-
 
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -51,6 +51,8 @@ std::array<llvm::Intrinsic::ID, numOfX86TerOpIntrinsics> IntrinsicTerOpIDs = {
 #undef PROCESS
 };
 
+// Used for ternary intrinsics (TODO: handle terop)
+[[maybe_unused]]
 static llvm::Intrinsic::ID getIntrinsicID(IR::X86IntrinTerOp::Op op) {
   return IntrinsicTerOpIDs[op];
 }
@@ -73,7 +75,7 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
       if (VMap.count(V->V())) {
         return VMap[V->V()];
       } else {
-        llvm::errs()<<*V<<"\n";
+        llvm::errs() << *V << "\n";
         llvm::report_fatal_error("Value is not found in VMap");
       }
     }
@@ -87,7 +89,7 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     type workty = U->getWorkTy();
     llvm::Type *lty = workty.toLLVM(C);
     auto op0 = codeGenImpl(U->V(), VMap);
-    if(!U->V()->getType().same_width(workty))
+    if (!U->V()->getType().same_width(workty))
       report_fatal_error("operand width mismatch");
     op0 = bitcastTo(op0, lty);
 
@@ -172,13 +174,13 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     type workty = B->getWorkTy();
     llvm::Type *lty = workty.toLLVM(C);
     auto op0 = codeGenImpl(B->L(), VMap);
-    if(!workty.same_width(B->L()->getType()))
+    if (!workty.same_width(B->L()->getType()))
       report_fatal_error("left operand width mismatch");
     op0 = bitcastTo(op0, lty);
 
     auto op1 = codeGenImpl(B->R(), VMap);
-    if(!workty.same_width(B->R()->getType()))
-      report_fatal_error("left operand width mismatch");
+    if (!workty.same_width(B->R()->getType()))
+      report_fatal_error("right operand width mismatch");
     op1 = bitcastTo(op1, lty);
 
     Intrinsic::ID iid = 0;
@@ -361,12 +363,12 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     type op0_ty = getIntrinsicOp0Ty(B->K());
     type op1_ty = getIntrinsicOp1Ty(B->K());
     auto op0 = codeGenImpl(B->L(), VMap);
-    if(!op0_ty.same_width(B->L()->getType()))
+    if (!op0_ty.same_width(B->L()->getType()))
       report_fatal_error("left operand width mismatch");
     op0 = bitcastTo(op0, op0_ty.toLLVM(C));
 
     auto op1 = codeGenImpl(B->R(), VMap);
-    if(!op1_ty.same_width(B->R()->getType()))
+    if (!op1_ty.same_width(B->R()->getType()))
       report_fatal_error("right operand width mismatch");
     op1 = bitcastTo(op1, op1_ty.toLLVM(C));
 
@@ -376,7 +378,7 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     llvm::Value *CI = CallInst::Create(decl,
                                        ArrayRef<llvm::Value *>({op0, op1}),
                                        "intr",
-                                       cast<Instruction>(b.GetInsertPoint()));
+                                       b.GetInsertPoint());
     return CI;
   // TODO: handle terop
   } else if (auto FSV = dynamic_cast<FakeShuffleInst*>(I)) {

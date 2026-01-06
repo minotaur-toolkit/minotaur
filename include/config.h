@@ -3,8 +3,6 @@
 #pragma once
 
 #include "llvm/Support/raw_ostream.h"
-#include <string>
-#include <ostream>
 
 namespace minotaur {
 namespace config {
@@ -30,5 +28,5 @@ void set_debug(llvm::raw_ostream &os);
 
 extern const char minotaur_version[];
 
-}
-}
+} // namespace config
+} // namespace minotaur

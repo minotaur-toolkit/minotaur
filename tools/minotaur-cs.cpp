@@ -131,7 +131,7 @@ int main(int argc, char **argv) {
   try {
     AE.constantSynthesis(*SRC, *TGT, constMap);
   } catch (const AliveException &e) {
-    std::cerr<<e.msg<<endl;
+    std::cerr << e.msg << endl;
   }
 
   if (opt_smt_stats)

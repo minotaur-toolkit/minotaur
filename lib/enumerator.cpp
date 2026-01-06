@@ -122,7 +122,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
                                              op_bits, nb);
         sketches.push_back(make_pair(ZI.get(), std::move(RCs2)));
         exprs.emplace_back(std::move(ZI));
-      } else if (expected.getWidth() < op_w){
+      } else if (expected.getWidth() < op_w) {
         if (op_w % expected.getWidth() != 0)
           continue;
 
@@ -172,7 +172,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
         auto UI = make_unique<FPConversion>(FPConversion::fptoui, *Op, expected);
         sketches.push_back(make_pair(UI.get(), std::move(RCs2)));
         exprs.emplace_back(std::move(UI));
-      } else if(expected.isFP()) {
+      } else if (expected.isFP()) {
         if (op_ty.getWidth() % expected.getLane())
           continue;
         set<ReservedConst*> RCs;
@@ -666,7 +666,7 @@ using Candidate = tuple<llvm::Function*, llvm::Function*, Inst*,
                         unordered_map<const llvm::Argument*, ReservedConst*>,
                         bool>;
 
-static bool approx(const Candidate &f1, const Candidate &f2){
+static bool approx(const Candidate &f1, const Candidate &f2) {
   return get_approx_cost(get<0>(f1)) < get_approx_cost(get<0>(f2));
 }
 
@@ -806,7 +806,7 @@ vector<Rewrite> Enumerator::solve(llvm::Function &F, llvm::Instruction *I) {
 
     // TODO: add more pruning here
     if (illformed) {
-      llvm::errs()<<"Error tgt found: "<<err<<"\n";
+      llvm::errs() << "Error tgt found: " << err << "\n";
       Tgt->dump();
       skip = true;
       goto push;
@@ -872,14 +872,15 @@ push:
           auto CI = llvm::cast<llvm::CallInst>(&I);
 
           auto callee = CI->getCalledFunction();
-          if(!callee)
+          if (!callee)
             continue;
           if (!callee->getName().starts_with("__fksv"))
             continue;
 
           auto shuf = new llvm::ShuffleVectorInst(CI->getArgOperand(0),
                                                   CI->getArgOperand(1),
-                                                  CI->getArgOperand(2), "", CI);
+                                                  CI->getArgOperand(2), "",
+                                                  CI->getIterator());
           CI->replaceAllUsesWith(shuf);
           CI->eraseFromParent();
         }

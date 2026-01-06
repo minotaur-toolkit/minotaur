@@ -35,7 +35,7 @@ type::type(llvm::Type *t) {
       report_fatal_error("non-trivial vectors are not supported\n");
     }
   } else {
-    llvm::errs()<<"[expr] type: "<<*t<<"\n";
+    llvm::errs() << "[expr] type: " << *t << "\n";
     report_fatal_error("[expr] unrecognized type");
   }
 }
@@ -100,7 +100,7 @@ bool type::isFP() const {
   return fp;
 }
 
-bool type::isValid() const{
+bool type::isValid() const {
   return lane != 0 && bits != 0;
 }
 
@@ -128,7 +128,7 @@ raw_ostream& operator<<(raw_ostream &os, const type &ty) {
   if (ty.isVector())
     os<<"<"<<ty.lane<<" x ";
   if (ty.isFP()) {
-    switch(ty.bits) {
+    switch (ty.bits) {
     case 16:
       os<<"half";
       break;

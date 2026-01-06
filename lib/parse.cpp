@@ -12,7 +12,6 @@
 #include "llvm/IR/ValueSymbolTable.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/SourceMgr.h"
 
 #include <string_view>
 
@@ -75,7 +74,7 @@ struct tokenizer_t {
   }
 
   void unget(token t) {
-    assert(returned == false);
+    assert(!returned);
     returned = true;
     last = t;
   }
@@ -172,7 +171,7 @@ Var *Parser::parse_var() {
 
 unsigned parse_number() {
   tokenizer.ensure(BITS);
-  return yylval.num;;
+  return yylval.num;
 }
 
 ReservedConst* Parser::parse_const() {

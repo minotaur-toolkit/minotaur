@@ -310,7 +310,7 @@ Slice::extractExpr(Value &v) {
     }
   }
 
-  for(auto &[from, tos] : bb_deps) {
+  for (auto &[from, tos] : bb_deps) {
     for (auto to : tos) {
       debug() << "[slicer] walking from " << from->getName() << " to "
               << to->getName() << "\n";
@@ -407,11 +407,11 @@ Slice::extractExpr(Value &v) {
       BranchInst *cloned_bi = nullptr;
       if (bi->isConditional()) {
         BasicBlock *truebb = nullptr, *falsebb = nullptr;
-        if(bmap.count(bi->getSuccessor(0)) && bi->getSuccessor(0) != header)
+        if (bmap.count(bi->getSuccessor(0)) && bi->getSuccessor(0) != header)
           truebb = bmap.at(bi->getSuccessor(0));
         else
           truebb = sinkbb;
-        if(bmap.count(bi->getSuccessor(1)) && bi->getSuccessor(1) != header)
+        if (bmap.count(bi->getSuccessor(1)) && bi->getSuccessor(1) != header)
           falsebb = bmap.at(bi->getSuccessor(1));
         else
           falsebb = sinkbb;
@@ -419,7 +419,7 @@ Slice::extractExpr(Value &v) {
                                        bi->getCondition(), bmap.at(orig_bb));
       } else {
         BasicBlock *jumpbb = sinkbb;
-        if(bi->getSuccessor(0) != header)
+        if (bi->getSuccessor(0) != header)
           jumpbb = bmap.at(bi->getSuccessor(0));
         cloned_bi = BranchInst::Create(jumpbb, bmap.at(orig_bb));
       }

@@ -10,7 +10,7 @@
 
 static llvm::raw_ostream *debug_os = &llvm::nulls();
 
-namespace minotaur{
+namespace minotaur {
 namespace config {
 
 bool disable_poison_input = false;
@@ -42,6 +42,6 @@ const char minotaur_version[] = {
   xstr(MINOTAUR_VERSION_MACRO)
 };
 
-}
-}
+} // namespace config
+} // namespace minotaur
 
