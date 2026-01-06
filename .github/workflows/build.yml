@@ -4,42 +4,50 @@ on: [push, pull_request]
 
 jobs:
   build:
-    name: ${{ matrix.os }} ${{ matrix.compiler }} ${{ matrix.build_type }}
+    name: ${{ matrix.os }} ${{ matrix.cxx_compiler }} ${{ matrix.build_type }}
     runs-on: ${{ matrix.os }}
 
     strategy:
       matrix:
         include:
           - os: ubuntu-22.04
-            compiler: g++-12
+            c_compiler: gcc-12
+            cxx_compiler: g++-12
             build_type: Release
 
           - os: ubuntu-22.04
-            compiler: clang++-18
+            c_compiler: clang-18
+            cxx_compiler: clang++-18
             build_type: Release
 
           - os: ubuntu-22.04
-            compiler: clang++-19
+            c_compiler: clang-19
+            cxx_compiler: clang++-19
             build_type: Release
 
           - os: ubuntu-24.04
-            compiler: g++-13
+            c_compiler: gcc-13
+            cxx_compiler: g++-13
             build_type: Release
 
           - os: ubuntu-24.04
-            compiler: g++-14
+            c_compiler: gcc-14
+            cxx_compiler: g++-14
             build_type: Release
 
           - os: ubuntu-24.04
-            compiler: clang++-18
+            c_compiler: clang-18
+            cxx_compiler: clang++-18
             build_type: Release
 
           - os: ubuntu-24.04
-            compiler: clang++-19
+            c_compiler: clang-19
+            cxx_compiler: clang++-19
             build_type: Release
 
           - os: macos-15
-            compiler: clang++
+            c_compiler: clang
+            cxx_compiler: clang++
             build_type: Release
 
     steps:
@@ -74,14 +82,14 @@ jobs:
             re2c ninja-build libhiredis-dev redis-server
 
           # LLVM apt repo (for clang-18/19)
-          if [[ "${{ matrix.compiler }}" == "clang++-18" || "${{ matrix.compiler }}" == "clang++-19" ]]; then
+          if [[ "${{ matrix.cxx_compiler }}" == "clang++-18" || "${{ matrix.cxx_compiler }}" == "clang++-19" ]]; then
             sudo mkdir -p /etc/apt/keyrings
             wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/llvm.gpg
 
-            if [[ "${{ matrix.compiler }}" == "clang++-18" ]]; then
+            if [[ "${{ matrix.cxx_compiler }}" == "clang++-18" ]]; then
               echo "deb [signed-by=/etc/apt/keyrings/llvm.gpg] http://apt.llvm.org/${LLVM_SUITE}/ llvm-toolchain-${LLVM_SUITE}-18 main" | sudo tee /etc/apt/sources.list.d/llvm.list >/dev/null
             fi
-            if [[ "${{ matrix.compiler }}" == "clang++-19" ]]; then
+            if [[ "${{ matrix.cxx_compiler }}" == "clang++-19" ]]; then
               echo "deb [signed-by=/etc/apt/keyrings/llvm.gpg] http://apt.llvm.org/${LLVM_SUITE}/ llvm-toolchain-${LLVM_SUITE}-19 main" | sudo tee /etc/apt/sources.list.d/llvm.list >/dev/null
             fi
 
@@ -89,19 +97,19 @@ jobs:
           fi
 
           # Toolchains
-          if [[ "${{ matrix.compiler }}" == "clang++-18" ]]; then
+          if [[ "${{ matrix.cxx_compiler }}" == "clang++-18" ]]; then
             sudo apt-get install -y --no-install-recommends clang-18
           fi
-          if [[ "${{ matrix.compiler }}" == "clang++-19" ]]; then
+          if [[ "${{ matrix.cxx_compiler }}" == "clang++-19" ]]; then
             sudo apt-get install -y --no-install-recommends clang-19
           fi
-          if [[ "${{ matrix.compiler }}" == "g++-12" ]]; then
+          if [[ "${{ matrix.cxx_compiler }}" == "g++-12" ]]; then
             sudo apt-get install -y --no-install-recommends gcc-12 g++-12
           fi
-          if [[ "${{ matrix.compiler }}" == "g++-13" ]]; then
+          if [[ "${{ matrix.cxx_compiler }}" == "g++-13" ]]; then
             sudo apt-get install -y --no-install-recommends gcc-13 g++-13
           fi
-          if [[ "${{ matrix.compiler }}" == "g++-14" ]]; then
+          if [[ "${{ matrix.cxx_compiler }}" == "g++-14" ]]; then
             sudo apt-get install -y --no-install-recommends gcc-14 g++-14
           fi
 
@@ -128,6 +136,7 @@ jobs:
             -DCMAKE_INSTALL_PREFIX="${Z3_INSTALL}"
             -DZ3_BUILD_TEST_EXECUTABLES=OFF
             -DZ3_BUILD_EXECUTABLE=OFF
+            -DCMAKE_C_COMPILER="${CMAKE_C_COMPILER}"
             -DCMAKE_CXX_COMPILER="${CMAKE_CXX_COMPILER}"
           )
 
@@ -154,5 +163,6 @@ jobs:
 
     env:
       CMAKE_BUILD_TYPE: ${{ matrix.build_type }}
-      CMAKE_CXX_COMPILER: ${{ matrix.compiler }}
+      CMAKE_C_COMPILER: ${{ matrix.c_compiler }}
+      CMAKE_CXX_COMPILER: ${{ matrix.cxx_compiler }}
 #      CMAKE_CXX_FLAGS: "-fsanitize=address,undefined"

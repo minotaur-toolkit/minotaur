@@ -36,7 +36,8 @@ fi
 
 echo "Using ${JOBS} parallel build jobs"
 echo "CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
-echo "CMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER:-<default>}"
+echo "CMAKE_C_COMPILER=${CMAKE_C_COMPILER}"
+echo "CMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
 echo "LLVM_TARGETS_TO_BUILD=${LLVM_TARGETS_TO_BUILD}"
 echo "Z3_PREFIX=${Z3_PREFIX:-<system/default>}"
 
@@ -46,11 +47,6 @@ if [ ! -x "${LLVM_BUILD_DIR}/bin/llvm-config" ] && [ ! -x "${LLVM_BUILD_DIR}/bin
   if [ ! -d "${LLVM_SOURCE_DIR}" ]; then
     git clone --depth=1 https://github.com/llvm/llvm-project.git \
       "${LLVM_SOURCE_DIR}"
-  fi
-
-  cd "${LLVM_SOURCE_DIR}"
-  if [ -f "${ROOT_DIR}/llvm-main-minotaur.patch" ]; then
-    git apply "${ROOT_DIR}/llvm-main-minotaur.patch"
   fi
 
   LLVM_CMAKE_ARGS=(
@@ -71,6 +67,7 @@ if [ ! -x "${LLVM_BUILD_DIR}/bin/llvm-config" ] && [ ! -x "${LLVM_BUILD_DIR}/bin
     -DLLVM_ENABLE_ZLIB=OFF
     -DLLVM_ENABLE_ZSTD=OFF
     -DLLVM_TARGETS_TO_BUILD="${LLVM_TARGETS_TO_BUILD}"
+    -DCMAKE_C_COMPILER="${CMAKE_C_COMPILER}"
     -DCMAKE_CXX_COMPILER="${CMAKE_CXX_COMPILER}"
   )
 
@@ -96,6 +93,7 @@ ALIVE2_CMAKE_ARGS=(
   -DLLVM_DIR="${LLVM_BUILD_DIR}/lib/cmake/llvm"
   -DCMAKE_BUILD_TYPE=RelWithDebInfo
   -DBUILD_TV=1
+  -DCMAKE_C_COMPILER="${CMAKE_C_COMPILER}"
   -DCMAKE_CXX_COMPILER="${CMAKE_CXX_COMPILER}"
 )
 
@@ -118,6 +116,7 @@ CMAKE_ARGS=(
   -DALIVE2_BUILD_DIR="${ALIVE2_BUILD_DIR}"
   -DCMAKE_PREFIX_PATH="${LLVM_BUILD_DIR}"
   -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}"
+  -DCMAKE_C_COMPILER="${CMAKE_C_COMPILER}"
   -DCMAKE_CXX_COMPILER="${CMAKE_CXX_COMPILER}"
 )
 
