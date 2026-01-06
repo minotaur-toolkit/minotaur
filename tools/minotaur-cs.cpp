@@ -130,7 +130,7 @@ int main(int argc, char **argv) {
   minotaur::AliveEngine AE(TLI);
   try {
     AE.constantSynthesis(*SRC, *TGT, constMap);
-  } catch (AliveException e) {
+  } catch (const AliveException &e) {
     std::cerr<<e.msg<<endl;
   }
 

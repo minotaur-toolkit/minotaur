@@ -848,11 +848,10 @@ push:
         AliveEngine AE(TLI);
         Good = AE.constantSynthesis(*Src, *Tgt, ConstantResults);
       }
-    } catch (AliveException E) {
+    } catch (const AliveException &E) {
       debug() << E.msg << "\n";
-      if (E.msg == "slow vcgen") {
-        continue;
-      }
+      // "slow vcgen" means the candidate is too complex to verify quickly;
+      // fall through to cleanup and try the next candidate.
     }
     if (Good) {
       GOOD ++;

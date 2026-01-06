@@ -122,11 +122,16 @@ jobs:
           rm -rf "${Z3_SRC}" "${Z3_BUILD}" "${Z3_INSTALL}"
           git clone --depth 1 --branch "${Z3_TAG}" https://github.com/Z3Prover/z3.git "${Z3_SRC}"
 
-          cmake -S "${Z3_SRC}" -B "${Z3_BUILD}" -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX="${Z3_INSTALL}" \
-            -DZ3_BUILD_TEST_EXECUTABLES=OFF \
+          Z3_CMAKE_ARGS=(
+            -G Ninja
+            -DCMAKE_BUILD_TYPE=Release
+            -DCMAKE_INSTALL_PREFIX="${Z3_INSTALL}"
+            -DZ3_BUILD_TEST_EXECUTABLES=OFF
             -DZ3_BUILD_EXECUTABLE=OFF
+            -DCMAKE_CXX_COMPILER="${CMAKE_CXX_COMPILER}"
+          )
+
+          cmake -S "${Z3_SRC}" -B "${Z3_BUILD}" "${Z3_CMAKE_ARGS[@]}"
 
           cmake --build "${Z3_BUILD}" --target install
 
