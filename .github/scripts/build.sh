@@ -97,6 +97,11 @@ ALIVE2_CMAKE_ARGS=(
   -DCMAKE_CXX_COMPILER="${CMAKE_CXX_COMPILER}"
 )
 
+# GCC 14 has false positive -Warray-bounds warnings with std::string
+if [[ "${CMAKE_CXX_COMPILER}" == *"g++-14"* ]]; then
+  ALIVE2_CMAKE_ARGS+=("-DCMAKE_CXX_FLAGS=-Wno-array-bounds")
+fi
+
 if [ "${Z3_PREFIX}" != "" ]; then
   # Help Alive2 find libz3 + headers from a non-system install.
   ALIVE2_CMAKE_ARGS+=("-DCMAKE_PREFIX_PATH=${Z3_PREFIX}")
