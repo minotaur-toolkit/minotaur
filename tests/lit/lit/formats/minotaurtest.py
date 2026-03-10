@@ -41,8 +41,8 @@ def id_check(fn, cmd, args):
 
 
 def readFile(path):
-  fd = open(path, 'r')
-  return fd.read()
+  with open(path, 'r') as fd:
+    return fd.read()
 
 def _excerpt_tail(lines, total_lines=100):
   """Return the last total_lines lines (with line numbers)."""

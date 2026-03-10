@@ -240,13 +240,16 @@ static bool
 optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
                   TargetLibraryInfoWrapperPass &TLI) {
   // set up debug output
+  std::unique_ptr<raw_fd_ostream> owned_out_file;
   raw_ostream *out_file = &errs();
   if (!report_dir.empty()) {
-    try {
-      fs::create_directories(report_dir.getValue());
-    } catch (...) {
-      cerr << "Alive2: Couldn't create report directory!" << endl;
-      exit(1);
+    {
+      std::error_code ec;
+      fs::create_directories(report_dir.getValue(), ec);
+      if (ec) {
+        cerr << "Alive2: Couldn't create report directory!" << endl;
+        exit(1);
+      }
     }
 
     fs::path fname = "minotaur.txt";
@@ -261,12 +264,14 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
     } while (fs::exists(path));
 
     std::error_code EC;
-    out_file = new raw_fd_ostream(path.string(), EC, llvm::sys::fs::OF_None);
+    owned_out_file =
+        std::make_unique<raw_fd_ostream>(path.string(), EC, llvm::sys::fs::OF_None);
 
     if (EC) {
       cerr << "Alive2: Couldn't open report file!" << endl;
       exit(1);
     }
+    out_file = owned_out_file.get();
   }
   config::set_debug(*out_file);
 
@@ -299,8 +304,6 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
     // in this mode we assume only one return point, we do not run slicer,
     // we check if return value can be optimized
 
-
-    std::unique_ptr<llvm::Module> m;
     ValueToValueMapTy vv;
     auto newM = CloneModule(*F.getParent(), vv);
     newM->dump();
@@ -315,36 +318,29 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
           break;
         }
       }
-      if (ret) {
+      if (ret)
         break;
-      }
     }
+
+    Instruction *retI = ret ? dyn_cast<Instruction>(ret->getReturnValue())
+                            : nullptr;
     if (!ret) {
       debug() << "[online] no return instruction found, skipping\n";
-      goto final;
-    }
-
-    Instruction *retI = dyn_cast<Instruction>(ret->getReturnValue());
-
-
-    if (!retI) {
+    } else if (!retI) {
       debug() << "[online] return value is not an instruction, skipping\n";
-      goto final;
+    } else {
+      Enumerator EN;
+      parse::Parser P(*newF);
+      auto R = infer(*newF, retI, ctx, EN, P);
+      if (R.has_value()) {
+        unordered_set<llvm::Function*> IntrinDecls;
+        ValueToValueMapTy vmap;
+        auto *V = LLVMGen(ret, IntrinDecls).codeGen(R->I, vmap);
+        V = llvm::IRBuilder<>(ret).CreateBitCast(V, retI->getType());
+        retI->replaceAllUsesWith(V);
+        changed = true;
+      }
     }
-
-    Enumerator EN;
-    parse::Parser P(*newF);
-    auto R = infer(*newF, retI, ctx, EN, P);
-    if (!R.has_value()) {
-      goto final;
-    }
-
-    unordered_set<llvm::Function*> IntrinDecls;
-    ValueToValueMapTy vmap;
-    auto *V = LLVMGen(ret, IntrinDecls).codeGen(R->I, vmap);
-    V = llvm::IRBuilder<>(ret).CreateBitCast(V, retI->getType());
-    retI->replaceAllUsesWith(V);
-    changed = true;
   } else {
     for (auto &BB : F) {
       for (auto &I : make_early_inc_range(BB)) {
@@ -386,7 +382,6 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
     }
   }
 
-final:
   if (changed) {
     F.removeFnAttr("min-legal-vector-width");
     eliminate_dead_code(F);
@@ -402,9 +397,8 @@ final:
     debug() << "[online] minotaur completed, no change to the program\n";
   }
 
-  if (out_file != &errs()) {
-    out_file->flush();
-    delete out_file;
+  if (owned_out_file) {
+    owned_out_file->flush();
   }
 
   return changed;

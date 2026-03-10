@@ -2,8 +2,8 @@
 // Distributed under the MIT license that can be found in the LICENSE file.
 #include "utils.h"
 
-#include "llvm/Transforms/Scalar/DCE.h"
-#include "llvm/Passes/PassBuilder.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/Transforms/Utils/Local.h"
 
 #include "hiredis.h"
 
@@ -15,14 +15,19 @@ using namespace llvm;
 namespace minotaur {
 
 void eliminate_dead_code(Function &F) {
-  FunctionAnalysisManager FAM;
-
-  PassBuilder PB;
-  PB.registerFunctionAnalyses(FAM);
-
-  FunctionPassManager FPM;
-  FPM.addPass(DCEPass());
-  FPM.run(F, FAM);
+  bool changed = true;
+  while (changed) {
+    changed = false;
+    for (auto &BB : F) {
+      for (auto it = BB.begin(); it != BB.end(); ) {
+        Instruction *I = &*it++;
+        if (isInstructionTriviallyDead(I)) {
+          I->eraseFromParent();
+          changed = true;
+        }
+      }
+    }
+  }
 }
 
 bool hGet(const char* s, unsigned sz, string &Value, redisContext *c) {
@@ -77,6 +82,7 @@ void hSetNoSolution(const char *k, unsigned sz_k,
       "Redis protocol error for cache fill, didn't expect reply type " +
       to_string(reply->type));
   }
+  freeReplyObject(reply);
   // static profile
   reply = (redisReply *)redisCommand(c, "HINCRBY %b profile 1", k, sz_k);
   if (!reply || c->err)

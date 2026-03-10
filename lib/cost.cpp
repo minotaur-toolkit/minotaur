@@ -51,8 +51,7 @@ unsigned get_machine_cost(Function *F) {
   SmallString<64> InputPath;
   {
     int InputFD;
-    if (std::error_code EC =
-            sys::fs::createTemporaryFile("input", "ll", InputFD, InputPath)) {
+    if (sys::fs::createTemporaryFile("input", "ll", InputFD, InputPath)) {
       llvm::report_fatal_error("cannot open input buffer");
     }
 
@@ -60,17 +59,17 @@ unsigned get_machine_cost(Function *F) {
     raw_string_ostream OS(module_str);
     M.print(OS, nullptr);
 
-    raw_fd_ostream InputFile(InputFD, true,true);
+    // raw_fd_ostream takes ownership of InputFD (shouldClose=true),
+    // so do not call ::close(InputFD) separately.
+    raw_fd_ostream InputFile(InputFD, /*shouldClose=*/true, /*unbuffered=*/true);
     InputFile << module_str;
     InputFile.close();
-    ::close(InputFD);
   }
 
   SmallString<64> OutputPath;
   {
     int OutputFD;
-    if (std::error_code EC =
-          sys::fs::createTemporaryFile("output", "out", OutputFD, OutputPath)) {
+    if (sys::fs::createTemporaryFile("output", "out", OutputFD, OutputPath)) {
       llvm::report_fatal_error("cannot open output buffer");
     }
     ::close(OutputFD);
@@ -82,8 +81,7 @@ unsigned get_machine_cost(Function *F) {
   SmallString<64> ErrPath;
   {
     int ErrFD;
-    if (std::error_code EC =
-          sys::fs::createTemporaryFile("get-cost", "err", ErrFD, ErrPath)) {
+    if (sys::fs::createTemporaryFile("get-cost", "err", ErrFD, ErrPath)) {
       llvm::report_fatal_error("cannot open error buffer");
     }
     ::close(ErrFD);
@@ -107,8 +105,9 @@ unsigned get_machine_cost(Function *F) {
       }
     }
     err.close();
-    auto ignored_ec = sys::fs::remove(ErrPath);
-    (void)ignored_ec;
+    sys::fs::remove(ErrPath);
+    sys::fs::remove(InputPath);
+    sys::fs::remove(OutputPath);
     // Fall back to approximate cost so callers always get a usable number.
     return get_approx_cost(F);
   }
@@ -122,9 +121,14 @@ unsigned get_machine_cost(Function *F) {
   if (!(result >> cycle)) {
     llvm::errs() << "error when reading get-cost output (empty or non-numeric)\n";
     result.close();
+    sys::fs::remove(InputPath);
+    sys::fs::remove(OutputPath);
     return get_approx_cost(F);
   }
   result.close();
+
+  sys::fs::remove(InputPath);
+  sys::fs::remove(OutputPath);
 
   return cycle;
 }

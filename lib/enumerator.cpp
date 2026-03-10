@@ -671,7 +671,7 @@ static bool approx(const Candidate &f1, const Candidate &f2) {
 }
 
 vector<Rewrite> Enumerator::solve(llvm::Function &F, llvm::Instruction *I) {
-  unsigned CANDIDATES = 0, PRUNED = 0, GOOD = 0;
+  unsigned CANDIDATES = 0, GOOD = 0;
   vector<Rewrite> ret;
 
   debug() << "[enumerator] working on slice\n" << F << "\n";
@@ -797,27 +797,19 @@ vector<Rewrite> Enumerator::solve(llvm::Function &F, llvm::Instruction *I) {
 
     ++CANDIDATES;
 
-    bool skip = false;
     string err;
     llvm::raw_string_ostream err_stream(err);
     bool illformed = llvm::verifyFunction(*Tgt, &err_stream);
-    llvm::KnownBits KnownV(Width);
 
-
-    // TODO: add more pruning here
+    bool skip = false;
     if (illformed) {
       llvm::errs() << "Error tgt found: " << err << "\n";
       Tgt->dump();
       skip = true;
-      goto push;
+    } else if (tgt_cost >= src_cost) {
+      skip = true;
     }
 
-    // check cost
-    if (tgt_cost >= src_cost) {
-      skip = true;
-      goto push;
-    }
-push:
     if (skip) {
       Tgt->eraseFromParent();
       if (HaveC)
@@ -928,7 +920,6 @@ push:
   }
 
   debug() << "[enumerator] #Candidates = "<< CANDIDATES
-          << ", #Pruned = " << PRUNED
           << ", #Good = " << GOOD << "\n";
 
   std::stable_sort(ret.begin(), ret.end(),

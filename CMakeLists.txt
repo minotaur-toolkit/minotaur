@@ -120,6 +120,7 @@ add_library(slice STATIC "lib/slice.cpp")
 target_link_libraries(slice PRIVATE utils config)
 
 add_library(synthesizer STATIC ${SYNTHESIZER_SRC})
+target_compile_options(synthesizer PRIVATE -fexceptions)
 target_link_libraries(synthesizer PRIVATE utils cost config)
 
 add_llvm_library(online MODULE "pass/online.cpp")
@@ -128,6 +129,7 @@ target_link_libraries(online
   PRIVATE synthesizer slice ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS})
 
 add_llvm_executable(minotaur-cs "tools/minotaur-cs.cpp")
+target_compile_options(minotaur-cs PRIVATE -fexceptions)
 
 target_link_libraries(minotaur-cs
   PRIVATE synthesizer ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS})

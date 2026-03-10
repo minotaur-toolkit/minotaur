@@ -260,10 +260,10 @@ Slice::extractExpr(Value &v) {
     blocks.insert(i->getParent());
     // incoming block -> def block
     if (auto *phi = dyn_cast<PHINode>(i)) {
-      for (unsigned i = 0; i < phi->getNumIncomingValues(); i++) {
-        BasicBlock *incomebb = phi->getIncomingBlock(i);
+      for (unsigned j = 0; j < phi->getNumIncomingValues(); j++) {
+        BasicBlock *incomebb = phi->getIncomingBlock(j);
         blocks.insert(incomebb);
-        Value *incomev = phi->getIncomingValue(i);
+        Value *incomev = phi->getIncomingValue(j);
         if (!isa<Instruction>(incomev))
           continue;
         Instruction *incomei = cast<Instruction>(incomev);
@@ -380,8 +380,8 @@ Slice::extractExpr(Value &v) {
       for (auto &i : bb) {
         if (!insts.count(&i))
           continue;
-        BasicBlock *bb = bmap.at(i.getParent());
-        cast<Instruction>(vmap[&i])->insertInto(bb, bb->end());
+        BasicBlock *dest_bb = bmap.at(i.getParent());
+        cast<Instruction>(vmap[&i])->insertInto(dest_bb, dest_bb->end());
         string name;
         raw_string_ostream ss(name);
         ss << "__n" << name_count++;
@@ -512,9 +512,9 @@ Slice::extractExpr(Value &v) {
   if (block_without_preds.size() > 1) {
     entry = BasicBlock::Create(ctx, "entry");
     SwitchInst *sw = SwitchInst::Create(F->getArg(idx), sinkbb, 1, entry);
-    unsigned idx  = 23;
+    unsigned case_id = 23;
     for (BasicBlock *no_pred : block_without_preds) {
-      sw->addCase(ConstantInt::get(IntegerType::get(ctx, 16), idx ++), no_pred);
+      sw->addCase(ConstantInt::get(IntegerType::get(ctx, 16), case_id++), no_pred);
     }
   }
   else if (block_without_preds.size() == 1) {
@@ -538,11 +538,11 @@ Slice::extractExpr(Value &v) {
 
   DominatorTree FDT = DominatorTree();
   FDT.recalculate(*F);
-  auto FLI = new LoopInfoBase<BasicBlock, Loop>();
-  FLI->analyze(FDT);
+  LoopInfoBase<BasicBlock, Loop> FLI;
+  FLI.analyze(FDT);
 
   // make sure sliced function is loop free.
-  if (!FLI->empty())
+  if (!FLI.empty())
     report_fatal_error("[slicer] a loop is generated, terminating\n");
 
   eliminate_dead_code(*F);
