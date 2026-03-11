@@ -67,7 +67,7 @@ llvm::Value *LLVMGen::bitcastTo(llvm::Value *V, llvm::Type *to) {
     V = BC->getOperand(0);
   }
   debug() << "bitcastTo: " << *V << " to " << *to << "\n";
-  return b.CreateBitCast(V, to);
+  return Builder.CreateBitCast(V, to);
 }
 
 llvm::Value*
@@ -91,7 +91,7 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     }
   } else if (auto U = dynamic_cast<UnaryOp*>(I)) {
     type workty = U->getWorkTy();
-    llvm::Type *lty = workty.toLLVM(C);
+    llvm::Type *lty = workty.toLLVM(Ctx);
     auto op0 = codeGenImpl(U->getOperand(), VMap);
     if (!U->getOperand()->getType().same_width(workty))
       report_fatal_error("operand width mismatch");
@@ -99,7 +99,7 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
 
     auto K = U->getOpcode();
     if (K == UnaryOp::fneg)
-      return b.CreateFNeg(op0);
+      return Builder.CreateFNeg(op0);
 
     Intrinsic::ID iid = 0;
     switch (K) {
@@ -121,9 +121,9 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
 
     CallInst *CI = nullptr;
     if (K == UnaryOp::ctlz || K == UnaryOp::cttz) {
-      CI = b.CreateIntrinsic(lty, iid, {op0, b.getFalse()});
+      CI = Builder.CreateIntrinsic(lty, iid, {op0, Builder.getFalse()});
     } else {
-      CI = b.CreateIntrinsic(lty, iid, {op0});
+      CI = Builder.CreateIntrinsic(lty, iid, {op0});
     }
     IntrinsicDecls.insert(CI->getCalledFunction());
     return CI;
@@ -132,51 +132,51 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     return op0;
   } else if (auto CI = dynamic_cast<IntConversion*>(I)) {
     auto op0 = codeGenImpl(CI->getOperand(), VMap);
-    op0 = bitcastTo(op0, CI->getPrevTy().toLLVM(C));
-    Type *new_type = CI->getNewTy().toLLVM(C);
+    op0 = bitcastTo(op0, CI->getPrevTy().toLLVM(Ctx));
+    Type *new_type = CI->getNewTy().toLLVM(Ctx);
     llvm::Value *r = nullptr;
     switch (CI->getOpcode()) {
     case IntConversion::sext:
-      r = b.CreateSExt(op0, new_type);
+      r = Builder.CreateSExt(op0, new_type);
       break;
     case IntConversion::zext:
-      r = b.CreateZExt(op0, new_type);
+      r = Builder.CreateZExt(op0, new_type);
       break;
     case IntConversion::trunc:
-      r = b.CreateTrunc(op0, new_type);
+      r = Builder.CreateTrunc(op0, new_type);
       break;
     }
     return r;
   } else if (auto FI = dynamic_cast<FPConversion*>(I)) {
     auto op0 = codeGenImpl(FI->getOperand(), VMap);
-    op0 = bitcastTo(op0, FI->getPrevTy().toLLVM(C));
-    Type* new_type = FI->getNewTy().toLLVM(C);
+    op0 = bitcastTo(op0, FI->getPrevTy().toLLVM(Ctx));
+    Type* new_type = FI->getNewTy().toLLVM(Ctx);
     llvm::Value *r = nullptr;
 
     switch (FI->getOpcode()) {
     case FPConversion::fptrunc:
-      r = b.CreateFPTrunc(op0, new_type);
+      r = Builder.CreateFPTrunc(op0, new_type);
       break;
     case FPConversion::fpext:
-      r = b.CreateFPExt(op0, new_type);
+      r = Builder.CreateFPExt(op0, new_type);
       break;
     case FPConversion::fptoui:
-      r = b.CreateFPToUI(op0, new_type);
+      r = Builder.CreateFPToUI(op0, new_type);
       break;
     case FPConversion::fptosi:
-      r = b.CreateFPToSI(op0, new_type);
+      r = Builder.CreateFPToSI(op0, new_type);
       break;
     case FPConversion::uitofp:
-      r = b.CreateUIToFP(op0, new_type);
+      r = Builder.CreateUIToFP(op0, new_type);
       break;
     case FPConversion::sitofp:
-      r = b.CreateSIToFP(op0, new_type);
+      r = Builder.CreateSIToFP(op0, new_type);
       break;
     }
     return r;
   } else if (auto B = dynamic_cast<BinaryOp*>(I)) {
     type workty = B->getWorkTy();
-    llvm::Type *lty = workty.toLLVM(C);
+    llvm::Type *lty = workty.toLLVM(Ctx);
     auto op0 = codeGenImpl(B->getLHS(), VMap);
     if (!workty.same_width(B->getLHS()->getType()))
       report_fatal_error("left operand width mismatch");
@@ -201,7 +201,7 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     default: break;
     }
     if (iid) {
-      CallInst *C = b.CreateIntrinsic(lty, iid, {op0, op1});
+      CallInst *C = Builder.CreateIntrinsic(lty, iid, {op0, op1});
       IntrinsicDecls.insert(C->getCalledFunction());
       return C;
     }
@@ -209,49 +209,49 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     llvm::Value *r = nullptr;
     switch (B->getOpcode()) {
     case BinaryOp::band:
-      r = b.CreateAnd(op0, op1, "and");
+      r = Builder.CreateAnd(op0, op1, "and");
       break;
     case BinaryOp::bor:
-      r = b.CreateOr(op0, op1, "or");
+      r = Builder.CreateOr(op0, op1, "or");
       break;
     case BinaryOp::bxor:
-      r = b.CreateXor(op0, op1, "xor");
+      r = Builder.CreateXor(op0, op1, "xor");
       break;
     case BinaryOp::add:
-      r = b.CreateAdd(op0, op1, "add");
+      r = Builder.CreateAdd(op0, op1, "add");
       break;
     case BinaryOp::sub:
-      r = b.CreateSub(op0, op1, "sub");
+      r = Builder.CreateSub(op0, op1, "sub");
       break;
     case BinaryOp::mul:
-      r = b.CreateMul(op0, op1, "mul");
+      r = Builder.CreateMul(op0, op1, "mul");
       break;
     case BinaryOp::sdiv:
-      r = b.CreateSDiv(op0, op1, "sdiv");
+      r = Builder.CreateSDiv(op0, op1, "sdiv");
       break;
     case BinaryOp::udiv:
-      r = b.CreateUDiv(op0, op1, "udiv");
+      r = Builder.CreateUDiv(op0, op1, "udiv");
       break;
     case BinaryOp::lshr:
-      r = b.CreateLShr(op0, op1, "lshr");
+      r = Builder.CreateLShr(op0, op1, "lshr");
       break;
     case BinaryOp::ashr:
-      r = b.CreateAShr(op0, op1, "ashr");
+      r = Builder.CreateAShr(op0, op1, "ashr");
       break;
     case BinaryOp::shl:
-      r = b.CreateShl(op0, op1, "shl");
+      r = Builder.CreateShl(op0, op1, "shl");
       break;
     case BinaryOp::fadd:
-      r = b.CreateFAdd(op0, op1, "fadd");
+      r = Builder.CreateFAdd(op0, op1, "fadd");
       break;
     case BinaryOp::fsub:
-      r = b.CreateFSub(op0, op1, "fsub");
+      r = Builder.CreateFSub(op0, op1, "fsub");
       break;
     case BinaryOp::fmul:
-      r = b.CreateFMul(op0, op1, "fmul");
+      r = Builder.CreateFMul(op0, op1, "fmul");
       break;
     case BinaryOp::fdiv:
-      r = b.CreateFDiv(op0, op1, "fdiv");
+      r = Builder.CreateFDiv(op0, op1, "fdiv");
       break;
     // case BinaryOp::frem:
     //   r = b.CreateFRem(op0, op1, "frem");
@@ -264,41 +264,41 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     auto op0 = codeGenImpl(IC->getLHS(), VMap);
     auto IC_ty = IC->getType();
     auto workty = type::IntegerVectorizable(IC_ty.getLane(), IC->getBits());
-    op0 = bitcastTo(op0, workty.toLLVM(C));
+    op0 = bitcastTo(op0, workty.toLLVM(Ctx));
 
     auto op1 = codeGenImpl(IC->getRHS(), VMap);
-    op1 = bitcastTo(op1, workty.toLLVM(C));
+    op1 = bitcastTo(op1, workty.toLLVM(Ctx));
     llvm::Value *r = nullptr;
     switch (IC->getCond()) {
     case ICmp::eq:
-      r = b.CreateICmp(CmpInst::ICMP_EQ, op0, op1, "ieq");
+      r = Builder.CreateICmp(CmpInst::ICMP_EQ, op0, op1, "ieq");
       break;
     case ICmp::ne:
-      r = b.CreateICmp(CmpInst::ICMP_NE, op0, op1, "ine");
+      r = Builder.CreateICmp(CmpInst::ICMP_NE, op0, op1, "ine");
       break;
     case ICmp::ult:
-      r = b.CreateICmp(CmpInst::ICMP_ULT, op0, op1, "iult");
+      r = Builder.CreateICmp(CmpInst::ICMP_ULT, op0, op1, "iult");
       break;
     case ICmp::ule:
-      r = b.CreateICmp(CmpInst::ICMP_ULE, op0, op1, "iule");
+      r = Builder.CreateICmp(CmpInst::ICMP_ULE, op0, op1, "iule");
       break;
     case ICmp::slt:
-      r = b.CreateICmp(CmpInst::ICMP_SLT, op0, op1, "islt");
+      r = Builder.CreateICmp(CmpInst::ICMP_SLT, op0, op1, "islt");
       break;
     case ICmp::sle:
-      r = b.CreateICmp(CmpInst::ICMP_SLE, op0, op1, "isle");
+      r = Builder.CreateICmp(CmpInst::ICMP_SLE, op0, op1, "isle");
       break;
     case ICmp::ugt:
-      r = b.CreateICmp(CmpInst::ICMP_UGT, op0, op1, "iugt");
+      r = Builder.CreateICmp(CmpInst::ICMP_UGT, op0, op1, "iugt");
       break;
     case ICmp::uge:
-      r = b.CreateICmp(CmpInst::ICMP_UGE, op0, op1, "iuge");
+      r = Builder.CreateICmp(CmpInst::ICMP_UGE, op0, op1, "iuge");
       break;
     case ICmp::sgt:
-      r = b.CreateICmp(CmpInst::ICMP_SGT, op0, op1, "isgt");
+      r = Builder.CreateICmp(CmpInst::ICMP_SGT, op0, op1, "isgt");
       break;
     case ICmp::sge:
-      r = b.CreateICmp(CmpInst::ICMP_SGE, op0, op1, "isge");
+      r = Builder.CreateICmp(CmpInst::ICMP_SGE, op0, op1, "isge");
       break;
     }
     return r;
@@ -310,56 +310,56 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
 
     switch (FC->getCond()) {
     case FCmp::f:
-      r = ConstantInt::getFalse(C);
+      r = ConstantInt::getFalse(Ctx);
       if (FC->getLanes() > 1)
-        r = b.CreateVectorSplat(FC->getLanes(), r);
+        r = Builder.CreateVectorSplat(FC->getLanes(), r);
       break;
     case FCmp::ord:
-      r = b.CreateFCmpORD(op0, op1, "ord");
+      r = Builder.CreateFCmpORD(op0, op1, "ord");
       break;
     case FCmp::oeq:
-      r = b.CreateFCmpOEQ(op0, op1, "oeq");
+      r = Builder.CreateFCmpOEQ(op0, op1, "oeq");
       break;
     case FCmp::ogt:
-      r = b.CreateFCmpOGT(op0, op1, "ogt");
+      r = Builder.CreateFCmpOGT(op0, op1, "ogt");
       break;
     case FCmp::oge:
-      r = b.CreateFCmpOGE(op0, op1, "oge");
+      r = Builder.CreateFCmpOGE(op0, op1, "oge");
       break;
     case FCmp::olt:
-      r = b.CreateFCmpOLT(op0, op1, "olt");
+      r = Builder.CreateFCmpOLT(op0, op1, "olt");
       break;
     case FCmp::ole:
-      r = b.CreateFCmpOLE(op0, op1, "ole");
+      r = Builder.CreateFCmpOLE(op0, op1, "ole");
       break;
     case FCmp::one:
-      r = b.CreateFCmpONE(op0, op1, "one");
+      r = Builder.CreateFCmpONE(op0, op1, "one");
       break;
     case FCmp::ueq:
-      r = b.CreateFCmpUEQ(op0, op1, "ueq");
+      r = Builder.CreateFCmpUEQ(op0, op1, "ueq");
       break;
     case FCmp::ugt:
-      r = b.CreateFCmpUGT(op0, op1, "ugt");
+      r = Builder.CreateFCmpUGT(op0, op1, "ugt");
       break;
     case FCmp::uge:
-      r = b.CreateFCmpUGE(op0, op1, "uge");
+      r = Builder.CreateFCmpUGE(op0, op1, "uge");
       break;
     case FCmp::ult:
-      r = b.CreateFCmpULT(op0, op1, "ult");
+      r = Builder.CreateFCmpULT(op0, op1, "ult");
       break;
     case FCmp::ule:
-      r = b.CreateFCmpULE(op0, op1, "ule");
+      r = Builder.CreateFCmpULE(op0, op1, "ule");
       break;
     case FCmp::une:
-      r = b.CreateFCmpUNE(op0, op1, "une");
+      r = Builder.CreateFCmpUNE(op0, op1, "une");
       break;
     case FCmp::uno:
-      r = b.CreateFCmpUNO(op0, op1, "uno");
+      r = Builder.CreateFCmpUNO(op0, op1, "uno");
       break;
     case FCmp::t:
-      r = ConstantInt::getTrue(C);
+      r = ConstantInt::getTrue(Ctx);
       if (FC->getLanes() > 1)
-        r = b.CreateVectorSplat(FC->getLanes(), r);
+        r = Builder.CreateVectorSplat(FC->getLanes(), r);
       break;
     }
     return r;
@@ -369,25 +369,25 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     auto op0 = codeGenImpl(B->getLHS(), VMap);
     if (!op0_ty.same_width(B->getLHS()->getType()))
       report_fatal_error("left operand width mismatch");
-    op0 = bitcastTo(op0, op0_ty.toLLVM(C));
+    op0 = bitcastTo(op0, op0_ty.toLLVM(Ctx));
 
     auto op1 = codeGenImpl(B->getRHS(), VMap);
     if (!op1_ty.same_width(B->getRHS()->getType()))
       report_fatal_error("right operand width mismatch");
-    op1 = bitcastTo(op1, op1_ty.toLLVM(C));
+    op1 = bitcastTo(op1, op1_ty.toLLVM(Ctx));
 
-    llvm::Function *decl = Intrinsic::getOrInsertDeclaration(M, getIntrinsicID(B->getOpcode()));
+    llvm::Function *decl = Intrinsic::getOrInsertDeclaration(Mod, getIntrinsicID(B->getOpcode()));
     IntrinsicDecls.insert(decl);
 
     llvm::Value *CI = CallInst::Create(decl,
                                        ArrayRef<llvm::Value *>({op0, op1}),
                                        "intr",
-                                       b.GetInsertPoint());
+                                       Builder.GetInsertPoint());
     return CI;
   // TODO: handle terop
   } else if (auto FSV = dynamic_cast<FakeShuffleInst*>(I)) {
     auto op0 = codeGenImpl(FSV->getLHS(), VMap);
-    llvm::Type *op_ty = FSV->getInputTy().toLLVM(C);
+    llvm::Type *op_ty = FSV->getInputTy().toLLVM(Ctx);
     op0 = bitcastTo(op0, op_ty);
     llvm::Value *op1 = nullptr;
     if (FSV->getRHS()) {
@@ -398,38 +398,39 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     auto mask = codeGenImpl(FSV->getMask(), VMap);
     llvm::Value *SV = nullptr;
     if (isa<Constant>(mask)) {
-      SV = b.CreateShuffleVector(op0, op1, mask, "sv");
+      SV = Builder.CreateShuffleVector(op0, op1, mask, "sv");
     } else {
       std::vector<llvm::Type*> Args(2, op_ty);
-      Args.push_back(FSV->getMask()->getType().toLLVM(C));
-      FunctionType *FT = FunctionType::get(FSV->getRetTy().toLLVM(C), Args, false);
+      Args.push_back(FSV->getMask()->getType().toLLVM(Ctx));
+      FunctionType *FT = FunctionType::get(FSV->getRetTy().toLLVM(Ctx), Args, false);
       llvm::Function *F =
-        llvm::Function::Create(FT, llvm::Function::ExternalLinkage, "__fksv", M);
+        llvm::Function::Create(FT, llvm::Function::ExternalLinkage, "__fksv", Mod);
       IntrinsicDecls.insert(F);
-      SV = b.CreateCall(F, { op0, op1, mask }, "sv");
+      SV = Builder.CreateCall(F, { op0, op1, mask }, "sv");
     }
     return SV;
   } else if (auto FEE = dynamic_cast<ExtractElement*>(I)) {
     auto op0 = codeGenImpl(FEE->getVector(), VMap);
-    llvm::Type *op_ty = FEE->getInputTy().toLLVM(C);
+    llvm::Type *op_ty = FEE->getInputTy().toLLVM(Ctx);
     op0 = bitcastTo(op0, op_ty);
     auto idx = codeGenImpl(FEE->getIndex(), VMap);
-    return b.CreateExtractElement(op0, idx, "ee");
+    return Builder.CreateExtractElement(op0, idx, "ee");
   } else if (auto IE = dynamic_cast<InsertElement*>(I)) {
     auto op0 = codeGenImpl(IE->getVector(), VMap);
-    llvm::Type *op_ty = IE->getInputTy().toLLVM(C);
+    llvm::Type *op_ty = IE->getInputTy().toLLVM(Ctx);
     op0 = bitcastTo(op0, op_ty);
     auto op1 = codeGenImpl(IE->getElement(), VMap);
     op1 = bitcastTo(op1, op_ty->getScalarType());
     auto idx = codeGenImpl(IE->getIndex(), VMap);
-    return b.CreateInsertElement(op0, op1, idx, "ie");
+    return Builder.CreateInsertElement(op0, op1, idx, "ie");
   } else if (auto S = dynamic_cast<Select*>(I)) {
     auto cond = codeGenImpl(S->getCond(), VMap);
     auto op0 = codeGenImpl(S->getLHS(), VMap);
-    op0 = bitcastTo(op0, S->getType().toLLVM(C));
+    op0 = bitcastTo(op0, S->getType().toLLVM(Ctx));
     auto op1 = codeGenImpl(S->getRHS(), VMap);
-    op1 = bitcastTo(op1, S->getType().toLLVM(C));
-    return b.CreateSelect(cond, op0, op1, "sel");
+    op1 = bitcastTo(op1, S->getType().toLLVM(Ctx));
+    return Builder.CreateSelect(
+        cond, op0, op1, "sel");
   }
   llvm::report_fatal_error("[ERROR] unknown instruction found in LLVMGen");
 }
