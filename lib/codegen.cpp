@@ -41,6 +41,8 @@ std::array<llvm::Intrinsic::ID, numOfX86BinOpIntrinsics> IntrinsicBinOpIDs = {
 };
 
 static llvm::Intrinsic::ID getIntrinsicID(IR::X86IntrinBinOp::Op op) {
+  assert(static_cast<unsigned>(op) < numOfX86BinOpIntrinsics &&
+         "X86IntrinBinOp::Op out of range");
   return IntrinsicBinOpIDs[op];
 }
 
@@ -54,6 +56,8 @@ std::array<llvm::Intrinsic::ID, numOfX86TerOpIntrinsics> IntrinsicTerOpIDs = {
 // Used for ternary intrinsics (TODO: handle terop)
 [[maybe_unused]]
 static llvm::Intrinsic::ID getIntrinsicID(IR::X86IntrinTerOp::Op op) {
+  assert(static_cast<unsigned>(op) < numOfX86TerOpIntrinsics &&
+         "X86IntrinTerOp::Op out of range");
   return IntrinsicTerOpIDs[op];
 }
 

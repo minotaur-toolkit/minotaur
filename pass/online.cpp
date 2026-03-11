@@ -175,7 +175,7 @@ infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, parse::Par
   // 3. normal mode: run synthesizer if cache miss
 
   // check cache only in normal mode
-  if (enable_caching && !force_infer && !no_infer) {
+  if (enable_caching && ctx && !force_infer && !no_infer) {
     std::string rewrite;
 
     if (minotaur::hGet(bytecode.c_str(), bytecode.size(), rewrite, ctx)) {
@@ -202,7 +202,7 @@ infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, parse::Par
 
   if (no_infer) {
   // in no_infer mode, we write no-sol and return
-    if (enable_caching) {
+    if (enable_caching && ctx) {
       hSetNoSolution(bytecode.c_str(), bytecode.size(), ctx, F.getName());
     }
     debug() << "[online] skipping synthesizer\n";
@@ -213,7 +213,7 @@ infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, parse::Par
     debug() << "[online] working on function:\n" << F;
     RHSs = EN.solve(F, I);
     if (RHSs.empty()) {
-      if (enable_caching)
+      if (enable_caching && ctx)
         hSetNoSolution(bytecode.c_str(), bytecode.size(), ctx, F.getName());
       return nullopt;
     }
@@ -223,7 +223,7 @@ infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, parse::Par
   debug() << "[online] synthesized solution:\n" << *R.I << "\n";
 
   // write back to cache
-  if (!from_cache && enable_caching) {
+  if (!from_cache && enable_caching && ctx) {
     debug()<<"[online] caching solution\n";
     string rewrite;
     raw_string_ostream rs(rewrite);
@@ -294,8 +294,16 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
   smt::set_query_timeout(to_string(smt_to * 1000));
 
   redisContext *ctx = nullptr;
-  if (enable_caching) {
+  bool caching = enable_caching;
+  if (caching) {
     ctx = redisConnect("127.0.0.1", redis_port);
+    if (!ctx || ctx->err) {
+      debug() << "[online] redis connection failed"
+              << (ctx ? (string(": ") + ctx->errstr) : "") << "\n";
+      if (ctx) redisFree(ctx);
+      ctx = nullptr;
+      caching = false;
+    }
   }
 
   bool changed = false;
@@ -387,7 +395,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
     eliminate_dead_code(F);
   }
 
-  if (enable_caching) {
+  if (caching && ctx) {
     redisFree(ctx);
   }
 

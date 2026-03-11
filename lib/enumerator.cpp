@@ -32,6 +32,7 @@
 #include "llvm/Support/KnownBits.h"
 
 #include <algorithm>
+#include <chrono>
 #include <memory>
 #include <vector>
 #include <set>
@@ -676,7 +677,7 @@ vector<Rewrite> Enumerator::solve(llvm::Function &F, llvm::Instruction *I) {
 
   debug() << "[enumerator] working on slice\n" << F << "\n";
 
-  clock_t start = std::clock();
+  auto start = std::chrono::steady_clock::now();
 
   llvm::DominatorTree DT(F);
   DT.recalculate(F);
@@ -901,7 +902,8 @@ vector<Rewrite> Enumerator::solve(llvm::Function &F, llvm::Instruction *I) {
 
     iter = Fns.erase(iter);
 
-    unsigned Duration = ( std::clock() - start ) / CLOCKS_PER_SEC;
+    unsigned Duration = std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::steady_clock::now() - start).count();
     if ((config::return_first_solution && Good)) {
       debug() << "[enumerator] returning first solution\n";
       break;
