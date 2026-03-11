@@ -314,7 +314,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
 
     ValueToValueMapTy vv;
     auto newM = CloneModule(*F.getParent(), vv);
-    newM->dump();
+    debug() << *newM;
 
     auto newF = cast<Function>(vv[&F]);
 

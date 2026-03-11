@@ -85,10 +85,7 @@ void Enumerator::findInputs(llvm::Function &F,
 }
 
 bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
-  vector<Value*> Comps;
-  for (auto &I : values) {
-    Comps.emplace_back(I);
-  }
+  vector<Value*> Comps(values.begin(), values.end());
 
   type expected{V->getType()};
 
@@ -804,8 +801,7 @@ vector<Rewrite> Enumerator::solve(llvm::Function &F, llvm::Instruction *I) {
 
     bool skip = false;
     if (illformed) {
-      llvm::errs() << "Error tgt found: " << err << "\n";
-      Tgt->dump();
+      debug() << "Error tgt found: " << err << "\n" << *Tgt;
       skip = true;
     } else if (tgt_cost >= src_cost) {
       skip = true;

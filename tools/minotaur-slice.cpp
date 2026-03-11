@@ -77,20 +77,20 @@ int main(int argc, char **argv) {
     unsigned count = 0;
     for (auto &BB : F) {
       for (auto &I : BB) {
-        Slice S(F, LI, DT);
         if (I.getType()->isVoidTy())
           continue;
-        S.extractExpr(I);
-
+        Slice S(F, LI, DT);
+        if (!S.extractExpr(I).has_value())
+          continue;
         if (!dump_files)
           continue;
-
         std::error_code EC;
         string filename = "slice_" + string(F.getName()) +
-                          "_" + to_string(count++) + ".bc";
+                          "_" + to_string(count++) + ".ll";
         llvm::raw_fd_ostream OS(filename, EC, sys::fs::OpenFlags::OF_None);
-        //WriteBitcodeToFile(*S.getNewModule(), OS);
-        OS.flush();
+        if (EC)
+          continue;
+        S.getNewModule()->print(OS, nullptr);
       }
     }
   }
