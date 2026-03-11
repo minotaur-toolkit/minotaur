@@ -833,7 +833,6 @@ vector<Rewrite> Enumerator::solve(llvm::Function &F, llvm::Instruction *I) {
       Inst *R = G;
       if (HaveC) {
         for (auto &[A, C] : ConstantResults) {
-          //Consts[ArgConst[A]] = C;
           ArgConst[A]->setConst(C);
           A->replaceAllUsesWith(C);
         }

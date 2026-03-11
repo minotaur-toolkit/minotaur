@@ -280,15 +280,6 @@ AliveEngine::find_model(Transform &t,
     = refines_relaxed_nan(ty, src_state, tgt_state, sv.val, tv.val);
   expr dom = dom_a && dom_b;
 
-/*  auto src_mem = src_state.returnMemory();
-  auto tgt_mem = tgt_state.returnMemory();
-  auto [memory_cnstr0, ptr_refinement0, mem_undef]
-    = src_mem.refined(tgt_mem, false);
-  qvars.insert(mem_undef.begin(), mem_undef.end());*/
-
-  // TODO: dom check seems redundant
-  // TODO: add memory back here
-  //
   // Prefer synthesizing *non-poison* reserved constants when possible:
   // after finding a SAT model, greedily add constraints that force reserved
   // constant(s) to be non-poison (or non-poison lanes) as long as the formula

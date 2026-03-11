@@ -144,7 +144,6 @@ static optional<Rewrite>
 infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, parse::Parser &P) {
   string bytecode;
   llvm::raw_string_ostream bs(bytecode);
-  //WriteBitcodeToFile(*F.getParent(), bs);
   F.getParent()->print(bs, nullptr);
   bs.flush();
 
@@ -405,9 +404,6 @@ struct SuperoptimizerLegacyPass final : public llvm::FunctionPass {
       getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     DominatorTree &DT =
       getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-    /*MemoryDependenceResults &MD =
-      getAnalysis<MemoryDependenceWrapperPass>().getMemDep();*/
-
     TargetLibraryInfoWrapperPass TLI(Triple(F.getParent()->getTargetTriple()));
 
     return optimize_function(F, LI, DT, TLI);
@@ -450,7 +446,6 @@ struct SuperoptimizerPass : PassInfoMixin<SuperoptimizerPass> {
 
     LoopInfo &LI = FAM.getResult<llvm::LoopAnalysis>(F);
     DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
-    // MemoryDependenceResults &MD = FAM.getResult<MemoryDependenceAnalysis>(F);
     TargetLibraryInfoWrapperPass TLI(Triple(F.getParent()->getTargetTriple()));
     optimize_function(F, LI, DT, TLI);
     return PA;

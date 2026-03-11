@@ -81,7 +81,6 @@ void BinaryOp::print(raw_ostream &os) const {
   case fmaximum:   str = "fmaximum"; break;
   case fminimum:   str = "fminimum"; break;
   case copysign:   str = "copysign"; break;
-  // case frem:       str = "frem"; break;
   }
   os << "(" << str << " " << workty << " ";
   lhs->print(os);
@@ -109,7 +108,6 @@ void ICmp::print(raw_ostream &os) const {
   os << " ";
   rhs->print(os);
   os << " b" << ty.getWidth();
-  //rhs->print(os);
   os << ")";
 }
 
@@ -138,7 +136,6 @@ void FCmp::print(raw_ostream &os) const {
   os << " ";
   rhs->print(os);
   os << " b" << ty.getWidth();
-  //rhs->print(os);
   os << ")";
 }
 

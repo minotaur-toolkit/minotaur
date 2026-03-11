@@ -1,2 +1,17 @@
-*.pyc
 build/
+*.pyc
+__pycache__/
+
+# Editor / IDE
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+compile_commands.json
+
+# Redis
+dump.rdb
+
+# Analysis artifacts
+*.ll.skip

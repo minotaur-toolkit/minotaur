@@ -244,9 +244,6 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     case BinaryOp::fdiv:
       r = Builder.CreateFDiv(op0, op1, "fdiv");
       break;
-    // case BinaryOp::frem:
-    //   r = b.CreateFRem(op0, op1, "frem");
-  //   break;
     default:
       UNREACHABLE();
     }

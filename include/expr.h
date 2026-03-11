@@ -113,7 +113,7 @@ public:
   enum Op { band, bor, bxor, lshr, ashr, shl,
             add, sub, mul, sdiv, udiv,
             umax, umin, smax, smin,
-            fadd, fsub, fmul, fdiv, /*frem*/
+            fadd, fsub, fmul, fdiv,
             fmaxnum, fminnum, fmaximum,
             fminimum, copysign };
 private:

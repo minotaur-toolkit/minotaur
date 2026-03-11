@@ -1,0 +1,8 @@
+build/
+*.pyc
+__pycache__/
+.git/
+dump.rdb
+*.txt
+!LICENSE.txt
+!README.txt

@@ -69,10 +69,8 @@ int main(int argc, char **argv) {
     llvm::FunctionAnalysisManager FAM;
     PB.registerFunctionAnalyses(FAM);
 
-    //FAM.registerPass(llvm::LoopInfo());
     LoopInfo &LI = FAM.getResult<LoopAnalysis>(F);
     DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
-    //MemoryDependenceResults &MD = FAM.getResult<MemoryDependenceAnalysis>(F);
 
     unsigned count = 0;
     for (auto &BB : F) {
