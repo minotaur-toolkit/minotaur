@@ -24,6 +24,15 @@ namespace minotaur {
 
 unsigned get_approx_cost(llvm::Function *F);
 
+// RAII helper to remove a temporary file on scope exit.
+struct TempFileRemover {
+  SmallString<64> path;
+  ~TempFileRemover() {
+    if (!path.empty())
+      sys::fs::remove(path);
+  }
+};
+
 unsigned get_machine_cost(Function *F) {
   llvm::Module M("", F->getContext());
   auto newF = Function::Create(F->getFunctionType(), F->getLinkage(), "foo", M);
@@ -48,87 +57,70 @@ unsigned get_machine_cost(Function *F) {
 
   eliminate_dead_code(*newF);
 
-  SmallString<64> InputPath;
+  TempFileRemover InputFile, OutputFile, ErrFile;
   {
     int InputFD;
-    if (sys::fs::createTemporaryFile("input", "ll", InputFD, InputPath)) {
+    if (sys::fs::createTemporaryFile("input", "ll",
+                                     InputFD, InputFile.path))
       llvm::report_fatal_error("cannot open input buffer");
-    }
 
     std::string module_str;
     raw_string_ostream OS(module_str);
     M.print(OS, nullptr);
 
-    // raw_fd_ostream takes ownership of InputFD (shouldClose=true),
-    // so do not call ::close(InputFD) separately.
-    raw_fd_ostream InputFile(InputFD, /*shouldClose=*/true, /*unbuffered=*/true);
-    InputFile << module_str;
-    InputFile.close();
+    // raw_fd_ostream takes ownership of InputFD.
+    raw_fd_ostream InputOS(InputFD, /*shouldClose=*/true,
+                           /*unbuffered=*/true);
+    InputOS << module_str;
+    InputOS.close();
   }
 
-  SmallString<64> OutputPath;
   {
     int OutputFD;
-    if (sys::fs::createTemporaryFile("output", "out", OutputFD, OutputPath)) {
+    if (sys::fs::createTemporaryFile("output", "out",
+                                     OutputFD, OutputFile.path))
       llvm::report_fatal_error("cannot open output buffer");
-    }
     ::close(OutputFD);
   }
 
-  vector<StringRef> ArgPtrs = {"get-cost", InputPath};
-  // Capture stderr to help debug llvm-mca/clang failures (common on macOS when
-  // host CPU names differ / tools are missing).
-  SmallString<64> ErrPath;
   {
     int ErrFD;
-    if (sys::fs::createTemporaryFile("get-cost", "err", ErrFD, ErrPath)) {
+    if (sys::fs::createTemporaryFile("get-cost", "err",
+                                     ErrFD, ErrFile.path))
       llvm::report_fatal_error("cannot open error buffer");
-    }
     ::close(ErrFD);
   }
 
+  vector<StringRef> ArgPtrs = {"get-cost", InputFile.path};
+
   optional<StringRef> Redirects[3] = { nullopt,
-                                       StringRef(OutputPath),
-                                       StringRef(ErrPath) };
+                                       StringRef(OutputFile.path),
+                                       StringRef(ErrFile.path) };
 
   // llvm-mca can be slow to start on some macOS setups; allow a larger timeout.
   int r = sys::ExecuteAndWait(GET_COST_COMMAND, ArgPtrs, nullopt, Redirects, 30);
 
   if (r) {
     llvm::errs() << "error when analyzing cost\n";
-    std::ifstream err((std::string(ErrPath)));
+    std::ifstream err(std::string(ErrFile.path));
     if (err.good()) {
       std::string line;
       unsigned n = 0;
-      while (n++ < 20 && std::getline(err, line)) {
+      while (n++ < 20 && std::getline(err, line))
         llvm::errs() << "[get-cost stderr] " << line << "\n";
-      }
     }
-    err.close();
-    sys::fs::remove(ErrPath);
-    sys::fs::remove(InputPath);
-    sys::fs::remove(OutputPath);
-    // Fall back to approximate cost so callers always get a usable number.
+    // TempFileRemover handles cleanup on return.
     return get_approx_cost(F);
-  }
-  {
-    auto ignored_ec = sys::fs::remove(ErrPath);
-    (void)ignored_ec;
   }
 
   unsigned cycle;
-  std::ifstream result((std::string(OutputPath)));
+  std::ifstream result(std::string(OutputFile.path));
   if (!(result >> cycle)) {
-    llvm::errs() << "error when reading get-cost output (empty or non-numeric)\n";
-    result.close();
-    sys::fs::remove(InputPath);
-    sys::fs::remove(OutputPath);
+    llvm::errs()
+        << "error when reading get-cost output"
+        << " (empty or non-numeric)\n";
     return get_approx_cost(F);
   }
-  result.close();
-
-  sys::fs::remove(InputPath);
-  sys::fs::remove(OutputPath);
 
   return cycle;
 }
@@ -137,10 +129,7 @@ unsigned get_approx_cost(llvm::Function *F) {
   unsigned cost = 0;
   for (auto &BB : *F) {
     for (auto &I : BB) {
-      if (isa<Argument>(&I)) {
-        cost += 1;
-        // reserved const
-      } else if (CallInst *CI = dyn_cast<CallInst>(&I)) {
+      if (CallInst *CI = dyn_cast<CallInst>(&I)) {
         auto CalledF = CI->getCalledFunction();
         if (CalledF) {
           if (CalledF->getName().starts_with("__fksv")) {
