@@ -111,6 +111,14 @@ static expr preprocess(Transform &t, const set<expr> &qvars0,
 
 namespace minotaur {
 
+static std::ostream NOP_OSTREAM(nullptr);
+
+AliveEngine::AliveEngine(llvm::TargetLibraryInfoWrapperPass &TLI) : TLI(TLI) {
+  util::config::disable_undef_input = true;
+  util::config::disable_poison_input = false;
+  debug = config::debug_tv ? &std::cerr : &NOP_OSTREAM;
+}
+
 bool
 AliveEngine::compareFunctions(llvm::Function &Func1, llvm::Function &Func2) {
   smt::smt_initializer smt_init;

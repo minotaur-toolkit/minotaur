@@ -29,7 +29,7 @@ class Value : public Inst {
 protected:
   type ty;
 public:
-  type getType() { return ty; }
+  type getType() const { return ty; }
   virtual void print(llvm::raw_ostream &os) const = 0;
   Value(type ty) : ty (ty) {}
 };
@@ -58,7 +58,6 @@ class ReservedConst final : public Value {
 public:
   ReservedConst(type t) : Value(t), A(nullptr), C(nullptr) {}
   ReservedConst(type t, llvm::Constant *C) : Value(t), A(nullptr), C(C) {};
-  type getType() { return ty; }
   llvm::Argument *getA () const { return A; }
   void setA (llvm::Argument *Arg) { A = Arg; }
   void print(llvm::raw_ostream &os) const override;

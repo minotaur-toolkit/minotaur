@@ -643,8 +643,7 @@ vector<Rewrite> Parser::parse(const llvm::Function &F, std::string_view buf) {
     return { Rewrite(I, 0, 0) };
   } catch (ParseException &e) {
     debug()<<"[parser] " << e.str << '\n';
-    exit(1);
-    //return {};
+    return {};
   }
 }
 
