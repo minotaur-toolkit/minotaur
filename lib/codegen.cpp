@@ -74,30 +74,30 @@ llvm::Value*
 LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
   if (auto V = dynamic_cast<Var*>(I)) {
     if (VMap.empty()) {
-      return V->V();
+      return V->getValue();
     } else {
-      if (VMap.count(V->V())) {
-        return VMap[V->V()];
+      if (VMap.count(V->getValue())) {
+        return VMap[V->getValue()];
       } else {
         llvm::errs() << *V << "\n";
         llvm::report_fatal_error("Value is not found in VMap");
       }
     }
   } else if (auto RC = dynamic_cast<ReservedConst*>(I)) {
-    if (RC->getC()) {
-      return RC->getC();
+    if (RC->getConst()) {
+      return RC->getConst();
     } else {
-      return RC->getA();
+      return RC->getArg();
     }
   } else if (auto U = dynamic_cast<UnaryOp*>(I)) {
     type workty = U->getWorkTy();
     llvm::Type *lty = workty.toLLVM(C);
-    auto op0 = codeGenImpl(U->V(), VMap);
-    if (!U->V()->getType().same_width(workty))
+    auto op0 = codeGenImpl(U->getOperand(), VMap);
+    if (!U->getOperand()->getType().same_width(workty))
       report_fatal_error("operand width mismatch");
     op0 = bitcastTo(op0, lty);
 
-    auto K = U->K();
+    auto K = U->getOpcode();
     if (K == UnaryOp::fneg)
       return b.CreateFNeg(op0);
 
@@ -128,14 +128,14 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     IntrinsicDecls.insert(CI->getCalledFunction());
     return CI;
   } else if (auto U = dynamic_cast<Copy*>(I)) {
-    auto op0 = codeGenImpl(U->V(), VMap);
+    auto op0 = codeGenImpl(U->getReservedConst(), VMap);
     return op0;
   } else if (auto CI = dynamic_cast<IntConversion*>(I)) {
-    auto op0 = codeGenImpl(CI->V(), VMap);
+    auto op0 = codeGenImpl(CI->getOperand(), VMap);
     op0 = bitcastTo(op0, CI->getPrevTy().toLLVM(C));
     Type *new_type = CI->getNewTy().toLLVM(C);
     llvm::Value *r = nullptr;
-    switch (CI->K()) {
+    switch (CI->getOpcode()) {
     case IntConversion::sext:
       r = b.CreateSExt(op0, new_type);
       break;
@@ -148,12 +148,12 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     }
     return r;
   } else if (auto FI = dynamic_cast<FPConversion*>(I)) {
-    auto op0 = codeGenImpl(FI->V(), VMap);
+    auto op0 = codeGenImpl(FI->getOperand(), VMap);
     op0 = bitcastTo(op0, FI->getPrevTy().toLLVM(C));
     Type* new_type = FI->getNewTy().toLLVM(C);
     llvm::Value *r = nullptr;
 
-    switch (FI->K()) {
+    switch (FI->getOpcode()) {
     case FPConversion::fptrunc:
       r = b.CreateFPTrunc(op0, new_type);
       break;
@@ -177,18 +177,18 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
   } else if (auto B = dynamic_cast<BinaryOp*>(I)) {
     type workty = B->getWorkTy();
     llvm::Type *lty = workty.toLLVM(C);
-    auto op0 = codeGenImpl(B->L(), VMap);
-    if (!workty.same_width(B->L()->getType()))
+    auto op0 = codeGenImpl(B->getLHS(), VMap);
+    if (!workty.same_width(B->getLHS()->getType()))
       report_fatal_error("left operand width mismatch");
     op0 = bitcastTo(op0, lty);
 
-    auto op1 = codeGenImpl(B->R(), VMap);
-    if (!workty.same_width(B->R()->getType()))
+    auto op1 = codeGenImpl(B->getRHS(), VMap);
+    if (!workty.same_width(B->getRHS()->getType()))
       report_fatal_error("right operand width mismatch");
     op1 = bitcastTo(op1, lty);
 
     Intrinsic::ID iid = 0;
-    switch (B->K()) {
+    switch (B->getOpcode()) {
     case BinaryOp::fmaxnum:    iid = Intrinsic::maxnum;     break;
     case BinaryOp::fminnum:    iid = Intrinsic::minnum;     break;
     case BinaryOp::fmaximum:   iid = Intrinsic::maximum;    break;
@@ -207,7 +207,7 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     }
 
     llvm::Value *r = nullptr;
-    switch (B->K()) {
+    switch (B->getOpcode()) {
     case BinaryOp::band:
       r = b.CreateAnd(op0, op1, "and");
       break;
@@ -261,15 +261,15 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     }
     return r;
   } else if (auto IC = dynamic_cast<ICmp*>(I)) {
-    auto op0 = codeGenImpl(IC->L(), VMap);
+    auto op0 = codeGenImpl(IC->getLHS(), VMap);
     auto IC_ty = IC->getType();
     auto workty = type::IntegerVectorizable(IC_ty.getLane(), IC->getBits());
     op0 = bitcastTo(op0, workty.toLLVM(C));
 
-    auto op1 = codeGenImpl(IC->R(), VMap);
+    auto op1 = codeGenImpl(IC->getRHS(), VMap);
     op1 = bitcastTo(op1, workty.toLLVM(C));
     llvm::Value *r = nullptr;
-    switch (IC->K()) {
+    switch (IC->getCond()) {
     case ICmp::eq:
       r = b.CreateICmp(CmpInst::ICMP_EQ, op0, op1, "ieq");
       break;
@@ -304,11 +304,11 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     return r;
 
   } else if (auto FC = dynamic_cast<FCmp*>(I)) {
-    auto op0 = codeGenImpl(FC->L(), VMap);
-    auto op1 = codeGenImpl(FC->R(), VMap);
+    auto op0 = codeGenImpl(FC->getLHS(), VMap);
+    auto op1 = codeGenImpl(FC->getRHS(), VMap);
     llvm::Value *r = nullptr;
 
-    switch (FC->K()) {
+    switch (FC->getCond()) {
     case FCmp::f:
       r = ConstantInt::getFalse(C);
       if (FC->getLanes() > 1)
@@ -364,19 +364,19 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     }
     return r;
   } else if (auto B = dynamic_cast<SIMDBinOpInst*>(I)) {
-    type op0_ty = getIntrinsicOp0Ty(B->K());
-    type op1_ty = getIntrinsicOp1Ty(B->K());
-    auto op0 = codeGenImpl(B->L(), VMap);
-    if (!op0_ty.same_width(B->L()->getType()))
+    type op0_ty = getIntrinsicOp0Ty(B->getOpcode());
+    type op1_ty = getIntrinsicOp1Ty(B->getOpcode());
+    auto op0 = codeGenImpl(B->getLHS(), VMap);
+    if (!op0_ty.same_width(B->getLHS()->getType()))
       report_fatal_error("left operand width mismatch");
     op0 = bitcastTo(op0, op0_ty.toLLVM(C));
 
-    auto op1 = codeGenImpl(B->R(), VMap);
-    if (!op1_ty.same_width(B->R()->getType()))
+    auto op1 = codeGenImpl(B->getRHS(), VMap);
+    if (!op1_ty.same_width(B->getRHS()->getType()))
       report_fatal_error("right operand width mismatch");
     op1 = bitcastTo(op1, op1_ty.toLLVM(C));
 
-    llvm::Function *decl = Intrinsic::getOrInsertDeclaration(M, getIntrinsicID(B->K()));
+    llvm::Function *decl = Intrinsic::getOrInsertDeclaration(M, getIntrinsicID(B->getOpcode()));
     IntrinsicDecls.insert(decl);
 
     llvm::Value *CI = CallInst::Create(decl,
@@ -386,22 +386,22 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     return CI;
   // TODO: handle terop
   } else if (auto FSV = dynamic_cast<FakeShuffleInst*>(I)) {
-    auto op0 = codeGenImpl(FSV->L(), VMap);
+    auto op0 = codeGenImpl(FSV->getLHS(), VMap);
     llvm::Type *op_ty = FSV->getInputTy().toLLVM(C);
     op0 = bitcastTo(op0, op_ty);
     llvm::Value *op1 = nullptr;
-    if (FSV->R()) {
-      op1 = bitcastTo(codeGenImpl(FSV->R(), VMap), op_ty);
+    if (FSV->getRHS()) {
+      op1 = bitcastTo(codeGenImpl(FSV->getRHS(), VMap), op_ty);
     } else {
       op1 = llvm::PoisonValue::get(op_ty);
     }
-    auto mask = codeGenImpl(FSV->M(), VMap);
+    auto mask = codeGenImpl(FSV->getMask(), VMap);
     llvm::Value *SV = nullptr;
     if (isa<Constant>(mask)) {
       SV = b.CreateShuffleVector(op0, op1, mask, "sv");
     } else {
       std::vector<llvm::Type*> Args(2, op_ty);
-      Args.push_back(FSV->M()->getType().toLLVM(C));
+      Args.push_back(FSV->getMask()->getType().toLLVM(C));
       FunctionType *FT = FunctionType::get(FSV->getRetTy().toLLVM(C), Args, false);
       llvm::Function *F =
         llvm::Function::Create(FT, llvm::Function::ExternalLinkage, "__fksv", M);
@@ -410,24 +410,24 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     }
     return SV;
   } else if (auto FEE = dynamic_cast<ExtractElement*>(I)) {
-    auto op0 = codeGenImpl(FEE->V(), VMap);
+    auto op0 = codeGenImpl(FEE->getVector(), VMap);
     llvm::Type *op_ty = FEE->getInputTy().toLLVM(C);
     op0 = bitcastTo(op0, op_ty);
-    auto idx = codeGenImpl(FEE->Idx(), VMap);
+    auto idx = codeGenImpl(FEE->getIndex(), VMap);
     return b.CreateExtractElement(op0, idx, "ee");
   } else if (auto IE = dynamic_cast<InsertElement*>(I)) {
-    auto op0 = codeGenImpl(IE->V(), VMap);
+    auto op0 = codeGenImpl(IE->getVector(), VMap);
     llvm::Type *op_ty = IE->getInputTy().toLLVM(C);
     op0 = bitcastTo(op0, op_ty);
-    auto op1 = codeGenImpl(IE->Elt(), VMap);
+    auto op1 = codeGenImpl(IE->getElement(), VMap);
     op1 = bitcastTo(op1, op_ty->getScalarType());
-    auto idx = codeGenImpl(IE->Idx(), VMap);
+    auto idx = codeGenImpl(IE->getIndex(), VMap);
     return b.CreateInsertElement(op0, op1, idx, "ie");
   } else if (auto S = dynamic_cast<Select*>(I)) {
-    auto cond = codeGenImpl(S->Cond(), VMap);
-    auto op0 = codeGenImpl(S->L(), VMap);
+    auto cond = codeGenImpl(S->getCond(), VMap);
+    auto op0 = codeGenImpl(S->getLHS(), VMap);
     op0 = bitcastTo(op0, S->getType().toLLVM(C));
-    auto op1 = codeGenImpl(S->R(), VMap);
+    auto op1 = codeGenImpl(S->getRHS(), VMap);
     op1 = bitcastTo(op1, S->getType().toLLVM(C));
     return b.CreateSelect(cond, op0, op1, "sel");
   }

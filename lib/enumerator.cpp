@@ -485,7 +485,7 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
       continue;
     // typecheck for return val
     X86IntrinBinOp::Op op = static_cast<X86IntrinBinOp::Op>(K);
-    if (config::disable_avx512 && SIMDBinOpInst::is512(op))
+    if (config::disable_avx512 && SIMDBinOpInst::is512Bit(op))
       continue;
     type ret_ty = getIntrinsicRetTy(op);
     type op0_ty = getIntrinsicOp0Ty(op);
@@ -715,7 +715,7 @@ vector<Rewrite> Enumerator::solve(llvm::Function &F, llvm::Instruction *I) {
       if (V->getType().getWidth() != I->getType()->getPrimitiveSizeInBits())
         continue;
       set<ReservedConst*> RCs;
-      auto VA = make_unique<Var>(V->V());
+      auto VA = make_unique<Var>(V->getValue());
       Sketches.push_back(make_pair(VA.get(), std::move(RCs)));
       exprs.emplace_back(std::move(VA));
     }
@@ -766,7 +766,7 @@ vector<Rewrite> Enumerator::solve(llvm::Function &F, llvm::Instruction *I) {
     for (auto &C : Sketch.second) {
       string arg_name = "_reservedc_" + std::to_string(CI);
       TgtArgI->setName(arg_name);
-      C->setA(TgtArgI);
+      C->setArg(TgtArgI);
       ArgConst[TgtArgI] = C;
       ++CI;
       ++TgtArgI;
@@ -848,7 +848,7 @@ vector<Rewrite> Enumerator::solve(llvm::Function &F, llvm::Instruction *I) {
       if (HaveC) {
         for (auto &[A, C] : ConstantResults) {
           //Consts[ArgConst[A]] = C;
-          ArgConst[A]->setC(C);
+          ArgConst[A]->setConst(C);
           A->replaceAllUsesWith(C);
         }
       }

@@ -18,8 +18,8 @@ void Var::print(raw_ostream &os) const {
 }
 
 void ReservedConst::print(raw_ostream &os) const {
-  if (C) {
-    os << "(reservedconst " << ty << " |" << *C << "|)";
+  if (constant) {
+    os << "(reservedconst " << ty << " |" << *constant << "|)";
   } else {
     os << "(reservedconst " << ty << " " << "null" << ")";
   }
@@ -50,7 +50,7 @@ void UnaryOp::print(raw_ostream &os) const {
   case ftrunc:     str = "ftrunc";     break;
   }
   os << "(" << str << " " << workty << " ";
-  v->print(os);
+  operand->print(os);
   os << ")";
 }
 
@@ -180,14 +180,14 @@ type FakeShuffleInst::getInputTy() {
 
 void ExtractElement::print(raw_ostream &os) const {
   os << "(extractelement " << ty << " ";
-  v->print(os);
+  vec->print(os);
   os << " ";
   idx->print(os);
   os << ")";
 }
 
 type ExtractElement::getInputTy() {
-  type lhs_ty = v->getType();
+  type lhs_ty = vec->getType();
   unsigned lane = lhs_ty.getWidth()/ty.getWidth();
   return type::Vectorizable(lane, ty.getWidth(), ty.isFP());
 }
@@ -195,7 +195,7 @@ type ExtractElement::getInputTy() {
 
 void InsertElement::print(raw_ostream &os) const {
   os << "(insertelement " << ty << " ";
-  v->print(os);
+  vec->print(os);
   os << " ";
   elt->print(os);
   os << " ";
@@ -204,7 +204,7 @@ void InsertElement::print(raw_ostream &os) const {
 }
 
 type InsertElement::getInputTy() const {
-  type lhs_ty = v->getType();
+  type lhs_ty = vec->getType();
   unsigned elt_width = elt->getType().getWidth();
   unsigned lane = lhs_ty.getWidth() / elt_width;
   return type::Vectorizable(lane, elt_width, ty.isFP());
@@ -213,14 +213,14 @@ type InsertElement::getInputTy() const {
 
 void IntConversion::print(raw_ostream &os) const {
   const char *str = nullptr;
-  switch (k) {
+  switch (op) {
   case sext:  str = "sext"; break;
   case zext:  str = "zext"; break;
   case trunc: str = "trunc"; break;
   }
 
   os << "(conv_"<< str << " ";
-  v->print(os);
+  operand->print(os);
   os << " " << getPrevTy();
   os << " " << getNewTy();
   os << ")";
@@ -229,7 +229,7 @@ void IntConversion::print(raw_ostream &os) const {
 
 void FPConversion::print(raw_ostream &os) const {
   const char *str = nullptr;
-  switch (k) {
+  switch (op) {
   case fptrunc: str = "fptrunc"; break;
   case fpext:   str = "fpext";   break;
   case fptoui:  str = "fptoui";  break;
@@ -239,32 +239,32 @@ void FPConversion::print(raw_ostream &os) const {
   }
 
   os << "(conv_"<< str << " ";
-  v->print(os);
+  operand->print(os);
   os << " " << ty;
   os << ")";
 }
 
 type FPConversion::getPrevTy() const {
-  type v_ty = v->getType();
+  type v_ty = operand->getType();
 
-  if (k == fptrunc || k == fpext) {
+  if (op == fptrunc || op == fpext) {
     return v_ty;
   }
 
   if (v_ty.isFP()) {
-    return v->getType();
+    return operand->getType();
   } else {
-    int bits = v->getType().getWidth() / ty.getLane();
+    int bits = operand->getType().getWidth() / ty.getLane();
     return type::IntegerVectorizable(ty.getLane(), bits);
   }
 }
 
 type FPConversion::getNewTy() const {
-  if (k == fptrunc || k == fpext) {
+  if (op == fptrunc || op == fpext) {
     return ty;
   }
 
-  type v_ty = v->getType();
+  type v_ty = operand->getType();
   if (v_ty.isFP()) {
     int bits = ty.getWidth() / v_ty.getLane();
     return type::IntegerVectorizable(v_ty.getLane(), bits);
