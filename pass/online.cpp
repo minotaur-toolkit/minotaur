@@ -148,13 +148,13 @@ static bool dom_check(llvm::Value *V, DominatorTree &DT, llvm::Use &U) {
 }
 
 struct debug {
-template<class T>
-debug &operator<<(const T &s)
-{
-  if (debug_enumerator || debug_slicer || debug_tv || debug_codegen)
-    minotaur::config::dbg()<<s;
-  return *this;
-}
+  template<class T>
+  debug &operator<<(const T &s) {
+    if (debug_enumerator || debug_slicer ||
+        debug_tv || debug_codegen)
+      minotaur::config::dbg() << s;
+    return *this;
+  }
 };
 
 static optional<Rewrite>

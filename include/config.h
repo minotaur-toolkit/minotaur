@@ -28,5 +28,17 @@ void set_debug(llvm::raw_ostream &os);
 
 extern const char minotaur_version[];
 
+// Conditional debug stream. Usage:
+//   DebugStream<&config::debug_codegen>() << "msg";
+template<bool *Flag>
+struct DebugStream {
+  template<class T>
+  DebugStream &operator<<(const T &s) {
+    if (*Flag)
+      dbg() << s;
+    return *this;
+  }
+};
+
 } // namespace config
 } // namespace minotaur

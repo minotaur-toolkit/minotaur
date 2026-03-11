@@ -31,15 +31,8 @@
 using namespace llvm;
 using namespace std;
 
-struct debug {
-  template<class T>
-  debug &operator<<(const T &s)
-  {
-    if (minotaur::config::debug_slicer)
-      minotaur::config::dbg()<<s;
-    return *this;
-  }
-};
+using debug = minotaur::config::DebugStream<
+    &minotaur::config::debug_slicer>;
 
 static bool isUnsupportedTy(llvm::Type *ty) {
   Type *el_ty = ty->getScalarType();

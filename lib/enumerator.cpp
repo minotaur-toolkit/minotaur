@@ -42,20 +42,10 @@ using namespace util;
 using namespace std;
 using namespace IR;
 
-namespace {
-struct debug {
-template<class T>
-debug &operator<<(const T &s)
-{
-if (minotaur::config::debug_enumerator)
-  minotaur::config::dbg() << s;
-return *this;
-}
-};
-}
-
-
 namespace minotaur {
+
+using debug = config::DebugStream<
+    &config::debug_enumerator>;
 
 void Enumerator::findInputs(llvm::Function &F,
                             llvm::Instruction *root,

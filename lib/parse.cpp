@@ -20,16 +20,8 @@
 using namespace std;
 using namespace minotaur;
 
-struct debug {
-  template<class T>
-  debug &operator<<(const T &s)
-  {
-    if (minotaur::config::debug_parser)
-      minotaur::config::dbg()<<s;
-    return *this;
-  }
-};
-
+using debug = minotaur::config::DebugStream<
+    &minotaur::config::debug_parser>;
 
 namespace parse {
 
