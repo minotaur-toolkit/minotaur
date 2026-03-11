@@ -11,7 +11,6 @@
 #include "tools/transform.h"
 #include "llvm_util/compare.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/Transforms/Utils/Local.h"
 

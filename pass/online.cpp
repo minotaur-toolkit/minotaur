@@ -3,57 +3,40 @@
 #include "config.h"
 #include "enumerator.h"
 #include "codegen.h"
-#include "expr.h"
 #include "slice.h"
-#include "removal-slice.h"
-#include "util/random.h"
 #include "utils.h"
 #include "parse.h"
 
-#include "ir/instr.h"
+#include "util/random.h"
 #include "llvm_util/llvm2alive.h"
 #include "smt/smt.h"
-#include "smt/solver.h"
 #include "tools/transform.h"
 #include "util/compiler.h"
 #include "util/config.h"
-#include "util/version.h"
 
-#include "llvm/ADT/Any.h"
-#include "llvm/Analysis/DominanceFrontier.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemoryDependenceAnalysis.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Bitcode/BitcodeWriter.h"
-#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Plugins/PassPlugin.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
 #include "hiredis.h"
 
 #include <filesystem>
-#include <fstream>
 #include <iostream>
-#include <random>
 #include <unordered_map>
-#include <sstream>
-#include <utility>
 
 using namespace std;
 using namespace llvm;

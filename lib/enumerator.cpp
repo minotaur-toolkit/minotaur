@@ -13,10 +13,6 @@
 #include "llvm_util/llvm2alive.h"
 #include "llvm_util/utils.h"
 
-#include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/CGSCCPassManager.h"
-#include "llvm/Analysis/LoopAnalysisManager.h"
-#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/DataLayout.h"

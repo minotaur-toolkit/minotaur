@@ -1,23 +1,12 @@
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
 #include "alive-interface.h"
-#include "expr.h"
 
-#include "ir/type.h"
-#include "ir/instr.h"
-#include "ir/function.h"
-#include "ir/globals.h"
 #include "smt/smt.h"
-#include "smt/solver.h"
-#include "tools/transform.h"
 #include "util/config.h"
-#include "util/symexec.h"
 #include "util/errors.h"
-#include "llvm_util/llvm2alive.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IRReader/IRReader.h"
@@ -28,7 +17,6 @@
 
 #include <iostream>
 #include <unordered_set>
-#include <sstream>
 
 using namespace tools;
 using namespace util;
