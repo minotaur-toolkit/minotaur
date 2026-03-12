@@ -646,6 +646,163 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
   return true;
 }
 
+// Depth-2 enumeration: compose two operations.
+// Uses bottom-up strategy from equality saturation:
+// 1. Build depth-1 "inner" expressions from input vars
+// 2. Feed them as operands into a second layer of ops
+// 3. Prune aggressively: only same-width types, skip
+//    redundant compositions (e.g., add(add(x,c1),c2))
+bool Enumerator::getDepth2Sketches(
+    llvm::Value *V, vector<Sketch> &sketches) {
+  type expected{V->getType()};
+
+  // Only do depth-2 for integer scalar/vector types
+  // where bit tricks are most profitable.
+  if (expected.isFP())
+    return true;
+
+  // Step 1: build depth-1 inner expressions (var op var)
+  // and (var op const) that match the expected width.
+  struct InnerExpr {
+    Value *expr;
+    set<ReservedConst*> rcs;
+  };
+  vector<InnerExpr> inners;
+
+  // Inner unary ops on each var
+  for (auto *V : values) {
+    if (!V->getType().same_width(expected))
+      continue;
+    for (unsigned K = UnaryOp::bitreverse;
+         K <= UnaryOp::cttz; ++K) {
+      UnaryOp::Op op = static_cast<UnaryOp::Op>(K);
+      auto tys = getUnaryOpWorkTypes(expected, op);
+      for (auto &workty : tys) {
+        auto U = make_unique<UnaryOp>(op, *V, workty);
+        inners.push_back({U.get(), {}});
+        exprs.emplace_back(std::move(U));
+      }
+    }
+  }
+
+  // Inner binary ops: (var op var)
+  for (unsigned K = BinaryOp::band;
+       K <= BinaryOp::shl; ++K) {
+    BinaryOp::Op op = static_cast<BinaryOp::Op>(K);
+    if (expected.getBits() == 1 && !BinaryOp::isLogical(op))
+      continue;
+    auto worktys = getBinaryOpWorkTypes(expected, op);
+    for (auto &workty : worktys) {
+      for (auto *Op0 : values) {
+        if (!expected.same_width(Op0->getType()))
+          continue;
+        for (auto *Op1 : values) {
+          if (!expected.same_width(Op1->getType()))
+            continue;
+          if (BinaryOp::isCommutative(op) && Op1 < Op0)
+            continue;
+          auto B = make_unique<BinaryOp>(
+              op, *Op0, *Op1, workty);
+          inners.push_back({B.get(), {}});
+          exprs.emplace_back(std::move(B));
+        }
+      }
+    }
+  }
+
+  // Inner binary ops: (var op const)
+  for (unsigned K = BinaryOp::band;
+       K <= BinaryOp::shl; ++K) {
+    BinaryOp::Op op = static_cast<BinaryOp::Op>(K);
+    if (op == BinaryOp::sub)
+      continue; // sub x, c == add x, -c
+    if (expected.getBits() == 1 && !BinaryOp::isLogical(op))
+      continue;
+    auto worktys = getBinaryOpWorkTypes(expected, op);
+    for (auto &workty : worktys) {
+      for (auto *Op0 : values) {
+        if (!expected.same_width(Op0->getType()))
+          continue;
+        auto RC = make_unique<ReservedConst>(workty);
+        set<ReservedConst*> rcs;
+        rcs.insert(RC.get());
+        auto B = make_unique<BinaryOp>(
+            op, *Op0, *RC, workty);
+        inners.push_back({B.get(), std::move(rcs)});
+        exprs.emplace_back(std::move(RC));
+        exprs.emplace_back(std::move(B));
+      }
+    }
+  }
+
+  debug() << "[enumerator] depth-2: " << inners.size()
+          << " inner expressions\n";
+
+  // Step 2: compose — apply a second operation layer.
+  // outer_op(inner, var) and outer_op(inner, const)
+  // Limit: only integer non-FP binary ops as outer.
+  for (auto &inner : inners) {
+    for (unsigned K = BinaryOp::band;
+         K <= BinaryOp::shl; ++K) {
+      BinaryOp::Op op = static_cast<BinaryOp::Op>(K);
+      if (expected.getBits() == 1 &&
+          !BinaryOp::isLogical(op))
+        continue;
+      auto worktys = getBinaryOpWorkTypes(expected, op);
+      for (auto &workty : worktys) {
+        // outer_op(inner, var)
+        for (auto *V : values) {
+          if (!expected.same_width(V->getType()))
+            continue;
+          set<ReservedConst*> rcs(inner.rcs);
+          auto B = make_unique<BinaryOp>(
+              op, *inner.expr, *V, workty);
+          sketches.push_back({B.get(), std::move(rcs)});
+          exprs.emplace_back(std::move(B));
+        }
+        // outer_op(inner, const) — skip if inner already
+        // has a const (avoids double-constant sketches
+        // which are hard for the solver)
+        if (inner.rcs.empty()) {
+          for (auto *V : values) {
+            if (!expected.same_width(V->getType()))
+              continue;
+            auto RC = make_unique<ReservedConst>(workty);
+            set<ReservedConst*> rcs;
+            rcs.insert(RC.get());
+            auto B = make_unique<BinaryOp>(
+                op, *inner.expr, *RC, workty);
+            sketches.push_back(
+                {B.get(), std::move(rcs)});
+            exprs.emplace_back(std::move(RC));
+            exprs.emplace_back(std::move(B));
+          }
+        }
+      }
+    }
+  }
+
+  // Also: unary(inner) compositions — e.g. ctpop(and(x,y))
+  for (auto &inner : inners) {
+    if (!inner.rcs.empty())
+      continue; // skip const-bearing inners
+    for (unsigned K = UnaryOp::bitreverse;
+         K <= UnaryOp::cttz; ++K) {
+      UnaryOp::Op op = static_cast<UnaryOp::Op>(K);
+      auto tys = getUnaryOpWorkTypes(expected, op);
+      for (auto &workty : tys) {
+        set<ReservedConst*> rcs;
+        auto U = make_unique<UnaryOp>(
+            op, *inner.expr, workty);
+        sketches.push_back({U.get(), std::move(rcs)});
+        exprs.emplace_back(std::move(U));
+      }
+    }
+  }
+
+  return true;
+}
+
 using Candidate = tuple<llvm::Function*, llvm::Function*, Inst*,
                         unordered_map<const llvm::Argument*, ReservedConst*>,
                         bool>;
@@ -655,7 +812,7 @@ static bool approx(const Candidate &f1, const Candidate &f2) {
 }
 
 vector<Rewrite> Enumerator::solve(llvm::Function &F, llvm::Instruction *I) {
-  unsigned CANDIDATES = 0, GOOD = 0;
+  unsigned CANDIDATES = 0, PRUNED = 0, GOOD = 0;
   vector<Rewrite> ret;
 
   debug() << "[enumerator] working on slice\n" << F << "\n";
@@ -708,7 +865,12 @@ vector<Rewrite> Enumerator::solve(llvm::Function &F, llvm::Instruction *I) {
   }
 
   getSketches(&*I, Sketches);
-  debug() << "[enumerator] listing sketches\n";
+  unsigned depth1_count = Sketches.size();
+  getDepth2Sketches(&*I, Sketches);
+  debug() << "[enumerator] " << depth1_count
+          << " depth-1 + "
+          << (Sketches.size() - depth1_count)
+          << " depth-2 sketches\n";
   for (auto &Sketch : Sketches) {
     debug() << *Sketch.first << "\n";
   }
@@ -787,10 +949,47 @@ vector<Rewrite> Enumerator::solve(llvm::Function &F, llvm::Instruction *I) {
 
     bool skip = false;
     if (illformed) {
-      debug() << "Error tgt found: " << err << "\n" << *Tgt;
+      debug() << "Error tgt found: " << err
+              << "\n" << *Tgt;
       skip = true;
     } else if (tgt_cost >= src_cost) {
       skip = true;
+    }
+
+    // Dataflow pruning: use KnownBits to reject
+    // candidates that are provably inequivalent.
+    // Compare structural known bits of src vs tgt
+    // return values.
+    if (!skip && !HaveC &&
+        I->getType()->isIntOrIntVectorTy()) {
+      llvm::Value *SrcRV = nullptr, *TgtRV = nullptr;
+      for (auto &BB : *Src)
+        if (auto *RI = dyn_cast<llvm::ReturnInst>(
+                BB.getTerminator())) {
+          SrcRV = RI->getReturnValue();
+          break;
+        }
+      for (auto &BB : *Tgt)
+        if (auto *RI = dyn_cast<llvm::ReturnInst>(
+                BB.getTerminator())) {
+          TgtRV = RI->getReturnValue();
+          break;
+        }
+      if (SrcRV && TgtRV &&
+          SrcRV->getType()->isIntOrIntVectorTy() &&
+          TgtRV->getType()->isIntOrIntVectorTy()) {
+        llvm::KnownBits KBSrc(Width);
+        llvm::KnownBits KBTgt(Width);
+        computeKnownBits(SrcRV, KBSrc, DL);
+        computeKnownBits(TgtRV, KBTgt, DL);
+        if ((KBSrc.One & KBTgt.Zero).getBoolValue() ||
+            (KBSrc.Zero & KBTgt.One).getBoolValue()) {
+          debug()
+              << "[enumerator] dataflow pruned\n";
+          skip = true;
+          PRUNED++;
+        }
+      }
     }
 
     if (skip) {
@@ -902,7 +1101,8 @@ vector<Rewrite> Enumerator::solve(llvm::Function &F, llvm::Instruction *I) {
     Tgt->eraseFromParent();
   }
 
-  debug() << "[enumerator] #Candidates = "<< CANDIDATES
+  debug() << "[enumerator] #Candidates = " << CANDIDATES
+          << ", #Pruned = " << PRUNED
           << ", #Good = " << GOOD << "\n";
 
   std::stable_sort(ret.begin(), ret.end(),
