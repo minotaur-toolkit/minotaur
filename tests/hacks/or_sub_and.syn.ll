@@ -1,3 +1,4 @@
+; TEST-ARGS: -minotaur-enable-depth2
 ; Hacker's Delight: (x | y) - (x & y) == x ^ y
 ; Requires depth-2 enumeration to discover the xor rewrite
 ; CHECK: xor i32

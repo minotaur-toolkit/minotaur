@@ -78,6 +78,7 @@ set(SYNTHESIZER_SRC
   "lib/enumerator.cpp"
   "lib/expr.cpp"
   "lib/codegen.cpp"
+  "lib/interp.cpp"
   "lib/parse.cpp"
   "lib/type.cpp"
   "${PROJECT_BINARY_DIR}/lexer/lexer.cpp"

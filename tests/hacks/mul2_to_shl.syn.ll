@@ -1,3 +1,4 @@
+; TEST-ARGS: -minotaur-enable-depth2
 ; Strength reduction: (x + y) * 2 → shl(add(x, y), 1)
 ; mul costs 4, shl costs 2 — cheaper with same result
 ; Requires depth-2: output is shl(add(x,y), 1)

@@ -1,3 +1,4 @@
+; TEST-ARGS: -minotaur-enable-depth2
 ; De Morgan's: ~x & ~y → ~(x | y)
 ; 3 instructions → 2 instructions (or + xor -1)
 ; Requires depth-2: output is xor(or(x,y), -1)

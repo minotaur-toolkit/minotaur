@@ -1,3 +1,4 @@
+; TEST-ARGS: -minotaur-enable-depth2
 ; De Morgan's: ~(~x & ~y) == x | y
 ; 4 instructions reduced to 2 (or + xor with -1)
 ; CHECK: or i32

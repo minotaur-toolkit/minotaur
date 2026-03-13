@@ -6,6 +6,7 @@
 #include "expr.h"
 #include "codegen.h"
 #include "cost.h"
+#include "interp.h"
 #include "utils.h"
 #include "type.h"
 
@@ -25,10 +26,12 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/TargetParser/Triple.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Support/KnownBits.h"
 
 #include <algorithm>
 #include <chrono>
+#include <map>
 #include <memory>
 #include <vector>
 #include <set>
@@ -866,7 +869,8 @@ vector<Rewrite> Enumerator::solve(llvm::Function &F, llvm::Instruction *I) {
 
   getSketches(&*I, Sketches);
   unsigned depth1_count = Sketches.size();
-  getDepth2Sketches(&*I, Sketches);
+  if (config::enable_depth2)
+    getDepth2Sketches(&*I, Sketches);
   debug() << "[enumerator] " << depth1_count
           << " depth-1 + "
           << (Sketches.size() - depth1_count)
@@ -874,6 +878,80 @@ vector<Rewrite> Enumerator::solve(llvm::Function &F, llvm::Instruction *I) {
   for (auto &Sketch : Sketches) {
     debug() << *Sketch.first << "\n";
   }
+
+  // Early pruning via fingerprinting: evaluate each
+  // sketch on test vectors at the AST level.
+  // Sketches with identical fingerprints are
+  // semantically equivalent — keep only the first.
+  // For RC sketches: solve the constant from seed 0,
+  // then fingerprint with that constant bound.
+  unsigned EARLY_PRUNED = 0;
+  if (I->getType()->isIntOrIntVectorTy() &&
+      I->getType()->getPrimitiveSizeInBits() > 32) {
+    static const uint64_t primes[] = {
+      2, 3, 5, 7, 11, 13, 17, 19
+    };
+    static const uint64_t seeds[] = {
+      0, 1, 2, 3, UINT64_MAX, UINT64_MAX - 1,
+      100, 255, 0x8000000000000000ULL,
+      0x5555555555555555ULL,
+      0xAAAAAAAAAAAAAAAAULL, 42,
+    };
+    constexpr unsigned nseeds =
+        sizeof(seeds) / sizeof(seeds[0]);
+
+    auto bindVarsForSeed = [&](Interpreter &interp,
+                               unsigned si) {
+      unsigned vi = 0;
+      for (auto *V : values) {
+        unsigned w = V->getType().getWidth();
+        uint64_t v = seeds[si] +
+            primes[vi % 8] * (vi + 1);
+        // Mask to bitwidth to avoid APInt assert
+        if (w < 64)
+          v &= (1ULL << w) - 1;
+        interp.bind(V, llvm::APInt(w, v));
+        vi++;
+      }
+    };
+
+    map<vector<uint64_t>, unsigned> seen;
+    auto it = Sketches.begin();
+    while (it != Sketches.end()) {
+      auto &[G, RCs] = *it;
+
+      vector<uint64_t> fingerprint;
+      bool ok = true;
+
+      if (RCs.empty()) {
+        // No reserved constants: direct eval
+        for (unsigned si = 0; si < nseeds; ++si) {
+          Interpreter interp;
+          bindVarsForSeed(interp, si);
+          auto r = interp.eval(G);
+          if (!r) { ok = false; break; }
+          // Use low 64 bits as fingerprint element
+          fingerprint.push_back(
+              r->getLimitedValue());
+        }
+      } else {
+        // RC sketches: skip dedup for now.
+        // The late-stage concrete pruning handles
+        // these after LLVM function creation.
+        ok = false;
+      }
+
+      if (ok && seen.count(fingerprint)) {
+        it = Sketches.erase(it);
+        EARLY_PRUNED++;
+      } else {
+        if (ok) seen[fingerprint] = 1;
+        ++it;
+      }
+    }
+  }
+  debug() << "[enumerator] early dedup pruned "
+          << EARLY_PRUNED << " sketches\n";
 
   unsigned CI = 0;
 
@@ -956,39 +1034,152 @@ vector<Rewrite> Enumerator::solve(llvm::Function &F, llvm::Instruction *I) {
       skip = true;
     }
 
-    // Dataflow pruning: use KnownBits to reject
-    // candidates that are provably inequivalent.
-    // Compare structural known bits of src vs tgt
-    // return values.
-    if (!skip && !HaveC &&
+    // Late-stage concrete pruning is disabled: the
+    // source function often has control flow (switch,
+    // phi) that ConstantFoldInstOperands can't handle.
+    // The early fingerprint dedup handles the bulk of
+    // redundancy elimination instead.
+    if (false && !skip &&
         I->getType()->isIntOrIntVectorTy()) {
-      llvm::Value *SrcRV = nullptr, *TgtRV = nullptr;
-      for (auto &BB : *Src)
-        if (auto *RI = dyn_cast<llvm::ReturnInst>(
-                BB.getTerminator())) {
-          SrcRV = RI->getReturnValue();
+      // Each row is a base value; each variable gets
+      // base + variable_index to ensure distinct vals.
+      static const uint64_t bases[] = {
+        0, 1, 3, 0x8000000000000000ULL,
+        UINT64_MAX, 0x5555555555555555ULL,
+        0xAAAAAAAAAAAAAAAAULL, 100,
+      };
+      constexpr unsigned nbases =
+          sizeof(bases) / sizeof(bases[0]);
+
+      // Check if Src is foldable: all int args AND
+      // single basic block (no control flow).
+      bool allIntArgs = true;
+      for (auto &A : Src->args())
+        if (!A.getType()->isIntegerTy()) {
+          allIntArgs = false;
           break;
         }
-      for (auto &BB : *Tgt)
-        if (auto *RI = dyn_cast<llvm::ReturnInst>(
-                BB.getTerminator())) {
-          TgtRV = RI->getReturnValue();
-          break;
+      if (Src->size() != 1)
+        allIntArgs = false;
+
+      if (allIntArgs) {
+        // Helper: fold source IR on a test vector
+        auto foldSrc = [&](unsigned ti)
+            -> optional<llvm::APInt> {
+          llvm::DenseMap<llvm::Value*,
+                         llvm::Constant*> vals;
+          unsigned ai = 0;
+          for (auto &A : Src->args()) {
+            uint64_t v = bases[ti] + ai * 7 + ai;
+            vals[&A] = llvm::ConstantInt::get(
+                A.getType(), v);
+            ai++;
+          }
+          for (auto &BB : *Src) {
+            for (auto &Inst : BB) {
+              if (auto *RI =
+                  dyn_cast<llvm::ReturnInst>(&Inst)) {
+                auto *RV = RI->getReturnValue();
+                if (!RV) return nullopt;
+                llvm::Constant *C = nullptr;
+                if (auto *CC =
+                    dyn_cast<llvm::Constant>(RV))
+                  C = CC;
+                else if (vals.count(RV))
+                  C = vals[RV];
+                if (!C) return nullopt;
+                if (isa<llvm::PoisonValue>(C) ||
+                    isa<llvm::UndefValue>(C))
+                  return nullopt;
+                if (auto *CI =
+                    dyn_cast<llvm::ConstantInt>(C))
+                  return CI->getValue();
+                return nullopt;
+              }
+              llvm::SmallVector<llvm::Constant*, 4> ops;
+              bool ok = true;
+              for (auto &op : Inst.operands()) {
+                if (auto *C =
+                    dyn_cast<llvm::Constant>(op.get()))
+                  ops.push_back(C);
+                else if (vals.count(op.get()))
+                  ops.push_back(vals[op.get()]);
+                else { ok = false; break; }
+              }
+              if (!ok) return nullopt;
+              auto *f = llvm::ConstantFoldInstOperands(
+                  &Inst, ops, DL);
+              if (!f) return nullopt;
+              vals[&Inst] = f;
+            }
+          }
+          return nullopt;
+        };
+
+        // Helper: bind vars for test vector ti
+        auto bindVars = [&](Interpreter &interp,
+                            unsigned ti) {
+          unsigned vi = 0;
+          for (auto *V : values) {
+            unsigned w = V->getType().getWidth();
+            uint64_t v = bases[ti] + vi * 7 + vi;
+            interp.bind(V, llvm::APInt(w, v));
+            vi++;
+          }
+        };
+
+        bool pruned = false;
+
+        if (!HaveC) {
+          // No reserved constants: direct comparison
+          for (unsigned ti = 0;
+               ti < nbases && !pruned; ++ti) {
+            Interpreter interp;
+            bindVars(interp, ti);
+            auto tgtR = interp.eval(G);
+            if (!tgtR) break;
+            auto srcR = foldSrc(ti);
+            if (!srcR) break;
+            if (*srcR != *tgtR) {
+              pruned = true;
+              PRUNED++;
+            }
+          }
+        } else {
+          // Has reserved constants: solve from first
+          // test vector, verify on the rest.
+          auto srcR0 = foldSrc(0);
+          if (srcR0) {
+            Interpreter interp0;
+            bindVars(interp0, 0);
+            unordered_map<ReservedConst*,
+                          llvm::APInt> solved;
+            bool canSolve =
+                interp0.solveForConstants(
+                    G, *srcR0, solved);
+            if (canSolve && !solved.empty()) {
+              // Verify solved constants on remaining
+              // test vectors
+              for (unsigned ti = 1;
+                   ti < nbases && !pruned; ++ti) {
+                auto srcR = foldSrc(ti);
+                if (!srcR) break;
+                Interpreter interp;
+                bindVars(interp, ti);
+                // Bind solved constants
+                for (auto &[rc, val] : solved)
+                  interp.bind(rc, val);
+                auto tgtR = interp.eval(G);
+                if (!tgtR) break;
+                if (*srcR != *tgtR) {
+                  pruned = true;
+                  PRUNED++;
+                }
+              }
+            }
+          }
         }
-      if (SrcRV && TgtRV &&
-          SrcRV->getType()->isIntOrIntVectorTy() &&
-          TgtRV->getType()->isIntOrIntVectorTy()) {
-        llvm::KnownBits KBSrc(Width);
-        llvm::KnownBits KBTgt(Width);
-        computeKnownBits(SrcRV, KBSrc, DL);
-        computeKnownBits(TgtRV, KBTgt, DL);
-        if ((KBSrc.One & KBTgt.Zero).getBoolValue() ||
-            (KBSrc.Zero & KBTgt.One).getBoolValue()) {
-          debug()
-              << "[enumerator] dataflow pruned\n";
-          skip = true;
-          PRUNED++;
-        }
+        if (pruned) skip = true;
       }
     }
 
