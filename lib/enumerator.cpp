@@ -806,6 +806,149 @@ bool Enumerator::getDepth2Sketches(
   return true;
 }
 
+// Depth-3 enumeration: compose three operations.
+// Builds depth-2 expressions (deduped by fingerprint),
+// then uses them as operands in a third layer.
+bool Enumerator::getDepth3Sketches(
+    llvm::Value *V, vector<Sketch> &sketches) {
+  type expected{V->getType()};
+  if (expected.isFP())
+    return true;
+
+  // Only worthwhile for types with enough entropy
+  // for fingerprint dedup to be reliable.
+  if (expected.getWidth() <= 32)
+    return true;
+
+  static const uint64_t primes[] = {
+    2, 3, 5, 7, 11, 13, 17, 19
+  };
+  static const uint64_t seeds[] = {
+    0, 1, UINT64_MAX, 100,
+  };
+  constexpr unsigned nseeds =
+      sizeof(seeds) / sizeof(seeds[0]);
+
+  // Step 1: build depth-2 inner expressions (var op var)
+  // then dedup by fingerprint.
+  struct D2Expr {
+    Value *expr;
+    vector<uint64_t> fingerprint;
+  };
+  vector<D2Expr> d2exprs;
+  map<vector<uint64_t>, bool> d2seen;
+
+  // Generate depth-1 inner ops (vars + unary(var))
+  vector<Value*> d1vars;
+  for (auto *V : values) {
+    if (!V->getType().same_width(expected))
+      continue;
+    d1vars.push_back(V);
+  }
+  vector<Value*> d1exprs(d1vars);
+  for (auto *Op0 : d1vars) {
+    for (unsigned K = UnaryOp::bitreverse;
+         K <= UnaryOp::cttz; ++K) {
+      UnaryOp::Op op = static_cast<UnaryOp::Op>(K);
+      auto tys = getUnaryOpWorkTypes(expected, op);
+      for (auto &workty : tys) {
+        auto U = make_unique<UnaryOp>(
+            op, *Op0, workty);
+        d1exprs.push_back(U.get());
+        exprs.emplace_back(std::move(U));
+      }
+    }
+  }
+
+  // Generate depth-2 by composing depth-1
+  for (unsigned K = BinaryOp::band;
+       K <= BinaryOp::shl; ++K) {
+    BinaryOp::Op op = static_cast<BinaryOp::Op>(K);
+    if (expected.getBits() == 1 &&
+        !BinaryOp::isLogical(op))
+      continue;
+    auto worktys = getBinaryOpWorkTypes(expected, op);
+    for (auto &workty : worktys) {
+      for (auto *Op0 : d1exprs) {
+        if (!expected.same_width(Op0->getType()))
+          continue;
+        for (auto *Op1 : d1exprs) {
+          if (!expected.same_width(Op1->getType()))
+            continue;
+          if (BinaryOp::isCommutative(op) && Op1 < Op0)
+            continue;
+          auto B = make_unique<BinaryOp>(
+              op, *Op0, *Op1, workty);
+          // Fingerprint for dedup
+          vector<uint64_t> fp;
+          bool ok = true;
+          for (unsigned si = 0; si < nseeds; ++si) {
+            Interpreter interp;
+            unsigned vi = 0;
+            for (auto *V : values) {
+              unsigned w = V->getType().getWidth();
+              uint64_t v = seeds[si] +
+                  primes[vi % 8] * (vi + 1);
+              if (w < 64) v &= (1ULL << w) - 1;
+              interp.bind(V, llvm::APInt(w, v));
+              vi++;
+            }
+            auto r = interp.eval(B.get());
+            if (!r) { ok = false; break; }
+            fp.push_back(r->getLimitedValue());
+          }
+          if (ok && !d2seen.count(fp)) {
+            d2seen[fp] = true;
+            d2exprs.push_back({B.get(), fp});
+          }
+          exprs.emplace_back(std::move(B));
+        }
+      }
+    }
+  }
+
+  debug() << "[enumerator] depth-3: " << d2exprs.size()
+          << " unique depth-2 inner expressions\n";
+
+  // Step 2: compose depth-2 expressions into depth-3
+  // outer_op(d2_expr, var) and outer_op(d2_expr, const)
+  for (auto &d2 : d2exprs) {
+    for (unsigned K = BinaryOp::band;
+         K <= BinaryOp::shl; ++K) {
+      BinaryOp::Op op = static_cast<BinaryOp::Op>(K);
+      if (expected.getBits() == 1 &&
+          !BinaryOp::isLogical(op))
+        continue;
+      auto worktys = getBinaryOpWorkTypes(expected, op);
+      for (auto &workty : worktys) {
+        // d3 = outer_op(d2_expr, var)
+        for (auto *V : values) {
+          if (!expected.same_width(V->getType()))
+            continue;
+          set<ReservedConst*> rcs;
+          auto B = make_unique<BinaryOp>(
+              op, *d2.expr, *V, workty);
+          sketches.push_back(
+              {B.get(), std::move(rcs)});
+          exprs.emplace_back(std::move(B));
+        }
+        // d3 = outer_op(d2_expr, const)
+        auto RC = make_unique<ReservedConst>(workty);
+        set<ReservedConst*> rcs;
+        rcs.insert(RC.get());
+        auto B = make_unique<BinaryOp>(
+            op, *d2.expr, *RC, workty);
+        sketches.push_back(
+            {B.get(), std::move(rcs)});
+        exprs.emplace_back(std::move(RC));
+        exprs.emplace_back(std::move(B));
+      }
+    }
+  }
+
+  return true;
+}
+
 using Candidate = tuple<llvm::Function*, llvm::Function*, Inst*,
                         unordered_map<const llvm::Argument*, ReservedConst*>,
                         bool>;
@@ -871,6 +1014,8 @@ vector<Rewrite> Enumerator::solve(llvm::Function &F, llvm::Instruction *I) {
   unsigned depth1_count = Sketches.size();
   if (config::enable_depth2)
     getDepth2Sketches(&*I, Sketches);
+  if (config::enable_depth3)
+    getDepth3Sketches(&*I, Sketches);
   debug() << "[enumerator] " << depth1_count
           << " depth-1 + "
           << (Sketches.size() - depth1_count)

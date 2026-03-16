@@ -32,6 +32,8 @@ class Enumerator {
                    std::vector<Sketch>&);
   bool getDepth2Sketches(llvm::Value *V,
                          std::vector<Sketch>&);
+  bool getDepth3Sketches(llvm::Value *V,
+                         std::vector<Sketch>&);
 public:
   std::vector<Rewrite> solve(llvm::Function&,
                              llvm::Instruction*);

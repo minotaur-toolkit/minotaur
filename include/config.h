@@ -20,6 +20,7 @@ extern bool disable_avx512;
 extern bool show_stats;
 extern bool return_first_solution;
 extern bool enable_depth2;
+extern bool enable_depth3;
 
 extern unsigned slice_to;
 extern unsigned slicer_max_depth;

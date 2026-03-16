@@ -124,6 +124,11 @@ llvm::cl::opt<bool> enable_depth2(
     llvm::cl::desc("minotaur: enable depth-2 enumeration"),
     llvm::cl::init(false));
 
+llvm::cl::opt<bool> enable_depth3(
+    "minotaur-enable-depth3",
+    llvm::cl::desc("minotaur: enable depth-3 enumeration"),
+    llvm::cl::init(false));
+
 static bool dom_check(llvm::Value *V, DominatorTree &DT, llvm::Use &U) {
   if (auto I = dyn_cast<Instruction>(V)) {
     for (auto &op : I->operands()) {
@@ -277,6 +282,7 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
   config::debug_parser = debug_parser;
   config::slice_to = slice_to;
   config::enable_depth2 = enable_depth2;
+  config::enable_depth3 = enable_depth3;
   smt::solver_print_queries(smt_verbose);
 
   smt::set_query_timeout(to_string(smt_to * 1000));
