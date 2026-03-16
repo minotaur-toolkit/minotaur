@@ -15,3 +15,5 @@ dump.rdb
 
 # Analysis artifacts
 *.ll.skip
+cache-infer.log
+uitofp_fmul_96_instances.txt
