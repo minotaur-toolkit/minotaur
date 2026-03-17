@@ -32,6 +32,22 @@ entry:
 }
 )";
 
+constexpr char I64SelectTestIR[] = R"(
+define i64 @test(i1 %c, i64 %x, i64 %y, i64 %z) {
+entry:
+  %root = add i64 %x, %y
+  ret i64 %root
+}
+)";
+
+constexpr char I1CompareTestIR[] = R"(
+define i1 @test(i1 %c, i64 %x, i64 %y, i64 %z) {
+entry:
+  %root = icmp eq i64 %x, %y
+  ret i1 %root
+}
+)";
+
 constexpr char I32TestIR[] = R"(
 define i32 @test(i32 %x, i32 %y, i32 %z) {
 entry:
@@ -203,6 +219,100 @@ TEST(EnumeratorTest, Depth2AddsRepresentativeCompositions) {
   }
 }
 
+TEST(EnumeratorTest, Depth2AddsSelectAndMinMaxCompositions) {
+  auto Depth1 = collectSketches(
+      I64SelectTestIR, true, false, false);
+  auto Depth2 = collectSketches(
+      I64SelectTestIR, true, true, false);
+
+  ASSERT_FALSE(Depth1.empty());
+  ASSERT_FALSE(Depth2.empty());
+
+  const SketchCase Cases[] = {
+    {
+      "smax(bswap(x), y)",
+      {
+        "(smax i64 (bswap i64 (var i64 %x)) (var i64 %y))",
+      },
+    },
+    {
+      "select(c, bswap(x), y)",
+      {
+        "(select (var i1 %c) (bswap i64 (var i64 %x)) "
+        "(var i64 %y))",
+      },
+    },
+    {
+      "and(select(c, x, y), z)",
+      {
+        "(and i64 (select (var i1 %c) (var i64 %x) "
+        "(var i64 %y)) (var i64 %z))",
+      },
+    },
+    {
+      "select(c, smax(x, y), z)",
+      {
+        "(select (var i1 %c) (smax i64 (var i64 %x) "
+        "(var i64 %y)) (var i64 %z))",
+        "(select (var i1 %c) (smax i64 (var i64 %y) "
+        "(var i64 %x)) (var i64 %z))",
+      },
+    },
+  };
+
+  for (const auto &C : Cases) {
+    SCOPED_TRACE(C.name);
+    EXPECT_FALSE(containsSketch(Depth1, C.expected))
+        << dumpSketches(Depth1);
+    EXPECT_TRUE(containsSketch(Depth2, C.expected))
+        << dumpSketches(Depth2);
+  }
+}
+
+TEST(EnumeratorTest, Depth2AddsCompareOverDeepValueExpressions) {
+  auto Depth1 = collectSketches(
+      I1CompareTestIR, true, false, false);
+  auto Depth2 = collectSketches(
+      I1CompareTestIR, true, true, false);
+
+  ASSERT_FALSE(Depth1.empty());
+  ASSERT_FALSE(Depth2.empty());
+
+  const SketchCase Cases[] = {
+    {
+      "icmp(add(x, y), z)",
+      {
+        "(icmp_slt (add i64 (var i64 %x) (var i64 %y)) "
+        "(var i64 %z) b1)",
+        "(icmp_slt (add i64 (var i64 %y) (var i64 %x)) "
+        "(var i64 %z) b1)",
+      },
+    },
+    {
+      "icmp(select(c, x, y), z)",
+      {
+        "(icmp_eq (select (var i1 %c) (var i64 %x) "
+        "(var i64 %y)) (var i64 %z) b1)",
+      },
+    },
+    {
+      "icmp(sext(c), z)",
+      {
+        "(icmp_sgt (conv_sext (var i1 %c) i1 i64) "
+        "(var i64 %z) b1)",
+      },
+    },
+  };
+
+  for (const auto &C : Cases) {
+    SCOPED_TRACE(C.name);
+    EXPECT_FALSE(containsSketch(Depth1, C.expected))
+        << dumpSketches(Depth1);
+    EXPECT_TRUE(containsSketch(Depth2, C.expected))
+        << dumpSketches(Depth2);
+  }
+}
+
 TEST(EnumeratorTest, Depth2SkipsDoubleConstantOuterSketches) {
   auto Depth1 = collectDefaultSketches(false, false);
   auto Depth2 = collectDefaultSketches(true, false);
@@ -255,6 +365,8 @@ TEST(EnumeratorTest, Depth3OnlyVariants) {
       {
         "(or i64 (or i64 (var i64 %y) "
         "(bswap i64 (var i64 %x))) (var i64 %z))",
+        "(or i64 (or i64 (bswap i64 (var i64 %x)) "
+        "(var i64 %y)) (var i64 %z))",
       },
     },
     {
@@ -262,6 +374,8 @@ TEST(EnumeratorTest, Depth3OnlyVariants) {
       {
         "(xor i64 (or i64 (var i64 %y) "
         "(bitreverse i64 (var i64 %x))) (var i64 %z))",
+        "(xor i64 (or i64 (bitreverse i64 (var i64 %x)) "
+        "(var i64 %y)) (var i64 %z))",
       },
     },
     {
@@ -269,6 +383,62 @@ TEST(EnumeratorTest, Depth3OnlyVariants) {
       {
         "(shl i64 (shl i64 (bswap i64 (var i64 %x)) "
         "(var i64 %y)) (var i64 %z))",
+      },
+    },
+  };
+
+  for (const auto &C : Cases) {
+    SCOPED_TRACE(C.name);
+    EXPECT_FALSE(containsSketch(Depth2Only, C.expected))
+        << dumpSketches(Depth2Only);
+    EXPECT_TRUE(containsSketch(Depth3Enabled, C.expected))
+        << dumpSketches(Depth3Enabled);
+  }
+}
+
+TEST(EnumeratorTest, Depth3AddsSelectCompositions) {
+  auto Depth2Only = collectSketches(
+      I64SelectTestIR, true, true, false);
+  auto Depth3Enabled = collectSketches(
+      I64SelectTestIR, true, true, true);
+
+  ASSERT_FALSE(Depth2Only.empty());
+  ASSERT_FALSE(Depth3Enabled.empty());
+
+  const SketchCase Cases[] = {
+    {
+      "and(select(c, bswap(x), y), z)",
+      {
+        "(and i64 (select (var i1 %c) (bswap i64 (var i64 %x)) "
+        "(var i64 %y)) (var i64 %z))",
+      },
+    },
+  };
+
+  for (const auto &C : Cases) {
+    SCOPED_TRACE(C.name);
+    EXPECT_FALSE(containsSketch(Depth2Only, C.expected))
+        << dumpSketches(Depth2Only);
+    EXPECT_TRUE(containsSketch(Depth3Enabled, C.expected))
+        << dumpSketches(Depth3Enabled);
+  }
+}
+
+TEST(EnumeratorTest, Depth3AddsCompareOverDeeperValueExpressions) {
+  auto Depth2Only = collectSketches(
+      I1CompareTestIR, true, true, false);
+  auto Depth3Enabled = collectSketches(
+      I1CompareTestIR, true, true, true);
+
+  ASSERT_FALSE(Depth2Only.empty());
+  ASSERT_FALSE(Depth3Enabled.empty());
+
+  const SketchCase Cases[] = {
+    {
+      "icmp(add(bswap(x), const), z)",
+      {
+        "(icmp_slt (add i64 (bswap i64 (var i64 %x)) "
+        "(reservedconst i64 null)) (var i64 %z) b1)",
       },
     },
   };

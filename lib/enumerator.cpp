@@ -46,6 +46,41 @@ namespace minotaur {
 using debug = config::DebugStream<
     &config::debug_enumerator>;
 
+namespace {
+
+constexpr BinaryOp::Op DeepBinaryOps[] = {
+  BinaryOp::band,
+  BinaryOp::bor,
+  BinaryOp::bxor,
+  BinaryOp::lshr,
+  BinaryOp::ashr,
+  BinaryOp::shl,
+  BinaryOp::umax,
+  BinaryOp::umin,
+  BinaryOp::smax,
+  BinaryOp::smin,
+};
+
+constexpr BinaryOp::Op DeepCompareBinaryOps[] = {
+  BinaryOp::band,
+  BinaryOp::bor,
+  BinaryOp::bxor,
+  BinaryOp::add,
+  BinaryOp::sub,
+  BinaryOp::mul,
+  BinaryOp::sdiv,
+  BinaryOp::udiv,
+  BinaryOp::lshr,
+  BinaryOp::ashr,
+  BinaryOp::shl,
+  BinaryOp::umax,
+  BinaryOp::umin,
+  BinaryOp::smax,
+  BinaryOp::smin,
+};
+
+} // namespace
+
 void Enumerator::findInputs(llvm::Function &F,
                             llvm::Instruction *root,
                             llvm::DominatorTree &DT) {
@@ -664,6 +699,175 @@ bool Enumerator::getDepth2Sketches(
   if (expected.isFP())
     return true;
 
+  // For scalar i1 roots, deeper opportunities are usually
+  // compare-over-arithmetic shapes rather than boolean-only trees.
+  if (expected.getWidth() == 1) {
+    struct InnerExpr {
+      Value *expr;
+      set<ReservedConst*> rcs;
+    };
+
+    auto isScalarInt = [](const type &ty) {
+      if (ty.isFP() || ty.getLane() != 1)
+        return false;
+      unsigned w = ty.getWidth();
+      return w == 8 || w == 16 || w == 32 || w == 64;
+    };
+    auto isScalarIntSource = [](const type &ty) {
+      if (ty.isFP() || ty.getLane() != 1)
+        return false;
+      unsigned w = ty.getWidth();
+      return w == 1 || w == 8 || w == 16 || w == 32 || w == 64;
+    };
+
+    map<unsigned, vector<Value*>> leaves_by_bits;
+    for (auto *Value : values) {
+      if (!isScalarInt(Value->getType()))
+        continue;
+      leaves_by_bits[Value->getType().getWidth()].push_back(Value);
+    }
+
+    for (auto &[bits, leaves] : leaves_by_bits) {
+      type target_ty = type::Integer(bits);
+      vector<InnerExpr> inners;
+
+      for (auto *Leaf : leaves) {
+        for (unsigned K = UnaryOp::bitreverse;
+             K <= UnaryOp::cttz; ++K) {
+          UnaryOp::Op op = static_cast<UnaryOp::Op>(K);
+          auto U = make_unique<UnaryOp>(op, *Leaf, target_ty);
+          inners.push_back({U.get(), {}});
+          exprs.emplace_back(std::move(U));
+        }
+      }
+
+      for (auto *Value : values) {
+        auto from_ty = Value->getType();
+        if (!isScalarIntSource(from_ty) || from_ty.same_width(target_ty))
+          continue;
+
+        if (target_ty.getWidth() > from_ty.getWidth() &&
+            target_ty.getWidth() % from_ty.getWidth() == 0) {
+          auto SExt = make_unique<IntConversion>(
+              IntConversion::sext, *Value, 1,
+              from_ty.getBits(), target_ty.getBits());
+          inners.push_back({SExt.get(), {}});
+          exprs.emplace_back(std::move(SExt));
+
+          auto ZExt = make_unique<IntConversion>(
+              IntConversion::zext, *Value, 1,
+              from_ty.getBits(), target_ty.getBits());
+          inners.push_back({ZExt.get(), {}});
+          exprs.emplace_back(std::move(ZExt));
+        } else if (target_ty.getWidth() < from_ty.getWidth() &&
+                   from_ty.getWidth() % target_ty.getWidth() == 0) {
+          auto Trunc = make_unique<IntConversion>(
+              IntConversion::trunc, *Value, 1,
+              from_ty.getBits(), target_ty.getBits());
+          inners.push_back({Trunc.get(), {}});
+          exprs.emplace_back(std::move(Trunc));
+        }
+      }
+
+      for (auto op : DeepCompareBinaryOps) {
+        for (auto *Op0 : leaves) {
+          for (auto *Op1 : leaves) {
+            if (BinaryOp::isCommutative(op) && Op1 < Op0)
+              continue;
+            auto B = make_unique<BinaryOp>(
+                op, *Op0, *Op1, target_ty);
+            inners.push_back({B.get(), {}});
+            exprs.emplace_back(std::move(B));
+          }
+        }
+      }
+
+      for (auto op : DeepCompareBinaryOps) {
+        if (op == BinaryOp::sub)
+          continue;
+        for (auto *Op0 : leaves) {
+          auto RC = make_unique<ReservedConst>(target_ty);
+          set<ReservedConst*> rcs;
+          rcs.insert(RC.get());
+          auto B = make_unique<BinaryOp>(
+              op, *Op0, *RC, target_ty);
+          inners.push_back({B.get(), std::move(rcs)});
+          exprs.emplace_back(std::move(RC));
+          exprs.emplace_back(std::move(B));
+        }
+      }
+
+      for (auto *Cond : values) {
+        if (!Cond->getType().isBool())
+          continue;
+        for (auto *TrueV : leaves) {
+          for (auto *FalseV : leaves) {
+            if (TrueV == FalseV)
+              continue;
+            auto S = make_unique<Select>(*Cond, *TrueV, *FalseV);
+            inners.push_back({S.get(), {}});
+            exprs.emplace_back(std::move(S));
+          }
+
+          auto FalseRC = make_unique<ReservedConst>(target_ty);
+          set<ReservedConst*> false_rcs;
+          false_rcs.insert(FalseRC.get());
+          auto FalseSel = make_unique<Select>(*Cond, *TrueV, *FalseRC);
+          inners.push_back({FalseSel.get(), std::move(false_rcs)});
+          exprs.emplace_back(std::move(FalseRC));
+          exprs.emplace_back(std::move(FalseSel));
+
+          auto TrueRC = make_unique<ReservedConst>(target_ty);
+          set<ReservedConst*> true_rcs;
+          true_rcs.insert(TrueRC.get());
+          auto TrueSel = make_unique<Select>(*Cond, *TrueRC, *TrueV);
+          inners.push_back({TrueSel.get(), std::move(true_rcs)});
+          exprs.emplace_back(std::move(TrueRC));
+          exprs.emplace_back(std::move(TrueSel));
+        }
+      }
+
+      for (auto &inner : inners) {
+        for (auto *Leaf : leaves) {
+          for (unsigned C = ICmp::Cond::eq; C <= ICmp::Cond::sge; ++C) {
+            ICmp::Cond Cond = static_cast<ICmp::Cond>(C);
+            {
+              set<ReservedConst*> rcs(inner.rcs);
+              auto Cmp = make_unique<ICmp>(Cond, *inner.expr, *Leaf, 1);
+              sketches.push_back({Cmp.get(), std::move(rcs)});
+              exprs.emplace_back(std::move(Cmp));
+            }
+            {
+              set<ReservedConst*> rcs(inner.rcs);
+              auto Cmp = make_unique<ICmp>(Cond, *Leaf, *inner.expr, 1);
+              sketches.push_back({Cmp.get(), std::move(rcs)});
+              exprs.emplace_back(std::move(Cmp));
+            }
+          }
+        }
+
+        if (!inner.rcs.empty())
+          continue;
+
+        for (unsigned C = ICmp::Cond::eq; C <= ICmp::Cond::sge; ++C) {
+          ICmp::Cond Cond = static_cast<ICmp::Cond>(C);
+          if (Cond == ICmp::sle || Cond == ICmp::ule)
+            continue;
+
+          auto RC = make_unique<ReservedConst>(target_ty);
+          set<ReservedConst*> rcs;
+          rcs.insert(RC.get());
+          auto Cmp = make_unique<ICmp>(Cond, *inner.expr, *RC, 1);
+          sketches.push_back({Cmp.get(), std::move(rcs)});
+          exprs.emplace_back(std::move(RC));
+          exprs.emplace_back(std::move(Cmp));
+        }
+      }
+    }
+
+    return true;
+  }
+
   // Step 1: build depth-1 inner expressions (var op var)
   // and (var op const) that match the expected width.
   struct InnerExpr {
@@ -689,9 +893,7 @@ bool Enumerator::getDepth2Sketches(
   }
 
   // Inner binary ops: (var op var)
-  for (unsigned K = BinaryOp::band;
-       K <= BinaryOp::shl; ++K) {
-    BinaryOp::Op op = static_cast<BinaryOp::Op>(K);
+  for (auto op : DeepBinaryOps) {
     if (expected.getBits() == 1 && !BinaryOp::isLogical(op))
       continue;
     auto worktys = getBinaryOpWorkTypes(expected, op);
@@ -714,9 +916,7 @@ bool Enumerator::getDepth2Sketches(
   }
 
   // Inner binary ops: (var op const)
-  for (unsigned K = BinaryOp::band;
-       K <= BinaryOp::shl; ++K) {
-    BinaryOp::Op op = static_cast<BinaryOp::Op>(K);
+  for (auto op : DeepBinaryOps) {
     if (op == BinaryOp::sub)
       continue; // sub x, c == add x, -c
     if (expected.getBits() == 1 && !BinaryOp::isLogical(op))
@@ -738,16 +938,49 @@ bool Enumerator::getDepth2Sketches(
     }
   }
 
+  // Inner selects: select(cond, var, var/const)
+  for (auto *Cond : values) {
+    if (!Cond->getType().isBool())
+      continue;
+    for (auto *TrueV : values) {
+      if (!expected.same_width(TrueV->getType()))
+        continue;
+      for (auto *FalseV : values) {
+        if (!expected.same_width(FalseV->getType()))
+          continue;
+        if (TrueV == FalseV)
+          continue;
+        auto S = make_unique<Select>(*Cond, *TrueV, *FalseV);
+        inners.push_back({S.get(), {}});
+        exprs.emplace_back(std::move(S));
+      }
+
+      auto FalseRC = make_unique<ReservedConst>(expected);
+      set<ReservedConst*> false_rcs;
+      false_rcs.insert(FalseRC.get());
+      auto FalseSel = make_unique<Select>(*Cond, *TrueV, *FalseRC);
+      inners.push_back({FalseSel.get(), std::move(false_rcs)});
+      exprs.emplace_back(std::move(FalseRC));
+      exprs.emplace_back(std::move(FalseSel));
+
+      auto TrueRC = make_unique<ReservedConst>(expected);
+      set<ReservedConst*> true_rcs;
+      true_rcs.insert(TrueRC.get());
+      auto TrueSel = make_unique<Select>(*Cond, *TrueRC, *TrueV);
+      inners.push_back({TrueSel.get(), std::move(true_rcs)});
+      exprs.emplace_back(std::move(TrueRC));
+      exprs.emplace_back(std::move(TrueSel));
+    }
+  }
+
   debug() << "[enumerator] depth-2: " << inners.size()
           << " inner expressions\n";
 
   // Step 2: compose — apply a second operation layer.
   // outer_op(inner, var) and outer_op(inner, const)
-  // Limit: only integer non-FP binary ops as outer.
+  // Limit: deep bitwise/minmax ops plus select.
   for (auto &inner : inners) {
-    for (unsigned K = BinaryOp::band;
-         K <= BinaryOp::shl; ++K) {
-      BinaryOp::Op op = static_cast<BinaryOp::Op>(K);
+    for (auto op : DeepBinaryOps) {
       if (expected.getBits() == 1 &&
           !BinaryOp::isLogical(op))
         continue;
@@ -785,6 +1018,47 @@ bool Enumerator::getDepth2Sketches(
     }
   }
 
+  // select(cond, inner, var/const) and select(cond, var/const, inner)
+  for (auto &inner : inners) {
+    for (auto *Cond : values) {
+      if (!Cond->getType().isBool())
+        continue;
+      for (auto *V : values) {
+        if (!expected.same_width(V->getType()))
+          continue;
+        {
+          set<ReservedConst*> rcs(inner.rcs);
+          auto S = make_unique<Select>(*Cond, *inner.expr, *V);
+          sketches.push_back({S.get(), std::move(rcs)});
+          exprs.emplace_back(std::move(S));
+        }
+        {
+          set<ReservedConst*> rcs(inner.rcs);
+          auto S = make_unique<Select>(*Cond, *V, *inner.expr);
+          sketches.push_back({S.get(), std::move(rcs)});
+          exprs.emplace_back(std::move(S));
+        }
+      }
+      if (inner.rcs.empty()) {
+        auto FalseRC = make_unique<ReservedConst>(expected);
+        set<ReservedConst*> false_rcs;
+        false_rcs.insert(FalseRC.get());
+        auto FalseSel = make_unique<Select>(*Cond, *inner.expr, *FalseRC);
+        sketches.push_back({FalseSel.get(), std::move(false_rcs)});
+        exprs.emplace_back(std::move(FalseRC));
+        exprs.emplace_back(std::move(FalseSel));
+
+        auto TrueRC = make_unique<ReservedConst>(expected);
+        set<ReservedConst*> true_rcs;
+        true_rcs.insert(TrueRC.get());
+        auto TrueSel = make_unique<Select>(*Cond, *TrueRC, *inner.expr);
+        sketches.push_back({TrueSel.get(), std::move(true_rcs)});
+        exprs.emplace_back(std::move(TrueRC));
+        exprs.emplace_back(std::move(TrueSel));
+      }
+    }
+  }
+
   // Also: unary(inner) compositions — e.g. ctpop(and(x,y))
   for (auto &inner : inners) {
     if (!inner.rcs.empty())
@@ -815,6 +1089,294 @@ bool Enumerator::getDepth3Sketches(
   if (expected.isFP())
     return true;
 
+  if (expected.getWidth() == 1) {
+    static const uint64_t primes[] = {
+      2, 3, 5, 7, 11, 13, 17, 19
+    };
+    static const uint64_t seeds[] = {
+      0, 1, UINT64_MAX, 100,
+    };
+    constexpr unsigned nseeds =
+        sizeof(seeds) / sizeof(seeds[0]);
+
+    struct InnerExpr {
+      Value *expr;
+      set<ReservedConst*> rcs;
+    };
+    struct D2Expr {
+      Value *expr;
+      set<ReservedConst*> rcs;
+    };
+
+    auto isScalarInt = [](const type &ty) {
+      if (ty.isFP() || ty.getLane() != 1)
+        return false;
+      unsigned w = ty.getWidth();
+      return w == 8 || w == 16 || w == 32 || w == 64;
+    };
+    auto isScalarIntSource = [](const type &ty) {
+      if (ty.isFP() || ty.getLane() != 1)
+        return false;
+      unsigned w = ty.getWidth();
+      return w == 1 || w == 8 || w == 16 || w == 32 || w == 64;
+    };
+
+    map<unsigned, vector<Value*>> leaves_by_bits;
+    for (auto *Value : values) {
+      if (!isScalarInt(Value->getType()))
+        continue;
+      leaves_by_bits[Value->getType().getWidth()].push_back(Value);
+    }
+
+    for (auto &[bits, leaves] : leaves_by_bits) {
+      type target_ty = type::Integer(bits);
+      vector<InnerExpr> d1exprs;
+
+      for (auto *Leaf : leaves) {
+        for (unsigned K = UnaryOp::bitreverse;
+             K <= UnaryOp::cttz; ++K) {
+          UnaryOp::Op op = static_cast<UnaryOp::Op>(K);
+          auto U = make_unique<UnaryOp>(op, *Leaf, target_ty);
+          d1exprs.push_back({U.get(), {}});
+          exprs.emplace_back(std::move(U));
+        }
+      }
+
+      for (auto *Value : values) {
+        auto from_ty = Value->getType();
+        if (!isScalarIntSource(from_ty) || from_ty.same_width(target_ty))
+          continue;
+
+        if (target_ty.getWidth() > from_ty.getWidth() &&
+            target_ty.getWidth() % from_ty.getWidth() == 0) {
+          auto SExt = make_unique<IntConversion>(
+              IntConversion::sext, *Value, 1,
+              from_ty.getBits(), target_ty.getBits());
+          d1exprs.push_back({SExt.get(), {}});
+          exprs.emplace_back(std::move(SExt));
+
+          auto ZExt = make_unique<IntConversion>(
+              IntConversion::zext, *Value, 1,
+              from_ty.getBits(), target_ty.getBits());
+          d1exprs.push_back({ZExt.get(), {}});
+          exprs.emplace_back(std::move(ZExt));
+        } else if (target_ty.getWidth() < from_ty.getWidth() &&
+                   from_ty.getWidth() % target_ty.getWidth() == 0) {
+          auto Trunc = make_unique<IntConversion>(
+              IntConversion::trunc, *Value, 1,
+              from_ty.getBits(), target_ty.getBits());
+          d1exprs.push_back({Trunc.get(), {}});
+          exprs.emplace_back(std::move(Trunc));
+        }
+      }
+
+      for (auto op : DeepCompareBinaryOps) {
+        for (auto *Op0 : leaves) {
+          for (auto *Op1 : leaves) {
+            if (BinaryOp::isCommutative(op) && Op1 < Op0)
+              continue;
+            auto B = make_unique<BinaryOp>(
+                op, *Op0, *Op1, target_ty);
+            d1exprs.push_back({B.get(), {}});
+            exprs.emplace_back(std::move(B));
+          }
+        }
+      }
+
+      for (auto op : DeepCompareBinaryOps) {
+        if (op == BinaryOp::sub)
+          continue;
+        for (auto *Op0 : leaves) {
+          auto RC = make_unique<ReservedConst>(target_ty);
+          set<ReservedConst*> rcs;
+          rcs.insert(RC.get());
+          auto B = make_unique<BinaryOp>(
+              op, *Op0, *RC, target_ty);
+          d1exprs.push_back({B.get(), std::move(rcs)});
+          exprs.emplace_back(std::move(RC));
+          exprs.emplace_back(std::move(B));
+        }
+      }
+
+      for (auto *Cond : values) {
+        if (!Cond->getType().isBool())
+          continue;
+        for (auto *TrueV : leaves) {
+          for (auto *FalseV : leaves) {
+            if (TrueV == FalseV)
+              continue;
+            auto S = make_unique<Select>(*Cond, *TrueV, *FalseV);
+            d1exprs.push_back({S.get(), {}});
+            exprs.emplace_back(std::move(S));
+          }
+
+          auto FalseRC = make_unique<ReservedConst>(target_ty);
+          set<ReservedConst*> false_rcs;
+          false_rcs.insert(FalseRC.get());
+          auto FalseSel = make_unique<Select>(*Cond, *TrueV, *FalseRC);
+          d1exprs.push_back({FalseSel.get(), std::move(false_rcs)});
+          exprs.emplace_back(std::move(FalseRC));
+          exprs.emplace_back(std::move(FalseSel));
+
+          auto TrueRC = make_unique<ReservedConst>(target_ty);
+          set<ReservedConst*> true_rcs;
+          true_rcs.insert(TrueRC.get());
+          auto TrueSel = make_unique<Select>(*Cond, *TrueRC, *TrueV);
+          d1exprs.push_back({TrueSel.get(), std::move(true_rcs)});
+          exprs.emplace_back(std::move(TrueRC));
+          exprs.emplace_back(std::move(TrueSel));
+        }
+      }
+
+      vector<D2Expr> d2exprs;
+      map<vector<uint64_t>, bool> d2seen;
+      auto addDepth2Expr = [&](unique_ptr<Inst> I,
+                               set<ReservedConst*> rcs) {
+        Value *Expr = static_cast<Value*>(I.get());
+        if (rcs.empty()) {
+          vector<uint64_t> fp;
+          bool ok = true;
+          for (unsigned si = 0; si < nseeds; ++si) {
+            Interpreter interp;
+            unsigned vi = 0;
+            for (auto *V : values) {
+              unsigned w = V->getType().getWidth();
+              uint64_t v = seeds[si] +
+                  primes[vi % 8] * (vi + 1);
+              if (w < 64)
+                v &= (1ULL << w) - 1;
+              interp.bind(V, llvm::APInt(w, v));
+              vi++;
+            }
+            auto r = interp.eval(Expr);
+            if (!r) {
+              ok = false;
+              break;
+            }
+            fp.push_back(r->getLimitedValue());
+          }
+          if (ok && !d2seen.count(fp)) {
+            d2seen[fp] = true;
+            d2exprs.push_back({Expr, {}});
+          }
+        } else {
+          d2exprs.push_back({Expr, std::move(rcs)});
+        }
+        exprs.emplace_back(std::move(I));
+      };
+
+      for (auto &inner : d1exprs) {
+        for (unsigned K = UnaryOp::bitreverse;
+             K <= UnaryOp::cttz; ++K) {
+          UnaryOp::Op op = static_cast<UnaryOp::Op>(K);
+          auto U = make_unique<UnaryOp>(op, *inner.expr, target_ty);
+          addDepth2Expr(std::move(U), set<ReservedConst*>(inner.rcs));
+        }
+
+        for (auto op : DeepCompareBinaryOps) {
+          for (auto *Leaf : leaves) {
+            {
+              set<ReservedConst*> rcs(inner.rcs);
+              auto B = make_unique<BinaryOp>(
+                  op, *inner.expr, *Leaf, target_ty);
+              addDepth2Expr(std::move(B), std::move(rcs));
+            }
+            {
+              set<ReservedConst*> rcs(inner.rcs);
+              auto B = make_unique<BinaryOp>(
+                  op, *Leaf, *inner.expr, target_ty);
+              addDepth2Expr(std::move(B), std::move(rcs));
+            }
+          }
+
+          if (inner.rcs.empty() && op != BinaryOp::sub) {
+            auto RC = make_unique<ReservedConst>(target_ty);
+            set<ReservedConst*> rcs;
+            rcs.insert(RC.get());
+            auto B = make_unique<BinaryOp>(
+                op, *inner.expr, *RC, target_ty);
+            exprs.emplace_back(std::move(RC));
+            addDepth2Expr(std::move(B), std::move(rcs));
+          }
+        }
+
+        for (auto *Cond : values) {
+          if (!Cond->getType().isBool())
+            continue;
+          for (auto *Leaf : leaves) {
+            {
+              set<ReservedConst*> rcs(inner.rcs);
+              auto S = make_unique<Select>(*Cond, *inner.expr, *Leaf);
+              addDepth2Expr(std::move(S), std::move(rcs));
+            }
+            {
+              set<ReservedConst*> rcs(inner.rcs);
+              auto S = make_unique<Select>(*Cond, *Leaf, *inner.expr);
+              addDepth2Expr(std::move(S), std::move(rcs));
+            }
+          }
+
+          if (inner.rcs.empty()) {
+            auto FalseRC = make_unique<ReservedConst>(target_ty);
+            set<ReservedConst*> false_rcs;
+            false_rcs.insert(FalseRC.get());
+            auto FalseSel = make_unique<Select>(
+                *Cond, *inner.expr, *FalseRC);
+            exprs.emplace_back(std::move(FalseRC));
+            addDepth2Expr(std::move(FalseSel), std::move(false_rcs));
+
+            auto TrueRC = make_unique<ReservedConst>(target_ty);
+            set<ReservedConst*> true_rcs;
+            true_rcs.insert(TrueRC.get());
+            auto TrueSel = make_unique<Select>(
+                *Cond, *TrueRC, *inner.expr);
+            exprs.emplace_back(std::move(TrueRC));
+            addDepth2Expr(std::move(TrueSel), std::move(true_rcs));
+          }
+        }
+      }
+
+      for (auto &d2 : d2exprs) {
+        for (auto *Leaf : leaves) {
+          for (unsigned C = ICmp::Cond::eq; C <= ICmp::Cond::sge; ++C) {
+            ICmp::Cond Cond = static_cast<ICmp::Cond>(C);
+            {
+              set<ReservedConst*> rcs(d2.rcs);
+              auto Cmp = make_unique<ICmp>(Cond, *d2.expr, *Leaf, 1);
+              sketches.push_back({Cmp.get(), std::move(rcs)});
+              exprs.emplace_back(std::move(Cmp));
+            }
+            {
+              set<ReservedConst*> rcs(d2.rcs);
+              auto Cmp = make_unique<ICmp>(Cond, *Leaf, *d2.expr, 1);
+              sketches.push_back({Cmp.get(), std::move(rcs)});
+              exprs.emplace_back(std::move(Cmp));
+            }
+          }
+        }
+
+        if (!d2.rcs.empty())
+          continue;
+
+        for (unsigned C = ICmp::Cond::eq; C <= ICmp::Cond::sge; ++C) {
+          ICmp::Cond Cond = static_cast<ICmp::Cond>(C);
+          if (Cond == ICmp::sle || Cond == ICmp::ule)
+            continue;
+
+          auto RC = make_unique<ReservedConst>(target_ty);
+          set<ReservedConst*> rcs;
+          rcs.insert(RC.get());
+          auto Cmp = make_unique<ICmp>(Cond, *d2.expr, *RC, 1);
+          sketches.push_back({Cmp.get(), std::move(rcs)});
+          exprs.emplace_back(std::move(RC));
+          exprs.emplace_back(std::move(Cmp));
+        }
+      }
+    }
+
+    return true;
+  }
+
   // Only worthwhile for types with enough entropy
   // for fingerprint dedup to be reliable.
   if (expected.getWidth() <= 32)
@@ -837,6 +1399,36 @@ bool Enumerator::getDepth3Sketches(
   };
   vector<D2Expr> d2exprs;
   map<vector<uint64_t>, bool> d2seen;
+
+  auto addDepth2Expr = [&](unique_ptr<Inst> I) {
+    Value *Expr = static_cast<Value*>(I.get());
+    vector<uint64_t> fp;
+    bool ok = true;
+    for (unsigned si = 0; si < nseeds; ++si) {
+      Interpreter interp;
+      unsigned vi = 0;
+      for (auto *V : values) {
+        unsigned w = V->getType().getWidth();
+        uint64_t v = seeds[si] +
+            primes[vi % 8] * (vi + 1);
+        if (w < 64)
+          v &= (1ULL << w) - 1;
+        interp.bind(V, llvm::APInt(w, v));
+        vi++;
+      }
+      auto r = interp.eval(Expr);
+      if (!r) {
+        ok = false;
+        break;
+      }
+      fp.push_back(r->getLimitedValue());
+    }
+    if (ok && !d2seen.count(fp)) {
+      d2seen[fp] = true;
+      d2exprs.push_back(D2Expr{Expr, std::move(fp)});
+    }
+    exprs.emplace_back(std::move(I));
+  };
 
   // Generate depth-1 inner ops (vars + unary(var))
   vector<Value*> d1vars;
@@ -861,9 +1453,7 @@ bool Enumerator::getDepth3Sketches(
   }
 
   // Generate depth-2 by composing depth-1
-  for (unsigned K = BinaryOp::band;
-       K <= BinaryOp::shl; ++K) {
-    BinaryOp::Op op = static_cast<BinaryOp::Op>(K);
+  for (auto op : DeepBinaryOps) {
     if (expected.getBits() == 1 &&
         !BinaryOp::isLogical(op))
       continue;
@@ -877,32 +1467,27 @@ bool Enumerator::getDepth3Sketches(
             continue;
           if (BinaryOp::isCommutative(op) && Op1 < Op0)
             continue;
-          auto B = make_unique<BinaryOp>(
-              op, *Op0, *Op1, workty);
-          // Fingerprint for dedup
-          vector<uint64_t> fp;
-          bool ok = true;
-          for (unsigned si = 0; si < nseeds; ++si) {
-            Interpreter interp;
-            unsigned vi = 0;
-            for (auto *V : values) {
-              unsigned w = V->getType().getWidth();
-              uint64_t v = seeds[si] +
-                  primes[vi % 8] * (vi + 1);
-              if (w < 64) v &= (1ULL << w) - 1;
-              interp.bind(V, llvm::APInt(w, v));
-              vi++;
-            }
-            auto r = interp.eval(B.get());
-            if (!r) { ok = false; break; }
-            fp.push_back(r->getLimitedValue());
-          }
-          if (ok && !d2seen.count(fp)) {
-            d2seen[fp] = true;
-            d2exprs.push_back({B.get(), fp});
-          }
-          exprs.emplace_back(std::move(B));
+          auto B = make_unique<BinaryOp>(op, *Op0, *Op1, workty);
+          addDepth2Expr(std::move(B));
         }
+      }
+    }
+  }
+
+  // Generate depth-2 selects over depth-1 values/unary expressions.
+  for (auto *Cond : values) {
+    if (!Cond->getType().isBool())
+      continue;
+    for (auto *TrueV : d1exprs) {
+      if (!expected.same_width(TrueV->getType()))
+        continue;
+      for (auto *FalseV : d1exprs) {
+        if (!expected.same_width(FalseV->getType()))
+          continue;
+        if (TrueV == FalseV)
+          continue;
+        auto S = make_unique<Select>(*Cond, *TrueV, *FalseV);
+        addDepth2Expr(std::move(S));
       }
     }
   }
@@ -913,9 +1498,7 @@ bool Enumerator::getDepth3Sketches(
   // Step 2: compose depth-2 expressions into depth-3
   // outer_op(d2_expr, var) and outer_op(d2_expr, const)
   for (auto &d2 : d2exprs) {
-    for (unsigned K = BinaryOp::band;
-         K <= BinaryOp::shl; ++K) {
-      BinaryOp::Op op = static_cast<BinaryOp::Op>(K);
+    for (auto op : DeepBinaryOps) {
       if (expected.getBits() == 1 &&
           !BinaryOp::isLogical(op))
         continue;
@@ -943,6 +1526,43 @@ bool Enumerator::getDepth3Sketches(
         exprs.emplace_back(std::move(RC));
         exprs.emplace_back(std::move(B));
       }
+    }
+
+    for (auto *Cond : values) {
+      if (!Cond->getType().isBool())
+        continue;
+      for (auto *V : values) {
+        if (!expected.same_width(V->getType()))
+          continue;
+        {
+          set<ReservedConst*> rcs;
+          auto S = make_unique<Select>(*Cond, *d2.expr, *V);
+          sketches.push_back({S.get(), std::move(rcs)});
+          exprs.emplace_back(std::move(S));
+        }
+        {
+          set<ReservedConst*> rcs;
+          auto S = make_unique<Select>(*Cond, *V, *d2.expr);
+          sketches.push_back({S.get(), std::move(rcs)});
+          exprs.emplace_back(std::move(S));
+        }
+      }
+
+      auto FalseRC = make_unique<ReservedConst>(expected);
+      set<ReservedConst*> false_rcs;
+      false_rcs.insert(FalseRC.get());
+      auto FalseSel = make_unique<Select>(*Cond, *d2.expr, *FalseRC);
+      sketches.push_back({FalseSel.get(), std::move(false_rcs)});
+      exprs.emplace_back(std::move(FalseRC));
+      exprs.emplace_back(std::move(FalseSel));
+
+      auto TrueRC = make_unique<ReservedConst>(expected);
+      set<ReservedConst*> true_rcs;
+      true_rcs.insert(TrueRC.get());
+      auto TrueSel = make_unique<Select>(*Cond, *TrueRC, *d2.expr);
+      sketches.push_back({TrueSel.get(), std::move(true_rcs)});
+      exprs.emplace_back(std::move(TrueRC));
+      exprs.emplace_back(std::move(TrueSel));
     }
   }
 
