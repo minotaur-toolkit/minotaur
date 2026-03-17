@@ -25,8 +25,10 @@ bool smt_verbose = false;
 bool disable_avx512 = true;
 bool show_stats = false;
 bool return_first_solution = false;
+bool enable_depth2 = false;
+bool enable_depth3 = false;
 
-unsigned slice_to;
+unsigned slice_to = 900;
 unsigned slicer_max_depth = 5;
 
 

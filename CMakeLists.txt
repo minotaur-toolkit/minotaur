@@ -78,6 +78,7 @@ set(SYNTHESIZER_SRC
   "lib/enumerator.cpp"
   "lib/expr.cpp"
   "lib/codegen.cpp"
+  "lib/interp.cpp"
   "lib/parse.cpp"
   "lib/type.cpp"
   "${PROJECT_BINARY_DIR}/lexer/lexer.cpp"
@@ -102,11 +103,24 @@ find_library(HIREDIS_LIBRARY
 
 include_directories(${HIREDIS_INCLUDE_DIR}/hiredis)
 
-llvm_map_components_to_libnames(LLVM_LIBS
-  analysis core irreader passes scalaropts support transformutils targetparser)
+set(LLVM_COMPONENTS
+  analysis asmparser asmprinter codegen core irreader mc mca mcparser
+  native nativecodegen passes scalaropts support target targetparser
+  transformutils)
 
-add_library(cost STATIC "lib/cost.cpp"
-                        "${PROJECT_BINARY_DIR}/cost-command.h")
+if("AArch64" IN_LIST LLVM_TARGETS_TO_BUILD)
+  list(APPEND LLVM_COMPONENTS aarch64targetmca)
+endif()
+if("RISCV" IN_LIST LLVM_TARGETS_TO_BUILD)
+  list(APPEND LLVM_COMPONENTS riscvtargetmca)
+endif()
+if("X86" IN_LIST LLVM_TARGETS_TO_BUILD)
+  list(APPEND LLVM_COMPONENTS x86targetmca)
+endif()
+
+llvm_map_components_to_libnames(LLVM_LIBS ${LLVM_COMPONENTS})
+
+add_library(cost STATIC "lib/cost.cpp")
 target_link_libraries(cost PRIVATE ${LLVM_LIBS})
 
 add_library(utils STATIC "lib/utils.cpp")
@@ -120,6 +134,7 @@ add_library(slice STATIC "lib/slice.cpp")
 target_link_libraries(slice PRIVATE utils config)
 
 add_library(synthesizer STATIC ${SYNTHESIZER_SRC})
+target_compile_options(synthesizer PRIVATE -fexceptions)
 target_link_libraries(synthesizer PRIVATE utils cost config)
 
 add_llvm_library(online MODULE "pass/online.cpp")
@@ -128,6 +143,7 @@ target_link_libraries(online
   PRIVATE synthesizer slice ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS})
 
 add_llvm_executable(minotaur-cs "tools/minotaur-cs.cpp")
+target_compile_options(minotaur-cs PRIVATE -fexceptions)
 
 target_link_libraries(minotaur-cs
   PRIVATE synthesizer ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS})
@@ -137,14 +153,26 @@ add_llvm_executable(minotaur-slice "tools/minotaur-slice.cpp")
 target_link_libraries(minotaur-slice
   PRIVATE slice ${ALIVE_LIBS})
 
+set(GTEST_LIBS "-lgtest_main -lgtest -lpthread")
+
 option(ENABLE_PARSE_TESTS "Build parse-tests unit test" OFF)
 
 if (ENABLE_PARSE_TESTS)
   add_llvm_executable(parse-tests "unit-tests/parse-tests.cpp")
-  set(GTEST_LIBS "-lgtest_main -lgtest -lpthread")
   target_link_libraries(parse-tests
     PRIVATE synthesizer ${GTEST_LIBS} ${Z3_LIBRARIES})
 endif()
+
+add_llvm_executable(enumerator-tests
+  "unit-tests/enumerator-tests.cpp")
+target_link_libraries(enumerator-tests
+  PRIVATE synthesizer ${GTEST_LIBS}
+          ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS})
+
+add_llvm_executable(cost-tests
+  "unit-tests/cost-tests.cpp")
+target_link_libraries(cost-tests
+  PRIVATE cost utils ${GTEST_LIBS} ${HIREDIS_LIBRARY} ${LLVM_LIBS})
 
 if(APPLE)
     set_target_properties(online PROPERTIES
@@ -160,11 +188,6 @@ endif(APPLE)
 
 set(ONLINE_PASS ${CMAKE_BINARY_DIR}/online${CMAKE_SHARED_LIBRARY_SUFFIX})
 
-configure_file(
-  "${PROJECT_SOURCE_DIR}/include/cost-command.h.in"
-  "${PROJECT_BINARY_DIR}/cost-command.h"
-  @ONLY
-)
 configure_file(
   "${PROJECT_SOURCE_DIR}/scripts/opt-minotaur.sh.in"
   "${PROJECT_BINARY_DIR}/opt-minotaur.sh"
@@ -205,12 +228,6 @@ configure_file(
   "${PROJECT_BINARY_DIR}/cache-infer"
   @ONLY
 )
-configure_file(
-  "${PROJECT_SOURCE_DIR}/scripts/get-cost.in"
-  "${PROJECT_BINARY_DIR}/get-cost"
-  @ONLY
-)
-
 if (NOT DEFINED TEST_NTHREADS)
   ProcessorCount(TEST_NTHREADS)
   if (TEST_NTHREADS EQUAL 0)

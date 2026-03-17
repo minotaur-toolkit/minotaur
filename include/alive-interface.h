@@ -15,8 +15,6 @@
 
 namespace minotaur {
 
-static std::ostream NOP_OSTREAM(nullptr);
-
 class AliveEngine {
 private:
   llvm::TargetLibraryInfoWrapperPass &TLI;
@@ -31,11 +29,7 @@ private:
     std::unordered_map<const IR::Value*, ModelVal>&);
 
 public:
-  AliveEngine(llvm::TargetLibraryInfoWrapperPass &TLI) : TLI(TLI) {
-    util::config::disable_undef_input = true;
-    util::config::disable_poison_input = false;
-    debug = config::debug_tv ? &std::cerr : &NOP_OSTREAM;
-  }
+  AliveEngine(llvm::TargetLibraryInfoWrapperPass &TLI);
 
   bool constantSynthesis(llvm::Function&, llvm::Function&,
     std::unordered_map<llvm::Argument*, llvm::Constant*>&);

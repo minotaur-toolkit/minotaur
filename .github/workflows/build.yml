@@ -122,13 +122,16 @@ jobs:
         run: |
           set -euxo pipefail
 
-          Z3_TAG="z3-4.15.4"
+          # shellcheck disable=SC1091
+          source "${GITHUB_WORKSPACE}/pinned-deps.env"
+
           Z3_SRC="${GITHUB_WORKSPACE}/z3-src"
           Z3_BUILD="${GITHUB_WORKSPACE}/z3-build"
           Z3_INSTALL="${GITHUB_WORKSPACE}/z3-install"
 
           rm -rf "${Z3_SRC}" "${Z3_BUILD}" "${Z3_INSTALL}"
-          git clone --depth 1 --branch "${Z3_TAG}" https://github.com/Z3Prover/z3.git "${Z3_SRC}"
+          git clone --depth 1 --branch "${MINOTAUR_Z3_REF}" \
+            https://github.com/Z3Prover/z3.git "${Z3_SRC}"
 
           Z3_CMAKE_ARGS=(
             -G Ninja

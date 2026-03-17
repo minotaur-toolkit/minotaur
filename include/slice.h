@@ -23,11 +23,9 @@ class Slice {
   llvm::ValueToValueMapTy mapping;
 
 public:
-  Slice(llvm::Function &f, llvm::LoopInfo &LI, llvm::DominatorTree &DT)
-    : f(f), LI(LI), DT(DT) {
-    m = std::make_unique<llvm::Module>("", f.getContext());
-    m->setDataLayout(f.getParent()->getDataLayout());
-  }
+  Slice(llvm::Function &f, llvm::LoopInfo &LI,
+        llvm::DominatorTree &DT)
+    : f(f), LI(LI), DT(DT) {}
   std::unique_ptr<llvm::Module> getNewModule() { return std::move(m); }
   llvm::ValueToValueMapTy& getValueMap() { return mapping; }
   std::optional<std::pair<std::reference_wrapper<llvm::Function>,

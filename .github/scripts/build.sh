@@ -4,8 +4,20 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BUILD_DIR="${ROOT_DIR}/build"
+PINNED_DEPS_FILE="${ROOT_DIR}/pinned-deps.env"
 
 : "${CMAKE_BUILD_TYPE:=Release}"
+
+if [ ! -f "${PINNED_DEPS_FILE}" ]; then
+  echo "missing pinned dependency file: ${PINNED_DEPS_FILE}" >&2
+  exit 1
+fi
+
+# shellcheck disable=SC1090
+. "${PINNED_DEPS_FILE}"
+
+: "${MINOTAUR_LLVM_REF:?missing MINOTAUR_LLVM_REF}"
+: "${MINOTAUR_ALIVE2_REF:?missing MINOTAUR_ALIVE2_REF}"
 
 Z3_PREFIX="${Z3_PREFIX-}"
 
@@ -20,11 +32,7 @@ ALIVE2_SOURCE_DIR="${ALIVE2_SOURCE_DIR:-$ALIVE2_SOURCE_DIR_DEFAULT}"
 ALIVE2_BUILD_DIR="${ALIVE2_BUILD_DIR:-$ALIVE2_BUILD_DIR_DEFAULT}"
 
 if [ "${LLVM_TARGETS_TO_BUILD-}" = "" ]; then
-  if [ "$(uname -s)" = "Darwin" ]; then
-    LLVM_TARGETS_TO_BUILD="X86;AArch64"
-  else
-    LLVM_TARGETS_TO_BUILD="X86"
-  fi
+  LLVM_TARGETS_TO_BUILD="X86;AArch64;RISCV"
 fi
 
 JOBS=4
@@ -40,14 +48,55 @@ echo "CMAKE_C_COMPILER=${CMAKE_C_COMPILER}"
 echo "CMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
 echo "LLVM_TARGETS_TO_BUILD=${LLVM_TARGETS_TO_BUILD}"
 echo "Z3_PREFIX=${Z3_PREFIX:-<system/default>}"
+echo "MINOTAUR_LLVM_REF=${MINOTAUR_LLVM_REF}"
+echo "MINOTAUR_ALIVE2_REF=${MINOTAUR_ALIVE2_REF}"
+
+ensure_git_commit_checkout() {
+  local url="$1"
+  local dir="$2"
+  local commit="$3"
+
+  if [ -d "${dir}/.git" ] && \
+      [ "$(git -C "${dir}" rev-parse HEAD 2>/dev/null || true)" = "${commit}" ]; then
+    echo "Reusing ${dir} at commit ${commit}"
+    return
+  fi
+
+  rm -rf "${dir}"
+  mkdir -p "$(dirname "${dir}")"
+  git init "${dir}"
+  git -C "${dir}" remote add origin "${url}"
+  git -C "${dir}" fetch --depth 1 origin "${commit}"
+  git -C "${dir}" checkout --force --detach FETCH_HEAD
+}
+
+llvm_build_matches_targets() {
+  local config_file="${LLVM_BUILD_DIR}/lib/cmake/llvm/LLVMConfig.cmake"
+  if [ ! -f "${config_file}" ]; then
+    return 1
+  fi
+
+  local configured_targets
+  configured_targets="$(
+    sed -n 's/^set(LLVM_TARGETS_TO_BUILD \(.*\))$/\1/p' "${config_file}" \
+      | head -n 1
+  )"
+  [ "${configured_targets}" = "${LLVM_TARGETS_TO_BUILD}" ]
+}
 
 echo "=== Ensuring LLVM is built at ${LLVM_BUILD_DIR} ==="
-if [ ! -x "${LLVM_BUILD_DIR}/bin/llvm-config" ] && [ ! -x "${LLVM_BUILD_DIR}/bin/clang" ]; then
-  mkdir -p "$(dirname "${LLVM_SOURCE_DIR}")"
-  if [ ! -d "${LLVM_SOURCE_DIR}" ]; then
-    git clone --depth=1 https://github.com/llvm/llvm-project.git \
-      "${LLVM_SOURCE_DIR}"
+if [ ! -x "${LLVM_BUILD_DIR}/bin/llvm-config" ] || \
+   [ ! -x "${LLVM_BUILD_DIR}/bin/clang" ] || \
+   ! llvm_build_matches_targets; then
+  if [ -d "${LLVM_BUILD_DIR}" ] && ! llvm_build_matches_targets; then
+    echo "Rebuilding LLVM because the existing target set does not match LLVM_TARGETS_TO_BUILD=${LLVM_TARGETS_TO_BUILD}"
+    rm -rf "${LLVM_BUILD_DIR}"
   fi
+
+  ensure_git_commit_checkout \
+    "https://github.com/llvm/llvm-project.git" \
+    "${LLVM_SOURCE_DIR}" \
+    "${MINOTAUR_LLVM_REF}"
 
   LLVM_CMAKE_ARGS=(
     -G Ninja
@@ -80,10 +129,10 @@ else
 fi
 
 echo "=== Ensuring Alive2 is built at ${ALIVE2_BUILD_DIR} ==="
-if [ ! -d "${ALIVE2_SOURCE_DIR}" ]; then
-  git clone --depth=1 https://github.com/alivetoolkit/alive2.git \
-    "${ALIVE2_SOURCE_DIR}"
-fi
+ensure_git_commit_checkout \
+  "https://github.com/AliveToolkit/alive2.git" \
+  "${ALIVE2_SOURCE_DIR}" \
+  "${MINOTAUR_ALIVE2_REF}"
 
 mkdir -p "${ALIVE2_BUILD_DIR}"
 cd "${ALIVE2_BUILD_DIR}"
@@ -138,5 +187,3 @@ cmake "${CMAKE_ARGS[@]}" "${ROOT_DIR}"
 ninja -j"${JOBS}"
 
 echo "=== Build completed successfully ==="
-
-

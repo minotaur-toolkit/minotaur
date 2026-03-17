@@ -3,57 +3,44 @@
 #include "config.h"
 #include "enumerator.h"
 #include "codegen.h"
-#include "expr.h"
 #include "slice.h"
-#include "removal-slice.h"
-#include "util/random.h"
 #include "utils.h"
 #include "parse.h"
 
-#include "ir/instr.h"
+#include "util/random.h"
 #include "llvm_util/llvm2alive.h"
 #include "smt/smt.h"
-#include "smt/solver.h"
 #include "tools/transform.h"
 #include "util/compiler.h"
 #include "util/config.h"
-#include "util/version.h"
 
-#include "llvm/ADT/Any.h"
-#include "llvm/Analysis/DominanceFrontier.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemoryDependenceAnalysis.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Bitcode/BitcodeWriter.h"
-#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Passes/PassBuilder.h"
+#if __has_include("llvm/Plugins/PassPlugin.h")
 #include "llvm/Plugins/PassPlugin.h"
+#else
+#include "llvm/Passes/PassPlugin.h"
+#endif
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
 #include "hiredis.h"
 
 #include <filesystem>
-#include <fstream>
 #include <iostream>
-#include <random>
 #include <unordered_map>
-#include <sstream>
-#include <utility>
 
 using namespace std;
 using namespace llvm;
@@ -136,6 +123,16 @@ llvm::cl::opt<bool> force_infer(
 llvm::cl::opt<string> report_dir("minotaur-report-dir",
   llvm::cl::desc("Save report to disk"), llvm::cl::value_desc("directory"));
 
+llvm::cl::opt<bool> enable_depth2(
+    "minotaur-enable-depth2",
+    llvm::cl::desc("minotaur: enable depth-2 enumeration"),
+    llvm::cl::init(false));
+
+llvm::cl::opt<bool> enable_depth3(
+    "minotaur-enable-depth3",
+    llvm::cl::desc("minotaur: enable depth-3 enumeration"),
+    llvm::cl::init(false));
+
 static bool dom_check(llvm::Value *V, DominatorTree &DT, llvm::Use &U) {
   if (auto I = dyn_cast<Instruction>(V)) {
     for (auto &op : I->operands()) {
@@ -148,20 +145,19 @@ static bool dom_check(llvm::Value *V, DominatorTree &DT, llvm::Use &U) {
 }
 
 struct debug {
-template<class T>
-debug &operator<<(const T &s)
-{
-  if (debug_enumerator || debug_slicer || debug_tv || debug_codegen)
-    minotaur::config::dbg()<<s;
-  return *this;
-}
+  template<class T>
+  debug &operator<<(const T &s) {
+    if (debug_enumerator || debug_slicer ||
+        debug_tv || debug_codegen)
+      minotaur::config::dbg() << s;
+    return *this;
+  }
 };
 
 static optional<Rewrite>
 infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, parse::Parser &P) {
   string bytecode;
   llvm::raw_string_ostream bs(bytecode);
-  //WriteBitcodeToFile(*F.getParent(), bs);
   F.getParent()->print(bs, nullptr);
   bs.flush();
 
@@ -175,7 +171,7 @@ infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, parse::Par
   // 3. normal mode: run synthesizer if cache miss
 
   // check cache only in normal mode
-  if (enable_caching && !force_infer && !no_infer) {
+  if (enable_caching && ctx && !force_infer && !no_infer) {
     std::string rewrite;
 
     if (minotaur::hGet(bytecode.c_str(), bytecode.size(), rewrite, ctx)) {
@@ -202,7 +198,7 @@ infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, parse::Par
 
   if (no_infer) {
   // in no_infer mode, we write no-sol and return
-    if (enable_caching) {
+    if (enable_caching && ctx) {
       hSetNoSolution(bytecode.c_str(), bytecode.size(), ctx, F.getName());
     }
     debug() << "[online] skipping synthesizer\n";
@@ -213,7 +209,7 @@ infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, parse::Par
     debug() << "[online] working on function:\n" << F;
     RHSs = EN.solve(F, I);
     if (RHSs.empty()) {
-      if (enable_caching)
+      if (enable_caching && ctx)
         hSetNoSolution(bytecode.c_str(), bytecode.size(), ctx, F.getName());
       return nullopt;
     }
@@ -223,7 +219,7 @@ infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, parse::Par
   debug() << "[online] synthesized solution:\n" << *R.I << "\n";
 
   // write back to cache
-  if (!from_cache && enable_caching) {
+  if (!from_cache && enable_caching && ctx) {
     debug()<<"[online] caching solution\n";
     string rewrite;
     raw_string_ostream rs(rewrite);
@@ -240,13 +236,16 @@ static bool
 optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
                   TargetLibraryInfoWrapperPass &TLI) {
   // set up debug output
+  std::unique_ptr<raw_fd_ostream> owned_out_file;
   raw_ostream *out_file = &errs();
   if (!report_dir.empty()) {
-    try {
-      fs::create_directories(report_dir.getValue());
-    } catch (...) {
-      cerr << "Alive2: Couldn't create report directory!" << endl;
-      exit(1);
+    {
+      std::error_code ec;
+      fs::create_directories(report_dir.getValue(), ec);
+      if (ec) {
+        cerr << "Alive2: Couldn't create report directory!" << endl;
+        exit(1);
+      }
     }
 
     fs::path fname = "minotaur.txt";
@@ -261,12 +260,14 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
     } while (fs::exists(path));
 
     std::error_code EC;
-    out_file = new raw_fd_ostream(path.string(), EC, llvm::sys::fs::OF_None);
+    owned_out_file =
+        std::make_unique<raw_fd_ostream>(path.string(), EC, llvm::sys::fs::OF_None);
 
     if (EC) {
       cerr << "Alive2: Couldn't open report file!" << endl;
       exit(1);
     }
+    out_file = owned_out_file.get();
   }
   config::set_debug(*out_file);
 
@@ -284,13 +285,23 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
   config::debug_codegen = debug_codegen;
   config::debug_parser = debug_parser;
   config::slice_to = slice_to;
+  config::enable_depth2 = enable_depth2;
+  config::enable_depth3 = enable_depth3;
   smt::solver_print_queries(smt_verbose);
 
   smt::set_query_timeout(to_string(smt_to * 1000));
 
   redisContext *ctx = nullptr;
-  if (enable_caching) {
+  bool caching = enable_caching;
+  if (caching) {
     ctx = redisConnect("127.0.0.1", redis_port);
+    if (!ctx || ctx->err) {
+      debug() << "[online] redis connection failed"
+              << (ctx ? (string(": ") + ctx->errstr) : "") << "\n";
+      if (ctx) redisFree(ctx);
+      ctx = nullptr;
+      caching = false;
+    }
   }
 
   bool changed = false;
@@ -299,11 +310,9 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
     // in this mode we assume only one return point, we do not run slicer,
     // we check if return value can be optimized
 
-
-    std::unique_ptr<llvm::Module> m;
     ValueToValueMapTy vv;
     auto newM = CloneModule(*F.getParent(), vv);
-    newM->dump();
+    debug() << *newM;
 
     auto newF = cast<Function>(vv[&F]);
 
@@ -315,47 +324,37 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
           break;
         }
       }
-      if (ret) {
+      if (ret)
         break;
-      }
     }
+
+    Instruction *retI = ret ? dyn_cast<Instruction>(ret->getReturnValue())
+                            : nullptr;
     if (!ret) {
       debug() << "[online] no return instruction found, skipping\n";
-      goto final;
-    }
-
-    Instruction *retI = dyn_cast<Instruction>(ret->getReturnValue());
-
-
-    if (!retI) {
+    } else if (!retI) {
       debug() << "[online] return value is not an instruction, skipping\n";
-      goto final;
+    } else {
+      Enumerator EN;
+      parse::Parser P(*newF);
+      auto R = infer(*newF, retI, ctx, EN, P);
+      if (R.has_value()) {
+        unordered_set<llvm::Function*> IntrinDecls;
+        ValueToValueMapTy vmap;
+        auto *V = LLVMGen(ret, IntrinDecls).codeGen(R->I, vmap);
+        V = llvm::IRBuilder<>(ret).CreateBitCast(V, retI->getType());
+        retI->replaceAllUsesWith(V);
+        changed = true;
+      }
     }
-
-    Enumerator EN;
-    parse::Parser P(*newF);
-    auto R = infer(*newF, retI, ctx, EN, P);
-    if (!R.has_value()) {
-      goto final;
-    }
-
-    unordered_set<llvm::Function*> IntrinDecls;
-    ValueToValueMapTy vmap;
-    auto *V = LLVMGen(ret, IntrinDecls).codeGen(R->I, vmap);
-    V = llvm::IRBuilder<>(ret).CreateBitCast(V, retI->getType());
-    retI->replaceAllUsesWith(V);
-    changed = true;
   } else {
     for (auto &BB : F) {
       for (auto &I : make_early_inc_range(BB)) {
         if (I.getType()->isVoidTy())
           continue;
 
-        DataLayout DL(F.getParent()->getDataLayout());
         minotaur::Slice S(F, LI, DT);
         auto NewF = S.extractExpr(I);
-        auto m = S.getNewModule();
-
         if (!NewF.has_value())
           continue;
 
@@ -386,13 +385,12 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
     }
   }
 
-final:
   if (changed) {
     F.removeFnAttr("min-legal-vector-width");
     eliminate_dead_code(F);
   }
 
-  if (enable_caching) {
+  if (caching && ctx) {
     redisFree(ctx);
   }
 
@@ -402,9 +400,8 @@ final:
     debug() << "[online] minotaur completed, no change to the program\n";
   }
 
-  if (out_file != &errs()) {
-    out_file->flush();
-    delete out_file;
+  if (owned_out_file) {
+    owned_out_file->flush();
   }
 
   return changed;
@@ -420,9 +417,6 @@ struct SuperoptimizerLegacyPass final : public llvm::FunctionPass {
       getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     DominatorTree &DT =
       getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-    /*MemoryDependenceResults &MD =
-      getAnalysis<MemoryDependenceWrapperPass>().getMemDep();*/
-
     TargetLibraryInfoWrapperPass TLI(Triple(F.getParent()->getTargetTriple()));
 
     return optimize_function(F, LI, DT, TLI);
@@ -465,7 +459,6 @@ struct SuperoptimizerPass : PassInfoMixin<SuperoptimizerPass> {
 
     LoopInfo &LI = FAM.getResult<llvm::LoopAnalysis>(F);
     DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
-    // MemoryDependenceResults &MD = FAM.getResult<MemoryDependenceAnalysis>(F);
     TargetLibraryInfoWrapperPass TLI(Triple(F.getParent()->getTargetTriple()));
     optimize_function(F, LI, DT, TLI);
     return PA;

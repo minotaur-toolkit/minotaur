@@ -19,6 +19,8 @@ extern bool smt_verbose;
 extern bool disable_avx512;
 extern bool show_stats;
 extern bool return_first_solution;
+extern bool enable_depth2;
+extern bool enable_depth3;
 
 extern unsigned slice_to;
 extern unsigned slicer_max_depth;
@@ -27,6 +29,18 @@ llvm::raw_ostream &dbg();
 void set_debug(llvm::raw_ostream &os);
 
 extern const char minotaur_version[];
+
+// Conditional debug stream. Usage:
+//   DebugStream<&config::debug_codegen>() << "msg";
+template<bool *Flag>
+struct DebugStream {
+  template<class T>
+  DebugStream &operator<<(const T &s) {
+    if (*Flag)
+      dbg() << s;
+    return *this;
+  }
+};
 
 } // namespace config
 } // namespace minotaur

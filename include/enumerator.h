@@ -8,6 +8,7 @@
 
 #include <memory>
 #include <set>
+#include <string>
 #include <vector>
 
 namespace llvm {
@@ -30,8 +31,20 @@ class Enumerator {
                   llvm::DominatorTree&);
   bool getSketches(llvm::Value *V,
                    std::vector<Sketch>&);
+  bool getDepth2Sketches(llvm::Value *V,
+                         std::vector<Sketch>&);
+  bool getDepth3Sketches(llvm::Value *V,
+                         std::vector<Sketch>&);
 public:
-  std::vector<Rewrite> solve(llvm::Function&, llvm::Instruction*);
+  std::vector<Rewrite> solve(llvm::Function&,
+                             llvm::Instruction*);
+
+  // Test helper: enumerate sketch strings while optionally restricting
+  // the available leaves to function arguments only.
+  std::vector<std::string> enumerateSketchStringsForTesting(
+      llvm::Function &F, llvm::Instruction *I,
+      bool args_only, bool enable_depth2,
+      bool enable_depth3);
 };
 
 } // namespace minotaur

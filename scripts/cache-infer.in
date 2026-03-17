@@ -89,9 +89,9 @@ sub wait_for_one() {
     }
 }
 
-my $status_cnt;
-my $status_opct;
-my $status_total;
+my $status_cnt = 0;
+my $status_opct = 0;
+my $status_total = 1;
 
 sub status() {
     print ".";
@@ -129,6 +129,8 @@ foreach my $opt (@all_keys) {
     $fn_name{$opt} = $fn;
     $timestamp{$opt} = $time;
 }
+
+$status_total = scalar(keys %toprint) || 1;
 
 foreach my $opt (keys %toprint) {
     status() if $VERBOSE;

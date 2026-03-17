@@ -31,15 +31,8 @@
 using namespace llvm;
 using namespace std;
 
-struct debug {
-  template<class T>
-  debug &operator<<(const T &s)
-  {
-    if (minotaur::config::debug_slicer)
-      minotaur::config::dbg()<<s;
-    return *this;
-  }
-};
+using debug = minotaur::config::DebugStream<
+    &minotaur::config::debug_slicer>;
 
 static bool isUnsupportedTy(llvm::Type *ty) {
   Type *el_ty = ty->getScalarType();
@@ -50,42 +43,45 @@ static bool isUnsupportedTy(llvm::Type *ty) {
   return isAggregateTyUnsupported || isElementTyUnsupported;
 }
 
-static bool walk(BasicBlock* current, BasicBlock* target,
+// Find all basic blocks on any CFG path from `current` back
+// to `target` (walking predecessors), restricted to blocks
+// dominated by `target`. Uses BFS instead of backtracking DFS
+// to avoid exponential blowup on high-branching CFGs.
+static bool walk(BasicBlock *current, BasicBlock *target,
                  set<BasicBlock*> &blocks,
                  DominatorTree &DT) {
-  auto s = [&DT](auto self,
-                 BasicBlock* current,
-                 BasicBlock* target,
-                 set<BasicBlock*>& visited,
-                 set<BasicBlock*>& result) -> bool {
-    if (visited.size() > 20) {
-      debug() << "[slicer] block too distant from root, skipping\n";
-      return false;
-    }
-
-    if (target == current) {
-        result.insert(visited.begin(), visited.end());
-        return true;
-    } else {
-      for (BasicBlock* pred : predecessors(current)) {
-        bool t = true;
-        if (visited.find(pred) == visited.end() && DT.dominates(target, pred)) {
-            visited.insert(pred);  // Backtrack
-            t = self(self, pred, target, visited, result);
-            visited.erase(pred);
-        }
-        if (!t)
-          return false;
-      }
-      return true;
-    }
-  };
-  /*debug () << "[slicer] start walking from " << current->getName() << " to "
-           << target->getName() << "\n";*/
-
+  constexpr unsigned MaxBlocks = 20;
   set<BasicBlock*> visited = { current };
+  queue<BasicBlock*> worklist;
+  worklist.push(current);
 
-  return s(s, current, target, visited, blocks);
+  while (!worklist.empty()) {
+    BasicBlock *bb = worklist.front();
+    worklist.pop();
+
+    if (bb == target)
+      continue; // reached target, don't walk past it
+
+    for (BasicBlock *pred : predecessors(bb)) {
+      if (visited.count(pred))
+        continue;
+      if (!DT.dominates(target, pred))
+        continue;
+      visited.insert(pred);
+      if (visited.size() > MaxBlocks) {
+        debug() << "[slicer] block too distant "
+                << "from root, skipping\n";
+        return false;
+      }
+      worklist.push(pred);
+    }
+  }
+
+  if (!visited.count(target))
+    return true; // no path found, but not an error
+
+  blocks.insert(visited.begin(), visited.end());
+  return true;
 }
 
 namespace minotaur {
@@ -116,7 +112,7 @@ Slice::extractExpr(Value &v) {
     }
   }
 
-  LLVMContext &ctx = m->getContext();
+  LLVMContext &ctx = f.getContext();
   set<Value*> visited;
 
   queue<tuple<Value*, unsigned>> worklist;
@@ -170,9 +166,15 @@ Slice::extractExpr(Value &v) {
           continue;
         }
 
+        if (!m) {
+          m = std::make_unique<Module>("", ctx);
+          m->setDataLayout(f.getParent()->getDataLayout());
+        }
         FunctionCallee intrindecl =
-            m->getOrInsertFunction(callee->getName(), callee->getFunctionType(),
-                                   callee->getAttributes());
+            m->getOrInsertFunction(
+                callee->getName(),
+                callee->getFunctionType(),
+                callee->getAttributes());
 
         vmap[callee] = intrindecl.getCallee();
         ops = call->args();
@@ -260,10 +262,10 @@ Slice::extractExpr(Value &v) {
     blocks.insert(i->getParent());
     // incoming block -> def block
     if (auto *phi = dyn_cast<PHINode>(i)) {
-      for (unsigned i = 0; i < phi->getNumIncomingValues(); i++) {
-        BasicBlock *incomebb = phi->getIncomingBlock(i);
+      for (unsigned j = 0; j < phi->getNumIncomingValues(); j++) {
+        BasicBlock *incomebb = phi->getIncomingBlock(j);
         blocks.insert(incomebb);
-        Value *incomev = phi->getIncomingValue(i);
+        Value *incomev = phi->getIncomingValue(j);
         if (!isa<Instruction>(incomev))
           continue;
         Instruction *incomei = cast<Instruction>(incomev);
@@ -380,8 +382,8 @@ Slice::extractExpr(Value &v) {
       for (auto &i : bb) {
         if (!insts.count(&i))
           continue;
-        BasicBlock *bb = bmap.at(i.getParent());
-        cast<Instruction>(vmap[&i])->insertInto(bb, bb->end());
+        BasicBlock *dest_bb = bmap.at(i.getParent());
+        cast<Instruction>(vmap[&i])->insertInto(dest_bb, dest_bb->end());
         string name;
         raw_string_ostream ss(name);
         ss << "__n" << name_count++;
@@ -436,8 +438,11 @@ Slice::extractExpr(Value &v) {
   }
 
   // pass 4;
-  // + remap the operands of duplicated instructions with vmap from pass 1
-  // + if a operand value is unknown, reserve a function parameter for it
+  // + remap the operands of duplicated instructions
+  // + if an operand value is unknown, reserve a function
+  //   parameter for it
+  set<Instruction*> cloned_set(cloned_insts.begin(),
+                               cloned_insts.end());
   vector<Type *> argTys;
   map<Value *, unsigned> argMap;
   unsigned idx = 0;
@@ -449,13 +454,11 @@ Slice::extractExpr(Value &v) {
           continue;
         argTys.push_back(op->getType());
         argMap[op.get()] = idx++;
-      } else if (Instruction *op_i = dyn_cast<Instruction>(op)) {
-        auto unknown = find(cloned_insts.begin(), cloned_insts.end(), op_i);
-        if (unknown != cloned_insts.end())
+      } else if (auto *op_i = dyn_cast<Instruction>(op)) {
+        if (cloned_set.count(op_i))
           continue;
         if (argMap.count(op.get()))
           continue;
-
         argTys.push_back(op->getType());
         argMap[op.get()] = idx++;
       }
@@ -472,8 +475,13 @@ Slice::extractExpr(Value &v) {
   }
 
   // create function
-  Function *F = Function::Create(FunctionType::get(v.getType(), argTys, false),
-                                 GlobalValue::ExternalLinkage, "cut", *m);
+  if (!m) {
+    m = std::make_unique<Module>("", ctx);
+    m->setDataLayout(f.getParent()->getDataLayout());
+  }
+  Function *F = Function::Create(
+      FunctionType::get(v.getType(), argTys, false),
+      GlobalValue::ExternalLinkage, "cut", *m);
 
   for (auto &arg : F->args()) {
     string name;
@@ -512,9 +520,9 @@ Slice::extractExpr(Value &v) {
   if (block_without_preds.size() > 1) {
     entry = BasicBlock::Create(ctx, "entry");
     SwitchInst *sw = SwitchInst::Create(F->getArg(idx), sinkbb, 1, entry);
-    unsigned idx  = 23;
+    unsigned case_id = 23;
     for (BasicBlock *no_pred : block_without_preds) {
-      sw->addCase(ConstantInt::get(IntegerType::get(ctx, 16), idx ++), no_pred);
+      sw->addCase(ConstantInt::get(IntegerType::get(ctx, 16), case_id++), no_pred);
     }
   }
   else if (block_without_preds.size() == 1) {
@@ -538,11 +546,11 @@ Slice::extractExpr(Value &v) {
 
   DominatorTree FDT = DominatorTree();
   FDT.recalculate(*F);
-  auto FLI = new LoopInfoBase<BasicBlock, Loop>();
-  FLI->analyze(FDT);
+  LoopInfoBase<BasicBlock, Loop> FLI;
+  FLI.analyze(FDT);
 
   // make sure sliced function is loop free.
-  if (!FLI->empty())
+  if (!FLI.empty())
     report_fatal_error("[slicer] a loop is generated, terminating\n");
 
   eliminate_dead_code(*F);

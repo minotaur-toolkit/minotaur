@@ -7,7 +7,16 @@ https://arxiv.org/abs/2306.00229.
 
 ## Build Minotaur using Docker
 
-To build the docker container, use
+The Docker build uses the current checkout for Minotaur and the frozen
+external revisions from [`pinned-deps.env`](./pinned-deps.env):
+
+- LLVM: commit `292dc2b86f66e39f4b85ec8b185fd8b60f5213ce`
+  (upstream release `llvmorg-21.1.7`)
+- Alive2: commit `f9ad3cb48a926f456b79e22e73b91cff03fc7b81`
+  (newest upstream commit validated against LLVM `21.1.7` as of 2026-03-16)
+- Z3: tag `z3-4.15.4`
+
+To build the Docker container, use
 
     docker build -t minotaur-dev -f Dockerfile .
 
@@ -17,11 +26,15 @@ To run the container, use
 
 ## Build Minotaur from source code
 
+Minotaur freezes its external dependency revisions in
+[`pinned-deps.env`](./pinned-deps.env). CI, Docker, and
+`.github/scripts/build.sh` all use that file, so local builds should use the
+same refs.
+
 Minotaur requires `cmake`, `ninja-build`, `gcc-10`, `g++-10`,
 `redis`, `redis-server`, `libhiredis-dev`, `libbsd-resource-perl`,
 `libredis-perl`, `libgtest-dev` and `re2c` as dependencies. Minotaur/Alive2
-also require Z3; we recommend building Z3 from source at tag `z3-4.15.4`. On
-Ubuntu/Debian, use
+also require Z3. On Ubuntu/Debian, use
 
     sudo apt-get install cmake ninja-build gcc-10 g++-10 redis redis-server libhiredis-dev libbsd-resource-perl libredis-perl re2c libgtest-dev
 
@@ -31,41 +44,60 @@ or on mac, use
 
 to install dependencies.
 
-Build and install Z3 from source (tag `z3-4.15.4`).
+Clone Minotaur first so the pinned dependency file is available.
 
-    git clone --depth 1 --branch z3-4.15.4 https://github.com/Z3Prover/z3.git $HOME/z3
+    git clone https://github.com/minotaur-toolkit/minotaur $HOME/minotaur
+
+Build and install Z3 from source at the pinned ref.
+
+    . $HOME/minotaur/pinned-deps.env
+    git clone --depth 1 --branch "$MINOTAUR_Z3_REF" https://github.com/Z3Prover/z3.git $HOME/z3
     cmake -S $HOME/z3 -B $HOME/z3/build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$HOME/z3/install -DZ3_BUILD_TEST_EXECUTABLES=OFF -DZ3_BUILD_EXECUTABLE=ON
     cmake --build $HOME/z3/build --target install
 
-Clone Minotaur repository with
+The recommended build path is the same scripted flow used by CI. It fetches
+LLVM and Alive2 at the pinned revisions from `pinned-deps.env`.
 
-    git clone git@github.com:minotaur-toolkit/minotaur $HOME/minotaur
+On Linux, for example:
 
-The Alive2 requires a LLVM compiled with RTTI and exceptions enabled,
-use the following command to fetch and build LLVM.
+    export CMAKE_C_COMPILER=gcc-10
+    export CMAKE_CXX_COMPILER=g++-10
+    Z3_PREFIX=$HOME/z3/install bash $HOME/minotaur/.github/scripts/build.sh
 
-    git clone --depth=1 git@github.com:llvm/llvm-project $HOME/llvm
-    cd $HOME/llvm && git apply $HOME/minotaur/llvm-main-minotaur.patch
-    mkdir $HOME/llvm/build && cd $HOME/llvm/build
-    cmake -GNinja -DLLVM_ENABLE_RTTI=ON -DLLVM_ENABLE_EH=ON -DBUILD_SHARED_LIBS=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLLVM_TARGETS_TO_BUILD="X86;AArch64;RISCV" -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_ENABLE_PROJECTS="llvm;clang" ../llvm
-    ninja
+By default, the scripted build requests LLVM backends for `X86`, `AArch64`,
+and `RISCV`. Set `LLVM_TARGETS_TO_BUILD` yourself only if you intentionally
+want a narrower LLVM build.
 
-To fetch and build the Alive2, use
+If you prefer the manual equivalent, Alive2 requires LLVM built with RTTI and
+exceptions enabled. Fetch and build LLVM from the exact pinned commit behind
+`llvmorg-21.1.7`:
 
-    git clone --depth=1 git@github.com:alivetoolkit/alive2.git $HOME/alive2
-    mkdir $HOME/alive2/build && cd $HOME/alive2/build
-    cmake -GNinja -DLLVM_DIR=$HOME/llvm/build/lib/cmake/llvm -DBUILD_TV=1 -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_PREFIX_PATH=$HOME/z3/install ..
-    ninja
+    . $HOME/minotaur/pinned-deps.env
+    git init $HOME/llvm
+    git -C $HOME/llvm remote add origin https://github.com/llvm/llvm-project.git
+    git -C $HOME/llvm fetch --depth 1 origin "$MINOTAUR_LLVM_REF"
+    git -C $HOME/llvm checkout --force --detach FETCH_HEAD
+    cmake -GNinja -S $HOME/llvm/llvm -B $HOME/llvm/build -DLLVM_ENABLE_RTTI=ON -DLLVM_ENABLE_EH=ON -DBUILD_SHARED_LIBS=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLLVM_TARGETS_TO_BUILD="X86;AArch64;RISCV" -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_ENABLE_PROJECTS="llvm;clang"
+    ninja -C $HOME/llvm/build
+
+Fetch and build Alive2 from the pinned commit:
+
+    . $HOME/minotaur/pinned-deps.env
+    git init $HOME/alive2
+    git -C $HOME/alive2 remote add origin https://github.com/AliveToolkit/alive2.git
+    git -C $HOME/alive2 fetch --depth 1 origin "$MINOTAUR_ALIVE2_REF"
+    git -C $HOME/alive2 checkout --force --detach FETCH_HEAD
+    cmake -GNinja -S $HOME/alive2 -B $HOME/alive2/build -DLLVM_DIR=$HOME/llvm/build/lib/cmake/llvm -DBUILD_TV=1 -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_PREFIX_PATH=$HOME/z3/install
+    ninja -C $HOME/alive2/build
 
 To build Minotaur, use
 
-    mkdir $HOME/minotaur/build && cd $HOME/minotaur/build
-    cmake .. -DALIVE2_SOURCE_DIR=$HOME/alive2 -DALIVE2_BUILD_DIR=$HOME/alive2/build -DCMAKE_PREFIX_PATH="$HOME/llvm/build;$HOME/z3/install" -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DCMAKE_BUILD_TYPE=RelWithDebInfo -G Ninja
-    ninja
+    cmake -S $HOME/minotaur -B $HOME/minotaur/build -DALIVE2_SOURCE_DIR=$HOME/alive2 -DALIVE2_BUILD_DIR=$HOME/alive2/build -DCMAKE_PREFIX_PATH="$HOME/llvm/build;$HOME/z3/install" -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DCMAKE_BUILD_TYPE=RelWithDebInfo -G Ninja
+    ninja -C $HOME/minotaur/build
 
 To run the test suite, use
 
-    ninja check
+    ninja -C $HOME/minotaur/build check
 
 ## Use Minotaur
 
