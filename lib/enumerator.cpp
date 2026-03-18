@@ -79,6 +79,55 @@ constexpr BinaryOp::Op DeepCompareBinaryOps[] = {
   BinaryOp::smin,
 };
 
+struct VectorReduceFamily {
+  VectorReduce::Op reduce_op;
+  BinaryOp::Op inner_op;
+};
+
+constexpr VectorReduce::Op VectorReduceOps[] = {
+  VectorReduce::add,
+  VectorReduce::mul,
+  VectorReduce::band,
+  VectorReduce::bor,
+  VectorReduce::bxor,
+};
+
+constexpr VectorReduceFamily VectorReduceFamilies[] = {
+  {VectorReduce::add,  BinaryOp::add},
+  {VectorReduce::mul,  BinaryOp::mul},
+  {VectorReduce::band, BinaryOp::band},
+  {VectorReduce::bor,  BinaryOp::bor},
+  {VectorReduce::bxor, BinaryOp::bxor},
+};
+
+constexpr bool supportsSameSign(ICmp::Cond Cond) {
+  switch (Cond) {
+  case ICmp::ult:
+  case ICmp::ule:
+  case ICmp::ugt:
+  case ICmp::uge:
+  case ICmp::slt:
+  case ICmp::sle:
+  case ICmp::sgt:
+  case ICmp::sge:
+    return true;
+  case ICmp::eq:
+  case ICmp::ne:
+    return false;
+  }
+  return false;
+}
+
+template <typename Fn>
+void forEachICmpVariant(Fn &&fn) {
+  for (unsigned C = ICmp::Cond::eq; C <= ICmp::Cond::sge; ++C) {
+    ICmp::Cond Cond = static_cast<ICmp::Cond>(C);
+    fn(Cond, false);
+    if (supportsSameSign(Cond))
+      fn(Cond, true);
+  }
+}
+
 } // namespace
 
 void Enumerator::findInputs(llvm::Function &F,
@@ -253,6 +302,30 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
     exprs.emplace_back(std::move(EE));
   }
 
+  // vector_reduce_*
+  if (!expected.isFP() && expected.getLane() == 1) {
+    unsigned expected_bits = expected.getWidth();
+    if (expected_bits == 8 || expected_bits == 16 ||
+        expected_bits == 32 || expected_bits == 64) {
+      for (auto Op0 : Comps) {
+        auto op0_ty = Op0->getType();
+        if (op0_ty.isFP())
+          continue;
+        if (op0_ty.getLane() <= 1)
+          continue;
+        if (op0_ty.getBits() != expected_bits)
+          continue;
+
+        for (auto reduce_op : VectorReduceOps) {
+          set<ReservedConst*> RCs;
+          auto VR = make_unique<VectorReduce>(reduce_op, *Op0, op0_ty);
+          sketches.push_back(make_pair(VR.get(), std::move(RCs)));
+          exprs.emplace_back(std::move(VR));
+        }
+      }
+    }
+  }
+
   auto RC1 = make_unique<ReservedConst>(type::Null());
   Comps.emplace_back(RC1.get());
 
@@ -341,24 +414,23 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
         if (dynamic_cast<ReservedConst*>(*Op0) && dynamic_cast<Var*>(*Op1))
           continue;
 
-        //icmps
-        for (unsigned C = ICmp::Cond::eq; C <= ICmp::Cond::sge; ++C) {
-          ICmp::Cond Cond = static_cast<ICmp::Cond>(C);
+        // icmps
+        forEachICmpVariant([&](ICmp::Cond Cond, bool SameSign) {
           set<ReservedConst*> RCs;
           Value *I = nullptr, *J = nullptr;
 
           if (auto L = dynamic_cast<Var*>(*Op0)) {
             if (L->getType().getWidth() % expected.getWidth())
-              continue;
+              return;
 
             unsigned elem_bits = L->getType().getWidth() / lanes;
             if (elem_bits != 8 && elem_bits != 16 &&
                 elem_bits != 32 && elem_bits != 64)
-              continue;
+              return;
             // (icmp var, rc)
             if (dynamic_cast<ReservedConst*>(*Op1)) {
               if (Cond == ICmp::sle || Cond == ICmp::ule)
-                continue;
+                return;
               I = L;
               auto jty = type::IntegerVectorizable(lanes, elem_bits);
               auto T = make_unique<ReservedConst>(jty);
@@ -368,15 +440,15 @@ bool Enumerator::getSketches(llvm::Value *V, vector<Sketch> &sketches) {
             // (icmp var, var)
             } else if (auto R = dynamic_cast<Var*>(*Op1)) {
               if (L->getType().getWidth() != R->getType().getWidth())
-                continue;
+                return;
               I = *Op0;
               J = *Op1;
             } else UNREACHABLE();
           } else UNREACHABLE();
-          auto BO = make_unique<ICmp>(Cond, *I, *J, lanes);
+          auto BO = make_unique<ICmp>(Cond, *I, *J, lanes, SameSign);
           sketches.push_back(make_pair(BO.get(), std::move(RCs)));
           exprs.emplace_back(std::move(BO));
-        }
+        });
       }
     }
   }
@@ -829,43 +901,87 @@ bool Enumerator::getDepth2Sketches(
 
       for (auto &inner : inners) {
         for (auto *Leaf : leaves) {
-          for (unsigned C = ICmp::Cond::eq; C <= ICmp::Cond::sge; ++C) {
-            ICmp::Cond Cond = static_cast<ICmp::Cond>(C);
+          forEachICmpVariant([&](ICmp::Cond Cond, bool SameSign) {
             {
               set<ReservedConst*> rcs(inner.rcs);
-              auto Cmp = make_unique<ICmp>(Cond, *inner.expr, *Leaf, 1);
+              auto Cmp = make_unique<ICmp>(
+                  Cond, *inner.expr, *Leaf, 1, SameSign);
               sketches.push_back({Cmp.get(), std::move(rcs)});
               exprs.emplace_back(std::move(Cmp));
             }
             {
               set<ReservedConst*> rcs(inner.rcs);
-              auto Cmp = make_unique<ICmp>(Cond, *Leaf, *inner.expr, 1);
+              auto Cmp = make_unique<ICmp>(
+                  Cond, *Leaf, *inner.expr, 1, SameSign);
               sketches.push_back({Cmp.get(), std::move(rcs)});
               exprs.emplace_back(std::move(Cmp));
             }
-          }
+          });
         }
 
         if (!inner.rcs.empty())
           continue;
 
-        for (unsigned C = ICmp::Cond::eq; C <= ICmp::Cond::sge; ++C) {
-          ICmp::Cond Cond = static_cast<ICmp::Cond>(C);
+        forEachICmpVariant([&](ICmp::Cond Cond, bool SameSign) {
           if (Cond == ICmp::sle || Cond == ICmp::ule)
-            continue;
+            return;
 
           auto RC = make_unique<ReservedConst>(target_ty);
           set<ReservedConst*> rcs;
           rcs.insert(RC.get());
-          auto Cmp = make_unique<ICmp>(Cond, *inner.expr, *RC, 1);
+          auto Cmp = make_unique<ICmp>(
+              Cond, *inner.expr, *RC, 1, SameSign);
           sketches.push_back({Cmp.get(), std::move(rcs)});
           exprs.emplace_back(std::move(RC));
           exprs.emplace_back(std::move(Cmp));
-        }
+        });
       }
     }
 
     return true;
+  }
+
+  if (expected.getLane() == 1) {
+    unsigned expected_bits = expected.getWidth();
+    if (expected_bits == 8 || expected_bits == 16 ||
+        expected_bits == 32 || expected_bits == 64) {
+      std::map<std::pair<unsigned, unsigned>, std::vector<Value*>> vector_leaves;
+      for (auto *Leaf : values) {
+        auto leaf_ty = Leaf->getType();
+        if (leaf_ty.isFP() || leaf_ty.getLane() <= 1)
+          continue;
+        if (leaf_ty.getBits() != expected_bits)
+          continue;
+        vector_leaves[{leaf_ty.getLane(), leaf_ty.getBits()}].push_back(Leaf);
+      }
+
+      for (auto &[key, leaves] : vector_leaves) {
+        type vec_ty = type::IntegerVectorizable(key.first, key.second);
+        for (auto family : VectorReduceFamilies) {
+          auto worktys = getBinaryOpWorkTypes(vec_ty, family.inner_op);
+          for (auto &workty : worktys) {
+            if (workty != vec_ty)
+              continue;
+            for (auto *Op0 : leaves) {
+              for (auto *Op1 : leaves) {
+                if (BinaryOp::isCommutative(family.inner_op) && Op1 < Op0)
+                  continue;
+                auto Inner = make_unique<BinaryOp>(
+                    family.inner_op, *Op0, *Op1, workty);
+                auto *InnerPtr = Inner.get();
+                exprs.emplace_back(std::move(Inner));
+
+                set<ReservedConst*> rcs;
+                auto Reduce = make_unique<VectorReduce>(
+                    family.reduce_op, *InnerPtr, vec_ty);
+                sketches.push_back({Reduce.get(), std::move(rcs)});
+                exprs.emplace_back(std::move(Reduce));
+              }
+            }
+          }
+        }
+      }
+    }
   }
 
   // Step 1: build depth-1 inner expressions (var op var)
@@ -1338,43 +1454,98 @@ bool Enumerator::getDepth3Sketches(
 
       for (auto &d2 : d2exprs) {
         for (auto *Leaf : leaves) {
-          for (unsigned C = ICmp::Cond::eq; C <= ICmp::Cond::sge; ++C) {
-            ICmp::Cond Cond = static_cast<ICmp::Cond>(C);
+          forEachICmpVariant([&](ICmp::Cond Cond, bool SameSign) {
             {
               set<ReservedConst*> rcs(d2.rcs);
-              auto Cmp = make_unique<ICmp>(Cond, *d2.expr, *Leaf, 1);
+              auto Cmp = make_unique<ICmp>(
+                  Cond, *d2.expr, *Leaf, 1, SameSign);
               sketches.push_back({Cmp.get(), std::move(rcs)});
               exprs.emplace_back(std::move(Cmp));
             }
             {
               set<ReservedConst*> rcs(d2.rcs);
-              auto Cmp = make_unique<ICmp>(Cond, *Leaf, *d2.expr, 1);
+              auto Cmp = make_unique<ICmp>(
+                  Cond, *Leaf, *d2.expr, 1, SameSign);
               sketches.push_back({Cmp.get(), std::move(rcs)});
               exprs.emplace_back(std::move(Cmp));
             }
-          }
+          });
         }
 
         if (!d2.rcs.empty())
           continue;
 
-        for (unsigned C = ICmp::Cond::eq; C <= ICmp::Cond::sge; ++C) {
-          ICmp::Cond Cond = static_cast<ICmp::Cond>(C);
+        forEachICmpVariant([&](ICmp::Cond Cond, bool SameSign) {
           if (Cond == ICmp::sle || Cond == ICmp::ule)
-            continue;
+            return;
 
           auto RC = make_unique<ReservedConst>(target_ty);
           set<ReservedConst*> rcs;
           rcs.insert(RC.get());
-          auto Cmp = make_unique<ICmp>(Cond, *d2.expr, *RC, 1);
+          auto Cmp = make_unique<ICmp>(
+              Cond, *d2.expr, *RC, 1, SameSign);
           sketches.push_back({Cmp.get(), std::move(rcs)});
           exprs.emplace_back(std::move(RC));
           exprs.emplace_back(std::move(Cmp));
-        }
+        });
       }
     }
 
     return true;
+  }
+
+  if (expected.getLane() == 1) {
+    unsigned expected_bits = expected.getWidth();
+    if (expected_bits == 8 || expected_bits == 16 ||
+        expected_bits == 32 || expected_bits == 64) {
+      std::map<std::pair<unsigned, unsigned>, std::vector<Value*>> vector_leaves;
+      for (auto *Leaf : values) {
+        auto leaf_ty = Leaf->getType();
+        if (leaf_ty.isFP() || leaf_ty.getLane() <= 1)
+          continue;
+        if (leaf_ty.getBits() != expected_bits)
+          continue;
+        vector_leaves[{leaf_ty.getLane(), leaf_ty.getBits()}].push_back(Leaf);
+      }
+
+      for (auto &[key, leaves] : vector_leaves) {
+        type vec_ty = type::IntegerVectorizable(key.first, key.second);
+        for (auto family : VectorReduceFamilies) {
+          auto worktys = getBinaryOpWorkTypes(vec_ty, family.inner_op);
+          for (auto &workty : worktys) {
+            if (workty != vec_ty)
+              continue;
+
+            std::vector<Value*> d2exprs;
+            for (auto *Op0 : leaves) {
+              for (auto *Op1 : leaves) {
+                if (BinaryOp::isCommutative(family.inner_op) && Op1 < Op0)
+                  continue;
+                auto D2 = make_unique<BinaryOp>(
+                    family.inner_op, *Op0, *Op1, workty);
+                d2exprs.push_back(D2.get());
+                exprs.emplace_back(std::move(D2));
+              }
+            }
+
+            for (auto *D2 : d2exprs) {
+              for (auto *Leaf : leaves) {
+                auto D3 = make_unique<BinaryOp>(
+                    family.inner_op, *D2, *Leaf, workty);
+                auto *D3Ptr = D3.get();
+                exprs.emplace_back(std::move(D3));
+
+                set<ReservedConst*> rcs;
+                auto Reduce = make_unique<VectorReduce>(
+                    family.reduce_op, *D3Ptr, vec_ty);
+                sketches.push_back({Reduce.get(), std::move(rcs)});
+                exprs.emplace_back(std::move(Reduce));
+              }
+            }
+          }
+        }
+      }
+    }
   }
 
   // Only worthwhile for types with enough entropy

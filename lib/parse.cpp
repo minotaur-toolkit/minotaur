@@ -312,11 +312,28 @@ BinaryOp *Parser::parse_binary(token op_token) {
 
 ICmp *Parser::parse_icmp(token op_token) {
   ICmp::Cond op;
+  bool same_sign = false;
   switch (op_token) {
   case EQ:
     op = ICmp::eq; break;
   case NE:
     op = ICmp::ne; break;
+  case SAMESIGN_ULT:
+    op = ICmp::ult; same_sign = true; break;
+  case SAMESIGN_ULE:
+    op = ICmp::ule; same_sign = true; break;
+  case SAMESIGN_UGT:
+    op = ICmp::ugt; same_sign = true; break;
+  case SAMESIGN_UGE:
+    op = ICmp::uge; same_sign = true; break;
+  case SAMESIGN_SLT:
+    op = ICmp::slt; same_sign = true; break;
+  case SAMESIGN_SLE:
+    op = ICmp::sle; same_sign = true; break;
+  case SAMESIGN_SGT:
+    op = ICmp::sgt; same_sign = true; break;
+  case SAMESIGN_SGE:
+    op = ICmp::sge; same_sign = true; break;
   case ULT:
     op = ICmp::ult; break;
   case ULE:
@@ -342,7 +359,7 @@ ICmp *Parser::parse_icmp(token op_token) {
   unsigned width = parse_number();
 
   tokenizer.ensure(RPAREN);
-  auto II = make_unique<ICmp>(op, *a, *b, width);
+  auto II = make_unique<ICmp>(op, *a, *b, width, same_sign);
   ICmp *T = II.get();
   exprs.emplace_back(std::move(II));
   return T;
@@ -519,6 +536,42 @@ ExtractElement *Parser::parse_extractelement() {
   return T;
 }
 
+VectorReduce *Parser::parse_vector_reduce(token op_token) {
+  VectorReduce::Op op;
+  switch (op_token) {
+  case VECTOR_REDUCE_ADD:
+    op = VectorReduce::add; break;
+  case VECTOR_REDUCE_MUL:
+    op = VectorReduce::mul; break;
+  case VECTOR_REDUCE_AND:
+    op = VectorReduce::band; break;
+  case VECTOR_REDUCE_OR:
+    op = VectorReduce::bor; break;
+  case VECTOR_REDUCE_XOR:
+    op = VectorReduce::bxor; break;
+  default:
+    UNREACHABLE();
+  }
+
+  type result_ty = parse_type();
+  auto vec = parse_expr();
+
+  tokenizer.ensure(RPAREN);
+
+  type input_ty = vec->getType();
+  if (input_ty.getLane() <= 1)
+    error("vector_reduce_add expects a vector operand");
+
+  type expected_ty = type::Scalar(input_ty.getBits(), input_ty.isFP());
+  if (result_ty != expected_ty)
+    error("vector_reduce result type does not match operand element type");
+
+  auto VR = make_unique<VectorReduce>(op, *vec, input_ty);
+  VectorReduce *T = VR.get();
+  exprs.emplace_back(std::move(VR));
+  return T;
+}
+
 Value* Parser::parse_expr() {
   tokenizer.ensure(LPAREN);
 
@@ -567,6 +620,14 @@ Value* Parser::parse_expr() {
     return parse_binary(t);
   case EQ:
   case NE:
+  case SAMESIGN_ULT:
+  case SAMESIGN_ULE:
+  case SAMESIGN_UGT:
+  case SAMESIGN_UGE:
+  case SAMESIGN_SLT:
+  case SAMESIGN_SLE:
+  case SAMESIGN_SGT:
+  case SAMESIGN_SGE:
   case ULT:
   case ULE:
   case UGT:
@@ -602,6 +663,12 @@ Value* Parser::parse_expr() {
     return parse_insertelement();
   case EXTRACTELEMENT:
     return parse_extractelement();
+  case VECTOR_REDUCE_ADD:
+  case VECTOR_REDUCE_MUL:
+  case VECTOR_REDUCE_AND:
+  case VECTOR_REDUCE_OR:
+  case VECTOR_REDUCE_XOR:
+    return parse_vector_reduce(t);
   case CONV_ZEXT:
   case CONV_SEXT:
   case CONV_TRUNC:

@@ -289,6 +289,8 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
       r = Builder.CreateICmp(CmpInst::ICMP_SGE, op0, op1, "isge");
       break;
     }
+    if (IC->hasSameSign())
+      cast<ICmpInst>(r)->setSameSign();
     return r;
 
   } else if (auto FC = dynamic_cast<FCmp*>(I)) {
@@ -411,6 +413,30 @@ LLVMGen::codeGenImpl(Inst *I, ValueToValueMapTy &VMap) {
     op1 = bitcastTo(op1, op_ty->getScalarType());
     auto idx = codeGenImpl(IE->getIndex(), VMap);
     return Builder.CreateInsertElement(op0, op1, idx, "ie");
+  } else if (auto VR = dynamic_cast<VectorReduce*>(I)) {
+    auto op0 = codeGenImpl(VR->getVector(), VMap);
+    llvm::Type *op_ty = VR->getInputTy().toLLVM(Ctx);
+    op0 = bitcastTo(op0, op_ty);
+    llvm::CallInst *CI = nullptr;
+    switch (VR->getOpcode()) {
+    case VectorReduce::add:
+      CI = Builder.CreateAddReduce(op0);
+      break;
+    case VectorReduce::mul:
+      CI = Builder.CreateMulReduce(op0);
+      break;
+    case VectorReduce::band:
+      CI = Builder.CreateAndReduce(op0);
+      break;
+    case VectorReduce::bor:
+      CI = Builder.CreateOrReduce(op0);
+      break;
+    case VectorReduce::bxor:
+      CI = Builder.CreateXorReduce(op0);
+      break;
+    }
+    IntrinsicDecls.insert(CI->getCalledFunction());
+    return CI;
   } else if (auto S = dynamic_cast<Select*>(I)) {
     auto cond = codeGenImpl(S->getCond(), VMap);
     auto op0 = codeGenImpl(S->getLHS(), VMap);

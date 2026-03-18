@@ -33,6 +33,7 @@ class Parser {
   minotaur::Select          *parse_select();
   minotaur::InsertElement   *parse_insertelement();
   minotaur::ExtractElement  *parse_extractelement();
+  minotaur::VectorReduce    *parse_vector_reduce(token);
   minotaur::Value* parse_expr();
 
 public:

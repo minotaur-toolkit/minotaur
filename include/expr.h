@@ -161,16 +161,20 @@ public:
               ugt, uge, sgt, sge };
 private:
   Cond cond;
+  bool same_sign;
   Value *lhs;
   Value *rhs;
 public:
-  ICmp(Cond cond, Value &lhs, Value &rhs, unsigned lanes)
+  ICmp(Cond cond, Value &lhs, Value &rhs, unsigned lanes,
+       bool same_sign = false)
     : Value(type::IntegerVectorizable(lanes, 1)),
-      cond(cond), lhs(&lhs), rhs(&rhs) {}
+      cond(cond), same_sign(same_sign),
+      lhs(&lhs), rhs(&rhs) {}
   void print(llvm::raw_ostream &os) const override;
   Value *getLHS() { return lhs; }
   Value *getRHS() { return rhs; }
   Cond getCond() { return cond; }
+  bool hasSameSign() const { return same_sign; }
   unsigned getLanes() {
     return getType().getLane();
   }
@@ -361,6 +365,24 @@ public:
   Value *getElement() { return elt; }
   ReservedConst *getIndex() { return idx; }
   type getInputTy() const;
+};
+
+
+class VectorReduce final : public Value {
+public:
+  enum Op { add, mul, band, bor, bxor };
+private:
+  Op op;
+  Value *vec;
+  type input_ty;
+public:
+  VectorReduce(Op op, Value &v, type input_ty)
+    : Value(type::Scalar(input_ty.getBits(), input_ty.isFP())),
+      op(op), vec(&v), input_ty(input_ty) {}
+  void print(llvm::raw_ostream &os) const override;
+  Op getOpcode() const { return op; }
+  Value *getVector() { return vec; }
+  type getInputTy() const { return input_ty; }
 };
 
 

@@ -147,6 +147,14 @@ space+ {
 
 "icmp_eq"  { return EQ;  }
 "icmp_ne"  { return NE;  }
+"icmp_samesign_ult" { return SAMESIGN_ULT; }
+"icmp_samesign_ule" { return SAMESIGN_ULE; }
+"icmp_samesign_ugt" { return SAMESIGN_UGT; }
+"icmp_samesign_uge" { return SAMESIGN_UGE; }
+"icmp_samesign_slt" { return SAMESIGN_SLT; }
+"icmp_samesign_sle" { return SAMESIGN_SLE; }
+"icmp_samesign_sgt" { return SAMESIGN_SGT; }
+"icmp_samesign_sge" { return SAMESIGN_SGE; }
 "icmp_ult" { return ULT; }
 "icmp_ule" { return ULE; }
 "icmp_ugt" { return UGT; }
@@ -178,6 +186,11 @@ space+ {
 "select"  { return SELECT;  }
 "insertelement" { return INSERTELEMENT; }
 "extractelement" { return EXTRACTELEMENT; }
+"vector_reduce_add" { return VECTOR_REDUCE_ADD; }
+"vector_reduce_mul" { return VECTOR_REDUCE_MUL; }
+"vector_reduce_and" { return VECTOR_REDUCE_AND; }
+"vector_reduce_or"  { return VECTOR_REDUCE_OR;  }
+"vector_reduce_xor" { return VECTOR_REDUCE_XOR; }
 
 "conv_zext"  { return CONV_ZEXT;  }
 "conv_sext"  { return CONV_SEXT;  }

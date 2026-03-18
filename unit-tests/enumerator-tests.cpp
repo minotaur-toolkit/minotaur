@@ -1,12 +1,16 @@
 // Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 // Distributed under the MIT license that can be found in the LICENSE file.
 
+#include "codegen.h"
 #include "enumerator.h"
 #include "gtest/gtest.h"
+#include "parse.h"
 
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Instruction.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
@@ -18,6 +22,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 #include <vector>
 
 using namespace minotaur;
@@ -61,6 +66,14 @@ define i64 @test(i64 %x, i64 %y) {
 entry:
   %tmp = xor i64 %x, 42
   %root = add i64 %tmp, %y
+  ret i64 %root
+}
+)";
+
+constexpr char VectorReduceTestIR[] = R"(
+define i64 @test(<8 x i64> %v, <8 x i64> %w, <8 x i64> %u, i64 %x) {
+entry:
+  %root = add i64 %x, 1
   ret i64 %root
 }
 )";
@@ -165,6 +178,13 @@ std::string dumpSketches(
   return Dump;
 }
 
+std::string renderInst(const Inst &I) {
+  std::string S;
+  llvm::raw_string_ostream OS(S);
+  I.print(OS);
+  return S;
+}
+
 TEST(EnumeratorTest, Depth1IncludesRepresentativeSketches) {
   auto Depth1 = collectDefaultSketches(false, false);
 
@@ -183,6 +203,163 @@ TEST(EnumeratorTest, Depth1IncludesRepresentativeSketches) {
       Depth1,
       "(add i64 (var i64 %x) (reservedconst i64 null))"))
       << dumpSketches(Depth1);
+}
+
+TEST(EnumeratorTest, Depth1IncludesSameSignIcmpSketches) {
+  auto Depth1 = collectSketches(
+      I1CompareTestIR, true, false, false);
+
+  ASSERT_FALSE(Depth1.empty());
+
+  EXPECT_TRUE(containsSketch(
+      Depth1,
+      "(icmp_samesign_ult (var i64 %x) (var i64 %y) b1)"))
+      << dumpSketches(Depth1);
+}
+
+TEST(EnumeratorTest, Depth1IncludesVectorReduceSketches) {
+  auto Depth1 = collectSketches(
+      VectorReduceTestIR, true, false, false);
+
+  ASSERT_FALSE(Depth1.empty());
+
+  EXPECT_TRUE(containsSketch(
+      Depth1,
+      "(vector_reduce_add i64 (var <8 x i64> %v))"))
+      << dumpSketches(Depth1);
+  EXPECT_TRUE(containsSketch(
+      Depth1,
+      "(vector_reduce_mul i64 (var <8 x i64> %v))"))
+      << dumpSketches(Depth1);
+  EXPECT_TRUE(containsSketch(
+      Depth1,
+      "(vector_reduce_and i64 (var <8 x i64> %v))"))
+      << dumpSketches(Depth1);
+  EXPECT_TRUE(containsSketch(
+      Depth1,
+      "(vector_reduce_or i64 (var <8 x i64> %v))"))
+      << dumpSketches(Depth1);
+  EXPECT_TRUE(containsSketch(
+      Depth1,
+      "(vector_reduce_xor i64 (var <8 x i64> %v))"))
+      << dumpSketches(Depth1);
+}
+
+TEST(EnumeratorTest, Depth2AddsVectorReduceOverVectorExpressions) {
+  auto Depth1 = collectSketches(
+      VectorReduceTestIR, true, false, false);
+  auto Depth2 = collectSketches(
+      VectorReduceTestIR, true, true, false);
+
+  ASSERT_FALSE(Depth1.empty());
+  ASSERT_FALSE(Depth2.empty());
+
+  const SketchCase Cases[] = {
+    {
+      "vector_reduce_add(add(v, w))",
+      {
+        "(vector_reduce_add i64 (add <8 x i64> (var <8 x i64> %v) "
+        "(var <8 x i64> %w)))",
+      },
+    },
+    {
+      "vector_reduce_mul(mul(v, w))",
+      {
+        "(vector_reduce_mul i64 (mul <8 x i64> (var <8 x i64> %v) "
+        "(var <8 x i64> %w)))",
+      },
+    },
+    {
+      "vector_reduce_and(and(v, w))",
+      {
+        "(vector_reduce_and i64 (and <8 x i64> (var <8 x i64> %v) "
+        "(var <8 x i64> %w)))",
+      },
+    },
+    {
+      "vector_reduce_or(or(v, w))",
+      {
+        "(vector_reduce_or i64 (or <8 x i64> (var <8 x i64> %v) "
+        "(var <8 x i64> %w)))",
+      },
+    },
+    {
+      "vector_reduce_xor(xor(v, w))",
+      {
+        "(vector_reduce_xor i64 (xor <8 x i64> (var <8 x i64> %v) "
+        "(var <8 x i64> %w)))",
+      },
+    },
+  };
+
+  for (const auto &C : Cases) {
+    SCOPED_TRACE(C.name);
+    EXPECT_FALSE(containsSketch(Depth1, C.expected))
+        << dumpSketches(Depth1);
+    EXPECT_TRUE(containsSketch(Depth2, C.expected))
+        << dumpSketches(Depth2);
+  }
+}
+
+TEST(EnumeratorTest, Depth3AddsVectorReduceOverDeeperVectorExpressions) {
+  auto Depth2Only = collectSketches(
+      VectorReduceTestIR, true, true, false);
+  auto Depth3Enabled = collectSketches(
+      VectorReduceTestIR, true, true, true);
+
+  ASSERT_FALSE(Depth2Only.empty());
+  ASSERT_FALSE(Depth3Enabled.empty());
+
+  const SketchCase Cases[] = {
+    {
+      "vector_reduce_add(add(add(v, w), u))",
+      {
+        "(vector_reduce_add i64 (add <8 x i64> "
+        "(add <8 x i64> (var <8 x i64> %v) (var <8 x i64> %w)) "
+        "(var <8 x i64> %u)))",
+      },
+    },
+    {
+      "vector_reduce_mul(mul(mul(v, w), u))",
+      {
+        "(vector_reduce_mul i64 (mul <8 x i64> "
+        "(mul <8 x i64> (var <8 x i64> %v) (var <8 x i64> %w)) "
+        "(var <8 x i64> %u)))",
+      },
+    },
+    {
+      "vector_reduce_and(and(and(v, w), u))",
+      {
+        "(vector_reduce_and i64 (and <8 x i64> "
+        "(and <8 x i64> (var <8 x i64> %v) (var <8 x i64> %w)) "
+        "(var <8 x i64> %u)))",
+      },
+    },
+    {
+      "vector_reduce_or(or(or(v, w), u))",
+      {
+        "(vector_reduce_or i64 (or <8 x i64> "
+        "(or <8 x i64> (var <8 x i64> %v) (var <8 x i64> %w)) "
+        "(var <8 x i64> %u)))",
+      },
+    },
+    {
+      "vector_reduce_xor(xor(xor(v, w), u))",
+      {
+        "(vector_reduce_xor i64 (xor <8 x i64> "
+        "(xor <8 x i64> (var <8 x i64> %v) (var <8 x i64> %w)) "
+        "(var <8 x i64> %u)))",
+      },
+    },
+  };
+
+  for (const auto &C : Cases) {
+    SCOPED_TRACE(C.name);
+    EXPECT_FALSE(containsSketch(Depth2Only, C.expected))
+        << dumpSketches(Depth2Only);
+    EXPECT_TRUE(containsSketch(Depth3Enabled, C.expected))
+        << dumpSketches(Depth3Enabled);
+  }
 }
 
 TEST(EnumeratorTest, Depth2AddsRepresentativeCompositions) {
@@ -503,6 +680,70 @@ TEST(EnumeratorTest, FindInputsAddsDominatedInstructions) {
       << dumpSketches(ArgsOnly);
   EXPECT_TRUE(containsSketch(WithFindInputs, Expected))
       << dumpSketches(WithFindInputs);
+}
+
+TEST(EnumeratorTest, SameSignIcmpRoundTripsThroughParseAndCodegen) {
+  llvm::LLVMContext Ctx;
+  auto M = parseTestModule(Ctx, I1CompareTestIR);
+  ASSERT_TRUE(M != nullptr);
+
+  auto *F = M->getFunction("test");
+  ASSERT_TRUE(F != nullptr);
+
+  auto *Root = findInstruction(*F, "root");
+  ASSERT_TRUE(Root != nullptr);
+
+  parse::Parser P(*F);
+  constexpr std::string_view Text =
+      "(icmp_samesign_ult (var i64 %x) (var i64 %y) b1)";
+  auto Rewrites = P.parse(*F, Text);
+
+  ASSERT_EQ(Rewrites.size(), 1u);
+  ASSERT_NE(Rewrites[0].I, nullptr);
+  EXPECT_EQ(renderInst(*Rewrites[0].I), Text);
+
+  std::unordered_set<llvm::Function*> IDs;
+  llvm::ValueToValueMapTy VMap;
+  LLVMGen Gen(Root, IDs);
+  auto *Generated = Gen.codeGen(Rewrites[0].I, VMap);
+  auto *Cmp = llvm::dyn_cast<llvm::ICmpInst>(Generated);
+  ASSERT_NE(Cmp, nullptr);
+  EXPECT_TRUE(Cmp->hasSameSign());
+  EXPECT_EQ(Cmp->getPredicate(), llvm::CmpInst::ICMP_ULT);
+}
+
+TEST(EnumeratorTest, VectorReduceRoundTripsThroughParseAndCodegen) {
+  llvm::LLVMContext Ctx;
+  auto M = parseTestModule(Ctx, VectorReduceTestIR);
+  ASSERT_TRUE(M != nullptr);
+
+  auto *F = M->getFunction("test");
+  ASSERT_TRUE(F != nullptr);
+
+  auto *Root = findInstruction(*F, "root");
+  ASSERT_TRUE(Root != nullptr);
+
+  parse::Parser P(*F);
+  constexpr std::string_view Text =
+      "(vector_reduce_xor i64 (var <8 x i64> %v))";
+  auto Rewrites = P.parse(*F, Text);
+
+  ASSERT_EQ(Rewrites.size(), 1u);
+  ASSERT_NE(Rewrites[0].I, nullptr);
+  EXPECT_EQ(renderInst(*Rewrites[0].I), Text);
+
+  std::unordered_set<llvm::Function*> IDs;
+  llvm::ValueToValueMapTy VMap;
+  LLVMGen Gen(Root, IDs);
+  auto *Generated = Gen.codeGen(Rewrites[0].I, VMap);
+  auto *Intrinsic = llvm::dyn_cast<llvm::IntrinsicInst>(Generated);
+  ASSERT_NE(Intrinsic, nullptr);
+  EXPECT_EQ(Intrinsic->getIntrinsicID(),
+            llvm::Intrinsic::vector_reduce_xor);
+  EXPECT_EQ(Intrinsic->getType(),
+            llvm::Type::getInt64Ty(Ctx));
+  ASSERT_EQ(Intrinsic->arg_size(), 1u);
+  EXPECT_TRUE(Intrinsic->getArgOperand(0)->getType()->isVectorTy());
 }
 
 } // namespace

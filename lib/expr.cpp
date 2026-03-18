@@ -103,7 +103,10 @@ void ICmp::print(raw_ostream &os) const {
   case sgt:      str = "sgt"; break;
   case sge:      str = "sge"; break;
   }
-  os << "(icmp_" << str << " ";
+  os << "(icmp_";
+  if (same_sign)
+    os << "samesign_";
+  os << str << " ";
   lhs->print(os);
   os << " ";
   rhs->print(os);
@@ -205,6 +208,20 @@ type InsertElement::getInputTy() const {
   unsigned elt_width = elt->getType().getWidth();
   unsigned lane = lhs_ty.getWidth() / elt_width;
   return type::Vectorizable(lane, elt_width, ty.isFP());
+}
+
+void VectorReduce::print(raw_ostream &os) const {
+  const char *str = nullptr;
+  switch (op) {
+  case add:  str = "vector_reduce_add"; break;
+  case mul:  str = "vector_reduce_mul"; break;
+  case band: str = "vector_reduce_and"; break;
+  case bor:  str = "vector_reduce_or";  break;
+  case bxor: str = "vector_reduce_xor"; break;
+  }
+  os << "(" << str << " " << ty << " ";
+  vec->print(os);
+  os << ")";
 }
 
 
