@@ -14,6 +14,8 @@ using namespace llvm;
 
 namespace minotaur {
 
+static constexpr const char *kCacheVersion = "2";
+
 void eliminate_dead_code(Function &F) {
   bool changed = true;
   while (changed) {
@@ -31,22 +33,50 @@ void eliminate_dead_code(Function &F) {
 }
 
 bool hGet(const char* s, unsigned sz, string &Value, redisContext *c) {
-  redisReply *reply = (redisReply *)redisCommand(c, "HGET %b rewrite", s, sz);
+  redisReply *reply = (redisReply *)redisCommand(c,
+    "HMGET %b rewrite version", s, sz);
   if (!reply || c->err) {
     report_fatal_error((StringRef)"redis error" + c->errstr);
   }
-  if (reply->type == REDIS_REPLY_NIL) {
-    freeReplyObject(reply);
-    return false;
-  } else if (reply->type == REDIS_REPLY_STRING) {
-    Value = reply->str;
-    freeReplyObject(reply);
-    return true;
-  } else {
+
+  if (reply->type != REDIS_REPLY_ARRAY || reply->elements != 2) {
     report_fatal_error((StringRef)
       "Redis protocol error for cache lookup, didn't expect reply type " +
       to_string(reply->type));
   }
+
+  redisReply *rewrite = reply->element[0];
+  redisReply *version = reply->element[1];
+  if (!rewrite || rewrite->type == REDIS_REPLY_NIL) {
+    freeReplyObject(reply);
+    return false;
+  }
+
+  if (rewrite->type != REDIS_REPLY_STRING) {
+    report_fatal_error((StringRef)
+      "Redis protocol error for cache lookup, didn't expect rewrite reply type " +
+      to_string(rewrite->type));
+  }
+
+  if (!version || version->type == REDIS_REPLY_NIL) {
+    freeReplyObject(reply);
+    return false;
+  }
+
+  if (version->type != REDIS_REPLY_STRING) {
+    report_fatal_error((StringRef)
+      "Redis protocol error for cache lookup, didn't expect version reply type " +
+      to_string(version->type));
+  }
+
+  if (StringRef(version->str) != kCacheVersion) {
+    freeReplyObject(reply);
+    return false;
+  }
+
+  Value = rewrite->str;
+  freeReplyObject(reply);
+  return true;
 }
 
 void hSetRewrite(const char *k, unsigned sz_k,
@@ -55,10 +85,10 @@ void hSetRewrite(const char *k, unsigned sz_k,
                  redisContext *c,
                  unsigned costAfter, unsigned costBefore, StringRef FnName) {
   redisReply *reply = (redisReply *)redisCommand(c,
-    "HSET %b rewrite %s  costafter %s costbefore %s timestamp %s fn %s",
+    "HSET %b rewrite %s costafter %s costbefore %s timestamp %s fn %s version %s",
     k, sz_k, rewrite.data(),
     to_string(costAfter).c_str(), to_string(costBefore).c_str(),
-    to_string((unsigned long)time(NULL)).c_str(), FnName.data());
+    to_string((unsigned long)time(NULL)).c_str(), FnName.data(), kCacheVersion);
   if (!reply || c->err)
     report_fatal_error((StringRef)"Redis error: " + c->errstr);
   if (reply->type != REDIS_REPLY_INTEGER) {
@@ -73,8 +103,9 @@ void hSetNoSolution(const char *k, unsigned sz_k,
                     redisContext *c,
                     StringRef FnName) {
   redisReply *reply = (redisReply *)redisCommand(c,
-    "HSET %b rewrite <no-sol> timestamp %s fn %s",
-    k, sz_k, to_string((unsigned long)time(NULL)).c_str(), FnName.data());
+    "HSET %b rewrite <no-sol> timestamp %s fn %s version %s",
+    k, sz_k, to_string((unsigned long)time(NULL)).c_str(),
+    FnName.data(), kCacheVersion);
   if (!reply || c->err)
     report_fatal_error((StringRef)"Redis error: " + c->errstr);
   if (reply->type != REDIS_REPLY_INTEGER) {
