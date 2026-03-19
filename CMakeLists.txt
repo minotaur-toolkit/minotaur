@@ -174,6 +174,12 @@ add_llvm_executable(cost-tests
 target_link_libraries(cost-tests
   PRIVATE cost utils ${GTEST_LIBS} ${HIREDIS_LIBRARY} ${LLVM_LIBS})
 
+add_llvm_executable(alive-tests
+  "unit-tests/alive-tests.cpp")
+target_link_libraries(alive-tests
+  PRIVATE synthesizer ${GTEST_LIBS}
+          ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS})
+
 if(APPLE)
     set_target_properties(online PROPERTIES
         LINK_FLAGS "-undefined dynamic_lookup"

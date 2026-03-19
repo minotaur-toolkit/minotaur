@@ -13,6 +13,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/Transforms/Utils/Local.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 #include <sstream>
 #include <unordered_map>
@@ -130,7 +131,6 @@ AliveEngine::compareFunctions(llvm::Function &Func1, llvm::Function &Func2) {
 Errors
 AliveEngine::find_model(Transform &t,
                         unordered_map<const IR::Value*, AliveEngine::ModelVal> &result) {
-
   t.preprocess();
 
   TransformPrintOpts print_opts;
@@ -143,14 +143,6 @@ AliveEngine::find_model(Transform &t,
   auto pre_src_and = src_state.getPre();
   auto &pre_tgt_and = tgt_state.getPre();
 
-  // Optimization: rewrite "tgt /\ (src -> foo)" to "tgt /\ foo" ONLY if
-  // pre_src == pre_tgt. Doing this unconditionally weakens the antecedent of
-  // the implication and can make incorrect candidates look valid (notably in
-  // constant synthesis FP cases like tests/fp/case11.syn.ll).
-  //
-  // NOTE: We compare the assembled precondition expressions structurally
-  // (expr::eq) instead of comparing AndExpr containers, because smt::expr's
-  // operator== returns an SMT boolean expression (not a C++ bool).
   expr pre_src = pre_src_and();
   expr pre_tgt = pre_tgt_and();
   if (pre_src.eq(pre_tgt)) {
@@ -160,7 +152,6 @@ AliveEngine::find_model(Transform &t,
   expr axioms_expr = expr(true);
 
   IR::State::ValTy sv = src_state.returnVal(), tv = tgt_state.returnVal();
-
   auto uvars = sv.undef_vars;
   set<expr> qvars;
   AndExpr input_nonpoison_cnstr;
@@ -176,30 +167,26 @@ AliveEngine::find_model(Transform &t,
       continue;
 
     bool is_reservedc_input = i.getName().rfind("%_reservedc") == 0;
-    if (is_reservedc_input) {
+    if (is_reservedc_input)
       continue;
-    }
 
     auto &ty = i.getType();
-
     if (ty.isIntType() || ty.isFloatType()) {
       qvars.insert(val->val.value);
-      // Allow poison synthesis only for reserved constants; real inputs are
-      // constrained to be non-poison so synthesis can't "cheat" by picking
-      // poison for inputs.
       auto &np = val->val.non_poison;
-      input_nonpoison_cnstr.add(np.isBool() ? expr(np) : (np == expr::mkInt(-1, np)));
+      input_nonpoison_cnstr.add(np.isBool() ? expr(np)
+                                            : (np == expr::mkInt(-1, np)));
       continue;
     }
 
     auto aty = ty.getAsAggregateType();
     if (ty.isVectorType()) {
       if (aty->getChild(0).isIntType() || aty->getChild(0).isFloatType()) {
-        for (unsigned I = 0; I < aty->numElementsConst(); ++I) {
+        for (unsigned I = 0; I < aty->numElementsConst(); ++I)
           qvars.insert(aty->extract(val->val, I, false).value);
-        }
         auto &np = val->val.non_poison;
-        input_nonpoison_cnstr.add(np.isBool() ? expr(np) : (np == expr::mkInt(-1, np)));
+        input_nonpoison_cnstr.add(np.isBool() ? expr(np)
+                                              : (np == expr::mkInt(-1, np)));
         continue;
       }
     }
@@ -208,40 +195,16 @@ AliveEngine::find_model(Transform &t,
     return errs;
   }
 
-  // ∃ reserved constants . ∀ (inputs) . refines
-  //
-  // NOTE: we intentionally do NOT add Alive2's NaN payload/quieting "choice*"
-  // / "#NaN*" / "#preferred_qnan" vars to the universal quantifier set (qvars).
-  // Doing so makes constant synthesis spuriously UNSAT in FP tests like fadd2.
-
-
   auto dom_a = sv.domain;
   auto dom_b = tv.domain;
 
   auto mk_fml = [&](expr &&refines) -> expr {
-    // from the check above we already know that
-    // \exists v,v' . pre_tgt(v') && pre_src(v) is SAT (or timeout)
-    // so \forall v . pre_tgt && (!pre_src(v) || refines) simplifies to:
-    // (pre_tgt && !pre_src) || (!pre_src && false) ->   [assume refines=false]
-    // \forall v . (pre_tgt && !pre_src(v)) ->  [\exists v . pre_src(v)]
-    // false
     if (refines.isFalse())
       return std::move(refines);
 
-    // Simplify aggressively: this can eliminate spurious NaN nondeterminism
-    // introduced by Alive2's conservative FP-to-bits lowering (fromFloat) in
-    // cases where the expression is in fact non-NaN (e.g. some maxnum patterns).
     auto fml = (axioms_expr && input_nonpoison_cnstr() &&
                 (pre_tgt && pre_src.implies(refines))).simplify();
 
-    // Quantification matters a lot for constant synthesis soundness:
-    // any Alive2 "quantified vars" (undef-related, etc.) and "nondet vars"
-    // (e.g. NaN payload/quieting choices) must NOT remain as free top-level
-    // existentials, otherwise Z3 can pick them to make an incorrect constant
-    // appear valid (e.g. tests/fp/case11.syn.ll collapsing to ret false).
-    //
-    // We follow Alive2's refinement checking strategy: quantify source quantvars,
-    // source nondet vars, and target fn-call quantvars.
     auto is_reservedc = [](const expr &v) -> bool {
       auto name = v.fn_name();
       return name.rfind("%_reservedc", 0) == 0;
@@ -256,11 +219,6 @@ AliveEngine::find_model(Transform &t,
     };
 
     add_qvars(src_state.getQuantVars());
-    // Some Alive2 "nondet" vars are true semantic nondeterminism/unknowns
-    // (e.g. NaN payload choice), while others intentionally model underspecified
-    // behavior (e.g. tie-breaking in min/max intrinsics via maxminnondet!*).
-    // Quantifying the latter universally tends to overconstrain constant
-    // synthesis and can block legitimate rewrites (e.g. fp/minnum2.syn.ll).
     for (const auto &v : src_state.getNondetVars()) {
       auto name = v.fn_name();
       if (name.rfind("maxminnondet", 0) == 0)
@@ -274,17 +232,12 @@ AliveEngine::find_model(Transform &t,
     return preprocess(t, qvars, uvars, std::move(fml));
   };
 
-
   const IR::Type &ty = t.src.getType();
   auto [poison_cnstr, value_cnstr]
     = refines_relaxed_nan(ty, src_state, tgt_state, sv.val, tv.val);
   expr dom = dom_a && dom_b;
+  expr base = mk_fml(!dom || (poison_cnstr && value_cnstr));
 
-  // Prefer synthesizing *non-poison* reserved constants when possible:
-  // after finding a SAT model, greedily add constraints that force reserved
-  // constant(s) to be non-poison (or non-poison lanes) as long as the formula
-  // remains SAT. This is purely a model-preference heuristic.
-  expr base = mk_fml(poison_cnstr && value_cnstr);
   smt::Solver solver;
   solver.add(base);
   auto r = solver.check("synthesis");
@@ -314,11 +267,11 @@ AliveEngine::find_model(Transform &t,
     return errs;
   }
 
-  // Try to bias the model toward poison reserved constants (or poison lanes).
+  // Prefer synthesizing non-poison reserved constants when possible.
   //
   // This is implemented as a *greedy* post-SAT refinement: we add constraints
-  // that flip reserved constant(s) to poison (or specific lanes to poison) as
-  // long as the formula remains satisfiable.
+  // that keep reserved constant(s) non-poison (or specific lanes non-poison)
+  // as long as the formula remains satisfiable.
   //
   // NOTE: We only do this for %_reservedc* inputs (existential vars).
   if (r.isSat()) {
@@ -345,20 +298,19 @@ AliveEngine::find_model(Transform &t,
 
       const expr &np = val->val.non_poison;
 
-      // Scalar poison: force non_poison=false if it's a bool.
+      // Scalar values: prefer non-poison.
       if (np.isBool()) {
-        try_add_cnstr(!np, "synthesis_prefer_poison");
+        try_add_cnstr(np, "synthesis_prefer_nonpoison");
         continue;
       }
 
-      // Vector poison: if non_poison is a bitvector with 1 bit per lane,
-      // try to force each lane to be poison (bit=0) greedily.
+      // Vector values: greedily keep each lane non-poison.
       unsigned bw = np.bits();
       if (bw > 1) {
         for (unsigned bit = 0; bit < bw; ++bit) {
           auto np_bit = np.extract(bit, bit); // 1-bit BV
-          try_add_cnstr(np_bit == expr::mkInt(0, np_bit),
-                        "synthesis_prefer_poison_lane");
+          try_add_cnstr(np_bit == expr::mkInt(1, np_bit),
+                        "synthesis_prefer_nonpoison_lane");
         }
       }
     }
@@ -409,153 +361,182 @@ static const llvm::fltSemantics &getFloatSemantics(unsigned BitWidth) {
 bool
 AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
    unordered_map<llvm::Argument*, llvm::Constant*>& ConstMap) {
+  {
+    std::optional<smt::smt_initializer> smt_init;
+    smt_init.emplace();
 
-  std::optional<smt::smt_initializer> smt_init;
-  smt_init.emplace();
+    // Alive2's symbolic executor/VCGen is much more robust when the input IR
+    // doesn't contain unreachable basic blocks (e.g., "sink" blocks with no preds),
+    // which are common in Minotaur's sliced candidates and test corpus.
+    //
+    // These blocks are semantically irrelevant, but we've observed they can trigger
+    // crashes inside Alive2 when doing constant synthesis.
+    llvm::removeUnreachableBlocks(src);
+    llvm::removeUnreachableBlocks(tgt);
 
-  // Alive2's symbolic executor/VCGen is much more robust when the input IR
-  // doesn't contain unreachable basic blocks (e.g., "sink" blocks with no preds),
-  // which are common in Minotaur's sliced candidates and test corpus.
-  //
-  // These blocks are semantically irrelevant, but we've observed they can trigger
-  // crashes inside Alive2 when doing constant synthesis.
-  llvm::removeUnreachableBlocks(src);
-  llvm::removeUnreachableBlocks(tgt);
+    auto Func1 = llvm_util::llvm2alive(src, TLI.getTLI(src), true);
 
-  auto Func1 = llvm_util::llvm2alive(src, TLI.getTLI(src), true);
-
-  if (!Func1.has_value()) {
-    *debug << "error found when converting llvm to alive2 (src)\n";
-    return false;
-  }
-
-  // Target conversion must be done with IsSrc=false and using the globals from
-  // the source to keep memories/globals consistent across the pair.
-  auto gvsInSrc = Func1->getGlobalVars();
-  auto Func2 = llvm_util::llvm2alive(tgt, TLI.getTLI(tgt), false, gvsInSrc);
-
-  if (!Func2.has_value()) {
-    *debug << "error found when converting llvm to alive2\n";
-    return false;
-  }
-
-  unordered_map<string, Argument*> Arguments;
-  for (auto &arg : tgt.args()) {
-    string ArgName = "%" + string(arg.getName());
-    if (ArgName.starts_with("%_reservedc")) {
-      Arguments[ArgName] = &arg;
-    }
-  }
-
-  Transform t;
-  t.src = std::move(*Func1);
-  t.tgt = std::move(*Func2);
-
-  unordered_map<const IR::Value*, Argument*> Inputs;
-  for (auto &&I : t.tgt.getInputs()) {
-    string InputName = I.getName();
-
-    if (InputName.starts_with("%_reservedc")) {
-      Inputs[&I] = Arguments[InputName];
-    }
-  }
-
-  // assume type verifies
-  std::unordered_map<const IR::Value*, AliveEngine::ModelVal> result;
-  Errors errs = find_model(t, result);
-
-  bool ret(errs);
-  if (ret) {
-    *debug << "unable to find constants: \n" << errs;
-    return false;
-  }
-
-  for (auto I : Inputs) {
-    auto it = result.find(I.first);
-    if (it == result.end()) {
-      *debug << "unable to find model value for " << I.first->getName() << "\n";
+    if (!Func1.has_value()) {
+      *debug << "error found when converting llvm to alive2 (src)\n";
       return false;
     }
-    auto &[model_v, model_np] = it->second;
-    auto ty = I.second->getType();
 
-    auto is_poison = [&](const smt::expr &np) -> bool {
-      if (!np.isValid())
+    // Target conversion must be done with IsSrc=false and using the globals from
+    // the source to keep memories/globals consistent across the pair.
+    auto gvsInSrc = Func1->getGlobalVars();
+    auto Func2 = llvm_util::llvm2alive(tgt, TLI.getTLI(tgt), false, gvsInSrc);
+
+    if (!Func2.has_value()) {
+      *debug << "error found when converting llvm to alive2\n";
+      return false;
+    }
+
+    unordered_map<string, Argument*> Arguments;
+    for (auto &arg : tgt.args()) {
+      string ArgName = "%" + string(arg.getName());
+      if (ArgName.starts_with("%_reservedc")) {
+        Arguments[ArgName] = &arg;
+      }
+    }
+
+    Transform t;
+    t.src = std::move(*Func1);
+    t.tgt = std::move(*Func2);
+
+    unordered_map<const IR::Value*, Argument*> Inputs;
+    for (auto &&I : t.tgt.getInputs()) {
+      string InputName = I.getName();
+
+      if (InputName.starts_with("%_reservedc")) {
+        Inputs[&I] = Arguments[InputName];
+      }
+    }
+
+    // assume type verifies
+    std::unordered_map<const IR::Value*, AliveEngine::ModelVal> result;
+    Errors errs = find_model(t, result);
+
+    bool ret(errs);
+    if (ret) {
+      *debug << "unable to find constants: \n" << errs;
+      return false;
+    }
+
+    for (auto I : Inputs) {
+      auto it = result.find(I.first);
+      if (it == result.end()) {
+        *debug << "unable to find model value for " << I.first->getName() << "\n";
         return false;
-      if (np.isBool())
-        return np.isFalse();
-      // non_poison is a BV mask; all-ones means non-poison
-      return !np.isAllOnes();
-    };
-
-    if (ty->isIntegerTy()) {
-      if (is_poison(model_np)) {
-        ConstMap[I.second] = llvm::PoisonValue::get(ty);
-        continue;
       }
-      IntegerType *ity = cast<IntegerType>(ty);
-      ConstMap[I.second] =
-        ConstantInt::get(ity, model_v.numeral_string(), 10);
-    } else if (ty->isIEEELikeFPTy()) {
-      if (is_poison(model_np)) {
-        ConstMap[I.second] = llvm::PoisonValue::get(ty);
-        continue;
-      }
-      unsigned bits = ty->getPrimitiveSizeInBits();
-      APInt integer(bits, model_v.numeral_string(), 10);
-      APFloat fp(getFloatSemantics(bits), integer);
 
-      ConstMap[I.second] = ConstantFP::get(ty, fp);
-    } else if (ty->isVectorTy()) {
-      auto flat = model_v;
-      FixedVectorType *vty = cast<FixedVectorType>(ty);
-      auto ety = vty->getElementType();
-      unsigned bits = vty->getScalarSizeInBits();
-      SmallVector<llvm::Constant*> v;
-      unsigned n = vty->getElementCount().getKnownMinValue();
+      auto &[model_v, model_np] = it->second;
+      auto ty = I.second->getType();
 
-      // Synthesize per-lane poison using the non_poison bitvector.
-      // Alive2 encodes vector non_poison as 1 bit per element, concatenated
-      // with element 0 as the MSB. This lets us construct e.g.
-      //   <half 0xH7C00, half poison>
-      // instead of collapsing to a fully-poison vector.
-      for (int i = (int)n - 1; i >= 0; --i) {
-        bool lane_poison = false;
-        if (model_np.isBV() && model_np.bits() == n) {
-          // element 0 is encoded in the MSB; with the extraction order below
-          // (i = n-1 .. 0) we have:
-          //   i = n-1  -> element 0 -> np bit index = n-1
-          //   i = 0    -> element n-1 -> np bit index = 0
-          unsigned bit = (unsigned)i;
-          auto np_bit = model_np.extract(bit, bit);
-          lane_poison = np_bit.isConst() && !np_bit.isAllOnes();
-        }
+      auto is_poison = [&](const smt::expr &np) -> bool {
+        if (!np.isValid())
+          return false;
+        if (np.isBool())
+          return np.isFalse();
+        // non_poison is a BV mask; all-ones means non-poison
+        return !np.isAllOnes();
+      };
 
-        if (lane_poison) {
-          v.push_back(llvm::PoisonValue::get(ety));
+      if (ty->isIntegerTy()) {
+        if (is_poison(model_np)) {
+          ConstMap[I.second] = llvm::PoisonValue::get(ty);
           continue;
         }
-
-        auto elem = flat.extract((i + 1) * bits - 1, i * bits);
-        if (!elem.isConst())
-          return false;
-
-        if (ety->isIntegerTy()) {
-          IntegerType *etyi = cast<IntegerType>(vty->getElementType());
-          v.push_back(ConstantInt::get(etyi, elem.numeral_string(), 10));
-        } else if (ety->isIEEELikeFPTy()) {
-          APInt integer(bits, elem.numeral_string(), 10);
-          APFloat fp(getFloatSemantics(bits), integer);
-          v.push_back(ConstantFP::get(ety, fp));
-        } else {
-          UNREACHABLE();
+        IntegerType *ity = cast<IntegerType>(ty);
+        ConstMap[I.second] =
+          ConstantInt::get(ity, model_v.numeral_string(), 10);
+      } else if (ty->isIEEELikeFPTy()) {
+        if (is_poison(model_np)) {
+          ConstMap[I.second] = llvm::PoisonValue::get(ty);
+          continue;
         }
+        unsigned bits = ty->getPrimitiveSizeInBits();
+        APInt integer(bits, model_v.numeral_string(), 10);
+        APFloat fp(getFloatSemantics(bits), integer);
+
+        ConstMap[I.second] = ConstantFP::get(ty, fp);
+      } else if (ty->isVectorTy()) {
+        auto flat = model_v;
+        FixedVectorType *vty = cast<FixedVectorType>(ty);
+        auto ety = vty->getElementType();
+        unsigned bits = vty->getScalarSizeInBits();
+        SmallVector<llvm::Constant*> v;
+        unsigned n = vty->getElementCount().getKnownMinValue();
+
+        // Synthesize per-lane poison using the non_poison bitvector.
+        // Alive2 encodes vector non_poison as 1 bit per element, concatenated
+        // with element 0 as the MSB. This lets us construct e.g.
+        //   <half 0xH7C00, half poison>
+        // instead of collapsing to a fully-poison vector.
+        for (int i = (int)n - 1; i >= 0; --i) {
+          bool lane_poison = false;
+          if (model_np.isBV() && model_np.bits() == n) {
+            // element 0 is encoded in the MSB; with the extraction order below
+            // (i = n-1 .. 0) we have:
+            //   i = n-1  -> element 0 -> np bit index = n-1
+            //   i = 0    -> element n-1 -> np bit index = 0
+            unsigned bit = (unsigned)i;
+            auto np_bit = model_np.extract(bit, bit);
+            lane_poison = np_bit.isConst() && !np_bit.isAllOnes();
+          }
+
+          if (lane_poison) {
+            v.push_back(llvm::PoisonValue::get(ety));
+            continue;
+          }
+
+          auto elem = flat.extract((i + 1) * bits - 1, i * bits);
+          if (!elem.isConst())
+            return false;
+
+          if (ety->isIntegerTy()) {
+            IntegerType *etyi = cast<IntegerType>(vty->getElementType());
+            v.push_back(ConstantInt::get(etyi, elem.numeral_string(), 10));
+          } else if (ety->isIEEELikeFPTy()) {
+            APInt integer(bits, elem.numeral_string(), 10);
+            APFloat fp(getFloatSemantics(bits), integer);
+            v.push_back(ConstantFP::get(ety, fp));
+          } else {
+            UNREACHABLE();
+          }
+        }
+        ConstMap[I.second] = ConstantVector::get(v);
       }
-      ConstMap[I.second] = ConstantVector::get(v);
+      else {
+        UNREACHABLE();
+      }
     }
-    else {
-      UNREACHABLE();
-    }
+
+    // The SMT model expressions in 'result' belong to the solver/context used by
+    // find_model(). Drop them before leaving this scope.
+    result.clear();
+  }
+
+  // Re-verify the concretized target with the standard Alive2 verifier.
+  // This guards the synthesis-specific model search against accidentally
+  // accepting an existential assignment that does not hold as a concrete
+  // refinement once the reserved constants are materialized in LLVM IR.
+  llvm::ValueToValueMapTy CloneMap;
+  llvm::Function *ConcreteTgt = llvm::CloneFunction(&tgt, CloneMap);
+  ConcreteTgt->setName(tgt.getName() + ".constcheck");
+
+  for (auto &[Arg, C] : ConstMap) {
+    auto It = CloneMap.find(Arg);
+    if (It == CloneMap.end())
+      return false;
+    auto *ClonedArg = llvm::cast<llvm::Argument>(It->second);
+    ClonedArg->replaceAllUsesWith(C);
+  }
+
+  bool Verified = compareFunctions(src, *ConcreteTgt);
+  ConcreteTgt->eraseFromParent();
+  if (!Verified) {
+    *debug << "constant synthesis model did not survive concrete re-verification\n";
+    return false;
   }
 
   return true;
