@@ -111,6 +111,15 @@ optional<APInt> Interpreter::evalImpl(Inst *I) {
     if (rhs->getBitWidth() != bits)
       *rhs = rhs->zextOrTrunc(bits);
 
+    if (IC->hasSameSign()) {
+      if (IC->getLanes() != 1)
+        return nullopt;
+      bool lhs_sign = lhs->isNegative();
+      bool rhs_sign = rhs->isNegative();
+      if (lhs_sign != rhs_sign)
+        return nullopt;
+    }
+
     bool result;
     switch (IC->getCond()) {
     case ICmp::eq:  result = *lhs == *rhs; break;
