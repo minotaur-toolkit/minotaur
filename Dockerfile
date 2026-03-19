@@ -53,7 +53,16 @@ RUN cmake -G Ninja -B $HOME/llvm/build \
       -DBUILD_SHARED_LIBS=ON -DCMAKE_BUILD_TYPE=Release \
       -DLLVM_TARGETS_TO_BUILD="X86;AArch64;RISCV" \
       -DLLVM_ENABLE_ASSERTIONS=ON \
-      -DLLVM_ENABLE_PROJECTS="llvm;clang" \
+      -DLLVM_ENABLE_PROJECTS="llvm;clang;lld" \
+      -DLLVM_INCLUDE_TESTS=OFF \
+      -DLLVM_BUILD_TESTS=OFF \
+      -DLLVM_INCLUDE_EXAMPLES=OFF \
+      -DLLVM_INCLUDE_DOCS=OFF \
+      -DLLVM_ENABLE_TERMINFO=OFF \
+      -DLLVM_ENABLE_LIBEDIT=OFF \
+      -DLLVM_ENABLE_LIBXML2=OFF \
+      -DLLVM_ENABLE_ZLIB=OFF \
+      -DLLVM_ENABLE_ZSTD=OFF \
       $HOME/llvm/llvm && \
     ninja -C $HOME/llvm/build
 
@@ -71,14 +80,16 @@ RUN . /tmp/pinned-deps.env && \
 
 # Build Minotaur from the checked-out source tree.
 COPY --chown=dev:dev . $HOME/minotaur
-RUN cmake -G Ninja -B $HOME/minotaur/build \
+RUN cmake -G Ninja -S $HOME/minotaur -B $HOME/minotaur-docker-build \
       -DALIVE2_SOURCE_DIR=$HOME/alive2 \
       -DALIVE2_BUILD_DIR=$HOME/alive2/build \
       -DCMAKE_PREFIX_PATH=$HOME/llvm/build \
       -DCMAKE_EXPORT_COMPILE_COMMANDS=1 \
       -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-      $HOME/minotaur && \
-    ninja -C $HOME/minotaur/build
+    && \
+    ninja -C $HOME/minotaur-docker-build
+
+ENV PATH=/home/dev/minotaur-docker-build:/home/dev/alive2/build:/home/dev/llvm/build/bin:${PATH}
 
 CMD ["bash", "-lc", \
      "redis-server --save '' --appendonly no --dir /tmp --daemonize yes && exec bash"]

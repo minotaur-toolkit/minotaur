@@ -1,0 +1,24 @@
+execute_process(
+  COMMAND python3
+          "@PROJECT_SOURCE_DIR@/tests/lit/lit.py"
+          "-v"
+          "--no-progress-bar"
+          "@PROJECT_SOURCE_DIR@/tests"
+          "-j@TEST_NTHREADS@"
+  WORKING_DIRECTORY "@PROJECT_BINARY_DIR@"
+  RESULT_VARIABLE MINOTAUR_LIT_RESULT
+)
+
+execute_process(
+  COMMAND "@CMAKE_CTEST_COMMAND@"
+          "--output-on-failure"
+          "--parallel" "@TEST_NTHREADS@"
+  WORKING_DIRECTORY "@PROJECT_BINARY_DIR@"
+  RESULT_VARIABLE MINOTAUR_CTEST_RESULT
+)
+
+if (NOT MINOTAUR_LIT_RESULT EQUAL 0 OR
+    NOT MINOTAUR_CTEST_RESULT EQUAL 0)
+  message(FATAL_ERROR
+    "check failed: lit=${MINOTAUR_LIT_RESULT}, ctest=${MINOTAUR_CTEST_RESULT}")
+endif()

@@ -20,6 +20,10 @@ To build the Docker container, use
 
     docker build -t minotaur-dev -f Dockerfile .
 
+The Docker build context is the full checkout. Build from a clean clone, or a
+copy without large benchmark/build artifacts, if your working tree contains
+directories like `build-*`, `cpu2017/`, or `cpu2026/`.
+
 To run the container, use
 
     docker run -it minotaur-dev bash
@@ -77,7 +81,7 @@ exceptions enabled. Fetch and build LLVM from the exact pinned commit behind
     git -C $HOME/llvm remote add origin https://github.com/llvm/llvm-project.git
     git -C $HOME/llvm fetch --depth 1 origin "$MINOTAUR_LLVM_REF"
     git -C $HOME/llvm checkout --force --detach FETCH_HEAD
-    cmake -GNinja -S $HOME/llvm/llvm -B $HOME/llvm/build -DLLVM_ENABLE_RTTI=ON -DLLVM_ENABLE_EH=ON -DBUILD_SHARED_LIBS=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLLVM_TARGETS_TO_BUILD="X86;AArch64;RISCV" -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_ENABLE_PROJECTS="llvm;clang"
+    cmake -GNinja -S $HOME/llvm/llvm -B $HOME/llvm/build -DLLVM_ENABLE_RTTI=ON -DLLVM_ENABLE_EH=ON -DBUILD_SHARED_LIBS=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLLVM_TARGETS_TO_BUILD="X86;AArch64;RISCV" -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_ENABLE_PROJECTS="llvm;clang;lld"
     ninja -C $HOME/llvm/build
 
 Fetch and build Alive2 from the pinned commit:

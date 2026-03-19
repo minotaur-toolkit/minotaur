@@ -3,6 +3,8 @@ include(ProcessorCount)
 
 project(Minotaur)
 
+enable_testing()
+
 if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Debug)
 endif()
@@ -35,6 +37,14 @@ find_package(LLVM REQUIRED CONFIG)
 
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+
+execute_process(
+  COMMAND "${LLVM_TOOLS_BINARY_DIR}/llvm-config" --components
+  OUTPUT_VARIABLE LLVM_AVAILABLE_COMPONENTS_RAW
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+separate_arguments(LLVM_AVAILABLE_COMPONENTS_RAW)
+set(LLVM_AVAILABLE_COMPONENTS ${LLVM_AVAILABLE_COMPONENTS_RAW})
 
 list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
 include(AddLLVM)
@@ -109,13 +119,22 @@ set(LLVM_COMPONENTS
   transformutils)
 
 if("AArch64" IN_LIST LLVM_TARGETS_TO_BUILD)
-  list(APPEND LLVM_COMPONENTS aarch64targetmca)
+  list(FIND LLVM_AVAILABLE_COMPONENTS "aarch64targetmca" AARCH64_TARGET_MCA_INDEX)
+  if(NOT AARCH64_TARGET_MCA_INDEX EQUAL -1)
+    list(APPEND LLVM_COMPONENTS aarch64targetmca)
+  endif()
 endif()
 if("RISCV" IN_LIST LLVM_TARGETS_TO_BUILD)
-  list(APPEND LLVM_COMPONENTS riscvtargetmca)
+  list(FIND LLVM_AVAILABLE_COMPONENTS "riscvtargetmca" RISCV_TARGET_MCA_INDEX)
+  if(NOT RISCV_TARGET_MCA_INDEX EQUAL -1)
+    list(APPEND LLVM_COMPONENTS riscvtargetmca)
+  endif()
 endif()
 if("X86" IN_LIST LLVM_TARGETS_TO_BUILD)
-  list(APPEND LLVM_COMPONENTS x86targetmca)
+  list(FIND LLVM_AVAILABLE_COMPONENTS "x86targetmca" X86_TARGET_MCA_INDEX)
+  if(NOT X86_TARGET_MCA_INDEX EQUAL -1)
+    list(APPEND LLVM_COMPONENTS x86targetmca)
+  endif()
 endif()
 
 llvm_map_components_to_libnames(LLVM_LIBS ${LLVM_COMPONENTS})
@@ -180,6 +199,11 @@ target_link_libraries(alive-tests
   PRIVATE synthesizer ${GTEST_LIBS}
           ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS})
 
+add_llvm_executable(interp-tests
+  "unit-tests/interp-tests.cpp")
+target_link_libraries(interp-tests
+  PRIVATE synthesizer ${GTEST_LIBS} ${LLVM_LIBS})
+
 if(APPLE)
     set_target_properties(online PROPERTIES
         LINK_FLAGS "-undefined dynamic_lookup"
@@ -241,13 +265,36 @@ if (NOT DEFINED TEST_NTHREADS)
   endif()
 endif()
 
+set(MINOTAUR_UNIT_TEST_TARGETS
+  enumerator-tests
+  cost-tests
+  alive-tests
+  interp-tests)
+
+add_test(NAME enumerator-tests
+         COMMAND $<TARGET_FILE:enumerator-tests>)
+add_test(NAME cost-tests
+         COMMAND $<TARGET_FILE:cost-tests>)
+add_test(NAME alive-tests
+         COMMAND $<TARGET_FILE:alive-tests>)
+add_test(NAME interp-tests
+         COMMAND $<TARGET_FILE:interp-tests>)
+
+if (ENABLE_PARSE_TESTS)
+  list(APPEND MINOTAUR_UNIT_TEST_TARGETS parse-tests)
+  add_test(NAME parse-tests
+           COMMAND $<TARGET_FILE:parse-tests>)
+endif()
+
+configure_file(
+  "${PROJECT_SOURCE_DIR}/cmake/run-check.cmake.in"
+  "${PROJECT_BINARY_DIR}/run-check.cmake"
+  @ONLY
+)
+
 add_custom_target("check"
-                  COMMAND "python3"
-                          "${PROJECT_SOURCE_DIR}/tests/lit/lit.py"
-                          "-v"
-                          "--no-progress-bar"
-                          "${PROJECT_SOURCE_DIR}/tests"
-                          "-j${TEST_NTHREADS}"
-                  DEPENDS "online"
+                  COMMAND ${CMAKE_COMMAND}
+                          -P "${PROJECT_BINARY_DIR}/run-check.cmake"
+                  DEPENDS "online" ${MINOTAUR_UNIT_TEST_TARGETS}
                   USES_TERMINAL
 )
