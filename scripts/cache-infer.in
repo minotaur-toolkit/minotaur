@@ -45,18 +45,29 @@ GetOptions(
 
 my $REDISPORT = 6379;
 my $CACHE_VERSION = $ENV{"MINOTAUR_CACHE_VERSION"} // "2";
+my $TIMEOUT_SEC = $ENV{"MINOTAUR_CACHE_INFER_TIMEOUT_SEC"} // 600;
 
 my $minotaur = "@CMAKE_BINARY_DIR@/infer-cut.sh";
 my $llvmdis = "@LLVM_BINARY_DIR@/bin/llvm-dis";
 
-my $r;
-if ($UNIX) {
-    $r = Redis->new(sock => "@CMAKE_BINARY_DIR@/cache.sock");
-} else {
-    $r = Redis->new(server => "localhost:" . $REDISPORT);
+sub connect_redis() {
+    if ($UNIX) {
+        return Redis->new(sock => "@CMAKE_BINARY_DIR@/cache.sock");
+    }
+    return Redis->new(server => "localhost:" . $REDISPORT);
 }
+
+my $r = connect_redis();
 $r->ping || die "no server?";
 my @all_keys = $r->keys('*');
+
+sub mark_timeout($) {
+    (my $opt) = @_;
+    my $cr = connect_redis();
+    $cr->hset($opt, "rewrite", "<timeout>",
+                    "timestamp", time(),
+                    "version", $CACHE_VERSION);
+}
 
 sub infer($) {
     (my $opt) = @_;
@@ -68,22 +79,33 @@ sub infer($) {
     my $ok = 0;
 
     my $OFN = "tmp_${pid}.log";
-    system "${minotaur} -S < $tmpfn > $OFN 2>&1";
-    #nclose $OF;
+    my $rc;
+    if ($TIMEOUT_SEC > 0) {
+        $rc = system "timeout --signal=TERM --kill-after=10s ${TIMEOUT_SEC}s " .
+                    "${minotaur} -S < $tmpfn > $OFN 2>&1";
+    } else {
+        $rc = system "${minotaur} -S < $tmpfn > $OFN 2>&1";
+    }
     unlink $tmpfn;
-    exit 0;
+    if (($rc >> 8) == 124) {
+        mark_timeout($opt);
+    }
+    exit($rc >> 8);
 }
 
 my $num_running = 0;
 my $good = 0;
 my $fail = 0;
+my $timeout = 0;
 
 sub wait_for_one() {
     my $xpid = wait();
     die if $xpid == -1;
     $num_running--;
     my $result = $? >> 8;
-    if ($result == 0) {
+    if ($result == 124) {
+        $timeout++;
+    } elsif ($result == 0) {
         $good++;
     } else {
         $fail++;
@@ -148,6 +170,7 @@ foreach my $opt (@pending_keys) {
 wait_for_one() while ($num_running > 0);
 
 print "\n";
-print "$good optimizations\n";
-print "$fail not-optimizations\n";
+print "$good completed worker exits\n";
+print "$timeout timed out worker exits\n";
+print "$fail failed worker exits\n";
 print "$skip skipped already-processed current-version entries\n";

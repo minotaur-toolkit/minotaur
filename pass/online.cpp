@@ -155,7 +155,8 @@ struct debug {
 };
 
 static optional<Rewrite>
-infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, parse::Parser &P) {
+infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN,
+      parse::Parser &P, const CacheProvenance &Provenance) {
   string bytecode;
   llvm::raw_string_ostream bs(bytecode);
   F.getParent()->print(bs, nullptr);
@@ -175,7 +176,7 @@ infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, parse::Par
     std::string rewrite;
 
     if (minotaur::hGet(bytecode.c_str(), bytecode.size(), rewrite, ctx)) {
-      if (rewrite == "<no-sol>") {
+      if (rewrite == "<no-sol>" || rewrite == "<timeout>") {
         debug() << "[online] cache matched, but no solution found in "
                     "previous run, skipping function: "
                 << F.getName() << "\n";
@@ -199,7 +200,7 @@ infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, parse::Par
   if (no_infer) {
   // in no_infer mode, we write no-sol and return
     if (enable_caching && ctx) {
-      hSetNoSolution(bytecode.c_str(), bytecode.size(), ctx, F.getName());
+      hSetNoSolution(bytecode.c_str(), bytecode.size(), ctx, Provenance);
     }
     debug() << "[online] skipping synthesizer\n";
     return nullopt;
@@ -210,7 +211,7 @@ infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, parse::Par
     RHSs = EN.solve(F, I);
     if (RHSs.empty()) {
       if (enable_caching && ctx)
-        hSetNoSolution(bytecode.c_str(), bytecode.size(), ctx, F.getName());
+        hSetNoSolution(bytecode.c_str(), bytecode.size(), ctx, Provenance);
       return nullopt;
     }
   }
@@ -227,7 +228,7 @@ infer(Function &F, Instruction *I, redisContext *ctx, Enumerator &EN, parse::Par
     rs.flush();
     hSetRewrite(bytecode.c_str(), bytecode.size(),
                 "", 0,
-                rewrite, ctx, R.CostAfter, R.CostBefore, F.getName());
+                rewrite, ctx, R.CostAfter, R.CostBefore, Provenance);
   }
   return R;
 }
@@ -337,7 +338,9 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
     } else {
       Enumerator EN;
       parse::Parser P(*newF);
-      auto R = infer(*newF, retI, ctx, EN, P);
+      CacheProvenance Provenance{F.getName(),
+                                 F.getParent()->getSourceFileName()};
+      auto R = infer(*newF, retI, ctx, EN, P, Provenance);
       if (R.has_value()) {
         unordered_set<llvm::Function*> IntrinDecls;
         ValueToValueMapTy vmap;
@@ -360,7 +363,9 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
 
         Enumerator EN;
         parse::Parser P(NewF->first);
-        auto R = infer(NewF->first, NewF->second, ctx, EN, P);
+        CacheProvenance Provenance{F.getName(),
+                                   F.getParent()->getSourceFileName()};
+        auto R = infer(NewF->first, NewF->second, ctx, EN, P, Provenance);
 
         if (!R.has_value())
           continue;

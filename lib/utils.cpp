@@ -91,12 +91,16 @@ void hSetRewrite(const char *k, unsigned sz_k,
                  const char *v, unsigned sz_v,
                  StringRef rewrite,
                  redisContext *c,
-                 unsigned costAfter, unsigned costBefore, StringRef FnName) {
+                 unsigned costAfter, unsigned costBefore,
+                 const CacheProvenance &Provenance) {
+  string FnName = Provenance.FunctionName.str();
+  string SourceFile = Provenance.SourceFile.str();
   redisReply *reply = (redisReply *)redisCommand(c,
-    "HSET %b rewrite %s costafter %s costbefore %s timestamp %s fn %s version %s",
+    "HSET %b rewrite %s costafter %s costbefore %s timestamp %s fn %s srcfile %s version %s",
     k, sz_k, rewrite.data(),
     to_string(costAfter).c_str(), to_string(costBefore).c_str(),
-    to_string((unsigned long)time(NULL)).c_str(), FnName.data(),
+    to_string((unsigned long)time(NULL)).c_str(), FnName.c_str(),
+    SourceFile.c_str(),
     getCacheVersion().data());
   if (!reply || c->err)
     report_fatal_error((StringRef)"Redis error: " + c->errstr);
@@ -110,11 +114,13 @@ void hSetRewrite(const char *k, unsigned sz_k,
 
 void hSetNoSolution(const char *k, unsigned sz_k,
                     redisContext *c,
-                    StringRef FnName) {
+                    const CacheProvenance &Provenance) {
+  string FnName = Provenance.FunctionName.str();
+  string SourceFile = Provenance.SourceFile.str();
   redisReply *reply = (redisReply *)redisCommand(c,
-    "HSET %b rewrite <no-sol> timestamp %s fn %s version %s",
+    "HSET %b rewrite <no-sol> timestamp %s fn %s srcfile %s version %s",
     k, sz_k, to_string((unsigned long)time(NULL)).c_str(),
-    FnName.data(), getCacheVersion().data());
+    FnName.c_str(), SourceFile.c_str(), getCacheVersion().data());
   if (!reply || c->err)
     report_fatal_error((StringRef)"Redis error: " + c->errstr);
   if (reply->type != REDIS_REPLY_INTEGER) {
