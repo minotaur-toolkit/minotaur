@@ -457,6 +457,15 @@ TEST(EnumeratorTest, Depth2AddsCompareOverDeepValueExpressions) {
 
   const SketchCase Cases[] = {
     {
+      "icmp_samesign(add(x, y), z)",
+      {
+        "(icmp_samesign_slt (add i64 (var i64 %x) (var i64 %y)) "
+        "(var i64 %z) b1)",
+        "(icmp_samesign_slt (add i64 (var i64 %y) (var i64 %x)) "
+        "(var i64 %z) b1)",
+      },
+    },
+    {
       "icmp(add(x, y), z)",
       {
         "(icmp_slt (add i64 (var i64 %x) (var i64 %y)) "
@@ -611,6 +620,13 @@ TEST(EnumeratorTest, Depth3AddsCompareOverDeeperValueExpressions) {
   ASSERT_FALSE(Depth3Enabled.empty());
 
   const SketchCase Cases[] = {
+    {
+      "icmp_samesign(add(bswap(x), const), z)",
+      {
+        "(icmp_samesign_slt (add i64 (bswap i64 (var i64 %x)) "
+        "(reservedconst i64 null)) (var i64 %z) b1)",
+      },
+    },
     {
       "icmp(add(bswap(x), const), z)",
       {

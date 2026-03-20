@@ -90,6 +90,7 @@ set(SYNTHESIZER_SRC
   "lib/codegen.cpp"
   "lib/interp.cpp"
   "lib/parse.cpp"
+  "lib/rewrite-ordering.cpp"
   "lib/type.cpp"
   "${PROJECT_BINARY_DIR}/lexer/lexer.cpp"
 )
@@ -204,6 +205,12 @@ add_llvm_executable(interp-tests
 target_link_libraries(interp-tests
   PRIVATE synthesizer ${GTEST_LIBS} ${LLVM_LIBS})
 
+add_llvm_executable(rewrite-ordering-tests
+  "unit-tests/rewrite-ordering-tests.cpp")
+target_link_libraries(rewrite-ordering-tests
+  PRIVATE synthesizer ${GTEST_LIBS}
+          ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS})
+
 if(APPLE)
     set_target_properties(online PROPERTIES
         LINK_FLAGS "-undefined dynamic_lookup"
@@ -269,7 +276,8 @@ set(MINOTAUR_UNIT_TEST_TARGETS
   enumerator-tests
   cost-tests
   alive-tests
-  interp-tests)
+  interp-tests
+  rewrite-ordering-tests)
 
 add_test(NAME enumerator-tests
          COMMAND $<TARGET_FILE:enumerator-tests>)
@@ -279,6 +287,8 @@ add_test(NAME alive-tests
          COMMAND $<TARGET_FILE:alive-tests>)
 add_test(NAME interp-tests
          COMMAND $<TARGET_FILE:interp-tests>)
+add_test(NAME rewrite-ordering-tests
+         COMMAND $<TARGET_FILE:rewrite-ordering-tests>)
 
 if (ENABLE_PARSE_TESTS)
   list(APPEND MINOTAUR_UNIT_TEST_TARGETS parse-tests)

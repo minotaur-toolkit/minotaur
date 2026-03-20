@@ -7,6 +7,7 @@
 #include "codegen.h"
 #include "cost.h"
 #include "interp.h"
+#include "rewrite-ordering.h"
 #include "utils.h"
 #include "type.h"
 
@@ -1745,7 +1746,12 @@ using Candidate = tuple<llvm::Function*, llvm::Function*, Inst*,
                         bool>;
 
 static bool approx(const Candidate &f1, const Candidate &f2) {
-  return get_approx_cost(get<0>(f1)) < get_approx_cost(get<0>(f2));
+  unsigned cost1 = get_approx_cost(get<0>(f1));
+  unsigned cost2 = get_approx_cost(get<0>(f2));
+  if (cost1 != cost2)
+    return cost1 < cost2;
+
+  return preferInstForSameCost(*get<2>(f1), *get<2>(f2));
 }
 
 vector<string> Enumerator::enumerateSketchStringsForTesting(
@@ -2320,7 +2326,10 @@ vector<Rewrite> Enumerator::solve(llvm::Function &F, llvm::Instruction *I) {
 
   std::stable_sort(ret.begin(), ret.end(),
     [](const Rewrite &a, const Rewrite &b) {
-      return a.CostAfter < b.CostAfter;
+      if (a.CostAfter != b.CostAfter)
+        return a.CostAfter < b.CostAfter;
+
+      return preferInstForSameCost(*a.I, *b.I);
     });
 
   for (auto &R : ret) {
