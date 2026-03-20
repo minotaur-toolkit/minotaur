@@ -7,6 +7,7 @@
 
 #include "hiredis.h"
 
+#include <cstdlib>
 #include <unordered_set>
 
 using namespace std;
@@ -14,7 +15,14 @@ using namespace llvm;
 
 namespace minotaur {
 
-static constexpr const char *kCacheVersion = "2";
+static StringRef getCacheVersion() {
+  if (const char *Env = std::getenv("MINOTAUR_CACHE_VERSION")) {
+    if (*Env) {
+      return Env;
+    }
+  }
+  return "2";
+}
 
 void eliminate_dead_code(Function &F) {
   bool changed = true;
@@ -69,7 +77,7 @@ bool hGet(const char* s, unsigned sz, string &Value, redisContext *c) {
       to_string(version->type));
   }
 
-  if (StringRef(version->str) != kCacheVersion) {
+  if (StringRef(version->str) != getCacheVersion()) {
     freeReplyObject(reply);
     return false;
   }
@@ -88,7 +96,8 @@ void hSetRewrite(const char *k, unsigned sz_k,
     "HSET %b rewrite %s costafter %s costbefore %s timestamp %s fn %s version %s",
     k, sz_k, rewrite.data(),
     to_string(costAfter).c_str(), to_string(costBefore).c_str(),
-    to_string((unsigned long)time(NULL)).c_str(), FnName.data(), kCacheVersion);
+    to_string((unsigned long)time(NULL)).c_str(), FnName.data(),
+    getCacheVersion().data());
   if (!reply || c->err)
     report_fatal_error((StringRef)"Redis error: " + c->errstr);
   if (reply->type != REDIS_REPLY_INTEGER) {
@@ -105,7 +114,7 @@ void hSetNoSolution(const char *k, unsigned sz_k,
   redisReply *reply = (redisReply *)redisCommand(c,
     "HSET %b rewrite <no-sol> timestamp %s fn %s version %s",
     k, sz_k, to_string((unsigned long)time(NULL)).c_str(),
-    FnName.data(), kCacheVersion);
+    FnName.data(), getCacheVersion().data());
   if (!reply || c->err)
     report_fatal_error((StringRef)"Redis error: " + c->errstr);
   if (reply->type != REDIS_REPLY_INTEGER) {

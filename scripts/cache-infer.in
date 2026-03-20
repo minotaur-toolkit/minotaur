@@ -44,6 +44,7 @@ GetOptions(
     ) or usage();
 
 my $REDISPORT = 6379;
+my $CACHE_VERSION = $ENV{"MINOTAUR_CACHE_VERSION"} // "2";
 
 my $minotaur = "@CMAKE_BINARY_DIR@/infer-cut.sh";
 my $llvmdis = "@LLVM_BINARY_DIR@/bin/llvm-dis";
@@ -109,36 +110,25 @@ my $skip = 0;
 print "total expressions = ".scalar(@all_keys)."\n";
 
 my $count = 1;
-
-my %toprint;
-my %ir;
-my %rewrite;
-my %timestamp;
-my %fn_name;
-my %noopt;
+my @pending_keys;
 
 foreach my $opt (@all_keys) {
-    my %h = $r->hgetall($opt);
+    my ($rewrite, $version) = $r->hmget($opt, "rewrite", "version");
+    if (defined $rewrite && $rewrite ne "" &&
+        defined $version && $version eq $CACHE_VERSION) {
+        $skip++;
+        next;
+    }
 
-    my $result = $h{"rewrite"};
-    my $time   = $h{"timestamp"};
-    my $fn     = $h{"fn"};
-
-    #$ir{$opt} = infer($opt);
-    $toprint{$opt} = 1;
-    $fn_name{$opt} = $fn;
-    $timestamp{$opt} = $time;
+    push @pending_keys, $opt;
 }
 
-$status_total = scalar(keys %toprint) || 1;
+$status_total = scalar(@pending_keys) || 1;
+print "skipping $skip already-processed current-version expressions\n";
+print "remaining expressions = ".scalar(@pending_keys)."\n";
 
-foreach my $opt (keys %toprint) {
+foreach my $opt (@pending_keys) {
     status() if $VERBOSE;
-    my $ir   = $ir{$opt};
-    # if (defined $result && $result eq $tag) {
-    #     $skip++;
-    #     next;
-    # }
     wait_for_one() unless $num_running < $NPROCS;
     die unless $num_running < $NPROCS;
     print("\r\c[[Ksolving $count");
@@ -160,4 +150,4 @@ wait_for_one() while ($num_running > 0);
 print "\n";
 print "$good optimizations\n";
 print "$fail not-optimizations\n";
-print "$skip skipped due to tag match\n";
+print "$skip skipped already-processed current-version entries\n";
