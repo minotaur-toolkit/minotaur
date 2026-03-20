@@ -11,6 +11,12 @@ This file is a short handoff for future agents working in this repository.
   - clang path: `/localdev/zhengyangliu/llvm-frozen-21.1.7/build/bin/clang`
   - clang++ path: `/localdev/zhengyangliu/llvm-frozen-21.1.7/build/bin/clang++`
   - `lld` and `ld.lld` are built in `/localdev/zhengyangliu/llvm-frozen-21.1.7/build/bin`
+- Frozen Alive2 toolchain:
+  - source root: `/localdev/zhengyangliu/alive2-frozen`
+  - LLVM 21 build root: `/localdev/zhengyangliu/alive2-frozen/build-f9ad3cb-llvm21`
+  - use `/localdev/zhengyangliu/alive2-frozen/build-f9ad3cb-llvm21/alive-tv`
+  - use LLVM source/target pairs with `alive-tv`
+  - do not use the `alive` frontend for new checks
 - Minotaur build dir:
   - `/localdev/zhengyangliu/minotaur/build-llvm21-freeze`
 - Compiler wrappers:
@@ -78,6 +84,10 @@ cd /localdev/zhengyangliu/minotaur
 - `lib/interp.cpp` has an unrelated local modification; do not revert it accidentally.
 - A short LLVM optimization note exists at:
   - `/localdev/zhengyangliu/minotaur/exact-sdiv-unsigned-compare-report.md`
+- Known false lead from recent investigation:
+  - do not claim `x - ((x & 15) == 0 ? 16 : (x & 15)) -> x & -16`
+  - Alive2 disproves it at `x = 0`: source is `-16`, target is `0`
+  - the valid related form is with the shifted `+1` version, e.g. `y - ((y & 15) == 0 ? 16 : (y & 15)) -> (y - 1) & -16`
 
 ## Practical Guidance
 
@@ -91,4 +101,3 @@ cd /localdev/zhengyangliu/minotaur
   - `icmp samesign`
   - `llvm.fshl.*`
   - `llvm.vector.reduce.*`
-
