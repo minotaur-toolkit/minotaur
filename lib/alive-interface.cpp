@@ -142,6 +142,8 @@ AliveEngine::compareFunctions(llvm::Function &Func1, llvm::Function &Func2) {
   // remain unconstrained, while poison inputs stay enabled.
   AliveInputConfigScope InputConfig(/*DisableUndef=*/false,
                                     /*DisablePoison=*/false);
+  llvm_util::initializer LLVMUtilInit(*debug,
+                                      Func1.getParent()->getDataLayout());
   smt::smt_initializer smt_init;
   llvm_util::Verifier verifier(TLI, smt_init, *debug);
   verifier.compareFunctions(Func1, Func2);
@@ -388,6 +390,8 @@ AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
   AliveInputConfigScope InputConfig(/*DisableUndef=*/true,
                                     /*DisablePoison=*/false);
   {
+    llvm_util::initializer LLVMUtilInit(*debug,
+                                        src.getParent()->getDataLayout());
     std::optional<smt::smt_initializer> smt_init;
     smt_init.emplace();
 

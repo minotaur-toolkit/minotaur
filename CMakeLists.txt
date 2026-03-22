@@ -200,6 +200,12 @@ target_link_libraries(alive-tests
   PRIVATE synthesizer ${GTEST_LIBS}
           ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS})
 
+add_llvm_executable(alive-compare-tests
+  "unit-tests/alive-compare-tests.cpp")
+target_link_libraries(alive-compare-tests
+  PRIVATE synthesizer ${GTEST_LIBS}
+          ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS})
+
 add_llvm_executable(interp-tests
   "unit-tests/interp-tests.cpp")
 target_link_libraries(interp-tests
@@ -276,6 +282,7 @@ set(MINOTAUR_UNIT_TEST_TARGETS
   enumerator-tests
   cost-tests
   alive-tests
+  alive-compare-tests
   interp-tests
   rewrite-ordering-tests)
 
@@ -285,6 +292,8 @@ add_test(NAME cost-tests
          COMMAND $<TARGET_FILE:cost-tests>)
 add_test(NAME alive-tests
          COMMAND $<TARGET_FILE:alive-tests>)
+add_test(NAME alive-compare-tests
+         COMMAND $<TARGET_FILE:alive-compare-tests>)
 add_test(NAME interp-tests
          COMMAND $<TARGET_FILE:interp-tests>)
 add_test(NAME rewrite-ordering-tests

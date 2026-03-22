@@ -30,12 +30,6 @@ struct SynthesisResult {
   bool Good = false;
 };
 
-struct CompareResult {
-  std::unique_ptr<llvm::LLVMContext> Ctx;
-  std::unique_ptr<llvm::Module> M;
-  bool Good = false;
-};
-
 std::unique_ptr<llvm::Module> parseTestModule(
     llvm::LLVMContext &Ctx, std::string_view IR) {
   llvm::SMDiagnostic Err;
@@ -82,30 +76,6 @@ SynthesisResult synthesizeConstants(std::string_view IR, bool debug_tv = false) 
 
   for (auto &[Arg, C] : ConstMap)
     Result.Consts.emplace(Arg->getName().str(), C);
-  return Result;
-}
-
-CompareResult compareFunctions(std::string_view IR, bool debug_tv = false) {
-  CompareResult Result;
-  Result.Ctx = std::make_unique<llvm::LLVMContext>();
-  Result.M = parseTestModule(*Result.Ctx, IR);
-  if (!Result.M)
-    return Result;
-
-  auto *Src = Result.M->getFunction("src");
-  auto *Tgt = Result.M->getFunction("tgt");
-  if (!Src || !Tgt) {
-    ADD_FAILURE() << "missing @src or @tgt";
-    return Result;
-  }
-
-  llvm::TargetLibraryInfoWrapperPass TLI(
-      llvm::Triple(Result.M->getTargetTriple()));
-  bool OldDebug = minotaur::config::debug_tv;
-  minotaur::config::debug_tv = debug_tv;
-  AliveEngine AE(TLI);
-  Result.Good = AE.compareFunctions(*Src, *Tgt);
-  minotaur::config::debug_tv = OldDebug;
   return Result;
 }
 
@@ -281,6 +251,146 @@ entry:
   EXPECT_TRUE(E1->getValueAPF().bitwiseIsEqual(llvm::APFloat(-2.5f)));
 }
 
+TEST(AliveConstantSynthesisTest,
+     RepeatedVectorConstantSynthesisDoesNotCrossContaminateTypes) {
+  constexpr char SimpleFloatIR[] = R"(
+define float @src(float %x, float %_reservedc) {
+entry:
+  ret float 2.000000e+00
+}
+
+define float @tgt(float %x, float %_reservedc) {
+entry:
+  ret float %_reservedc
+}
+)";
+
+  constexpr char SimpleIntegerIR[] = R"(
+define i32 @src(i32 %x, i32 %_reservedc) {
+entry:
+  ret i32 42
+}
+
+define i32 @tgt(i32 %x, i32 %_reservedc) {
+entry:
+  ret i32 %_reservedc
+}
+)";
+
+  constexpr char BranchPhiIntegerIR[] = R"(
+define i64 @src(i1 %cond, i64 %_reservedc) {
+entry:
+  br i1 %cond, label %left, label %right
+
+left:
+  br label %merge
+
+right:
+  br label %merge
+
+merge:
+  %v = phi i64 [ 17, %left ], [ 17, %right ]
+  ret i64 %v
+}
+
+define i64 @tgt(i1 %cond, i64 %_reservedc) {
+entry:
+  ret i64 %_reservedc
+}
+)";
+
+  constexpr char BranchPhiFloatIR[] = R"(
+define float @src(i1 %cond, float %_reservedc) {
+entry:
+  br i1 %cond, label %left, label %right
+
+left:
+  br label %merge
+
+right:
+  br label %merge
+
+merge:
+  %v = phi float [ -1.250000e+00, %left ], [ -1.250000e+00, %right ]
+  ret float %v
+}
+
+define float @tgt(i1 %cond, float %_reservedc) {
+entry:
+  ret float %_reservedc
+}
+)";
+
+  constexpr char VectorIntegerIR[] = R"(
+define <2 x i32> @src(<2 x i32> %_reservedc) {
+entry:
+  ret <2 x i32> <i32 3, i32 -7>
+}
+
+define <2 x i32> @tgt(<2 x i32> %_reservedc) {
+entry:
+  ret <2 x i32> %_reservedc
+}
+)";
+
+  constexpr char VectorFloatIR[] = R"(
+define <2 x float> @src(<2 x float> %_reservedc) {
+entry:
+  ret <2 x float> <float 1.000000e+00, float -2.500000e+00>
+}
+
+define <2 x float> @tgt(<2 x float> %_reservedc) {
+entry:
+  ret <2 x float> %_reservedc
+}
+)";
+
+  auto CheckVectorInteger = [&](int Iter) {
+    SCOPED_TRACE(Iter);
+    auto Result = synthesizeConstants(VectorIntegerIR);
+    ASSERT_TRUE(Result.Good);
+
+    auto *C = getSynthesizedConst(Result);
+    ASSERT_TRUE(C->getType()->isVectorTy());
+    auto *E0 =
+        llvm::dyn_cast_or_null<llvm::ConstantInt>(C->getAggregateElement(0u));
+    auto *E1 =
+        llvm::dyn_cast_or_null<llvm::ConstantInt>(C->getAggregateElement(1u));
+    ASSERT_NE(E0, nullptr);
+    ASSERT_NE(E1, nullptr);
+    EXPECT_EQ(E0->getSExtValue(), 3);
+    EXPECT_EQ(E1->getSExtValue(), -7);
+  };
+
+  auto CheckVectorFloat = [&](int Iter) {
+    SCOPED_TRACE(Iter);
+    auto Result = synthesizeConstants(VectorFloatIR);
+    ASSERT_TRUE(Result.Good);
+
+    auto *C = getSynthesizedConst(Result);
+    ASSERT_TRUE(C->getType()->isVectorTy());
+    auto *E0 =
+        llvm::dyn_cast_or_null<llvm::ConstantFP>(C->getAggregateElement(0u));
+    auto *E1 =
+        llvm::dyn_cast_or_null<llvm::ConstantFP>(C->getAggregateElement(1u));
+    ASSERT_NE(E0, nullptr);
+    ASSERT_NE(E1, nullptr);
+    EXPECT_TRUE(E0->getValueAPF().bitwiseIsEqual(llvm::APFloat(1.0f)));
+    EXPECT_TRUE(E1->getValueAPF().bitwiseIsEqual(llvm::APFloat(-2.5f)));
+  };
+
+  // Regression for stale llvm_type2alive type-cache state leaking across fresh
+  // LLVMContexts and cross-contaminating vector integer/float synthesis.
+  for (int Iter = 0; Iter < 20; ++Iter) {
+    ASSERT_TRUE(synthesizeConstants(SimpleFloatIR).Good) << Iter;
+    ASSERT_TRUE(synthesizeConstants(SimpleIntegerIR).Good) << Iter;
+    ASSERT_TRUE(synthesizeConstants(BranchPhiIntegerIR).Good) << Iter;
+    ASSERT_TRUE(synthesizeConstants(BranchPhiFloatIR).Good) << Iter;
+    CheckVectorInteger(Iter);
+    CheckVectorFloat(Iter);
+  }
+}
+
 TEST(AliveConstantSynthesisTest, RejectsBranchDependentIntegerValue) {
   constexpr char IR[] = R"(
 define i32 @src(i1 %cond, i32 %_reservedc) {
@@ -431,59 +541,6 @@ entry:
 
   auto Result = synthesizeConstants(IR);
   EXPECT_FALSE(Result.Good);
-}
-
-TEST(AliveCompareFunctionsTest, RejectsSelectRewriteThatDropsUndefSensitiveArm) {
-  constexpr char IR[] = R"(
-define i1 @src(i1 %a, i1 %b, i8 %x, i1 %sel) {
-entry:
-  %c0 = select i1 %sel, i32 1, i32 3
-  %p = and i1 %a, %b
-  %v0 = select i1 %p, i32 %c0, i32 2
-  %v1 = or disjoint i32 %v0, 8
-  %neg = icmp slt i8 %x, 0
-  %v2 = select i1 %neg, i32 %v1, i32 %v0
-  %v3 = and i32 %v2, 3
-  %r = icmp eq i32 %v3, 1
-  ret i1 %r
-}
-
-define i1 @tgt(i1 %a, i1 %b, i8 %x, i1 %sel) {
-entry:
-  %p = and i1 %a, %b
-  %r = select i1 %p, i1 %sel, i1 %p
-  ret i1 %r
-}
-)";
-
-  auto Result = compareFunctions(IR);
-  EXPECT_FALSE(Result.Good);
-}
-
-TEST(AliveCompareFunctionsTest, AcceptsValidXorBooleanRewrite) {
-  constexpr char IR[] = R"(
-define i1 @src(i1 %p, i32 %x) {
-entry:
-  %c0 = icmp ne i32 %x, 22
-  %c1 = icmp ne i32 %x, 20
-  %u = or i1 %c1, %p
-  %v = and i1 %c0, %u
-  %r = xor i1 %v, true
-  ret i1 %r
-}
-
-define i1 @tgt(i1 %p, i32 %x) {
-entry:
-  %c0 = icmp ne i32 %x, 22
-  %c1 = icmp ne i32 %x, 20
-  %u = or i1 %c1, %p
-  %r = xor i1 %c0, %u
-  ret i1 %r
-}
-)";
-
-  auto Result = compareFunctions(IR);
-  EXPECT_TRUE(Result.Good);
 }
 
 } // namespace
