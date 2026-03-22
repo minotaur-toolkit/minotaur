@@ -30,6 +30,12 @@ struct SynthesisResult {
   bool Good = false;
 };
 
+struct CompareResult {
+  std::unique_ptr<llvm::LLVMContext> Ctx;
+  std::unique_ptr<llvm::Module> M;
+  bool Good = false;
+};
+
 std::unique_ptr<llvm::Module> parseTestModule(
     llvm::LLVMContext &Ctx, std::string_view IR) {
   llvm::SMDiagnostic Err;
@@ -76,6 +82,30 @@ SynthesisResult synthesizeConstants(std::string_view IR, bool debug_tv = false) 
 
   for (auto &[Arg, C] : ConstMap)
     Result.Consts.emplace(Arg->getName().str(), C);
+  return Result;
+}
+
+CompareResult compareFunctions(std::string_view IR, bool debug_tv = false) {
+  CompareResult Result;
+  Result.Ctx = std::make_unique<llvm::LLVMContext>();
+  Result.M = parseTestModule(*Result.Ctx, IR);
+  if (!Result.M)
+    return Result;
+
+  auto *Src = Result.M->getFunction("src");
+  auto *Tgt = Result.M->getFunction("tgt");
+  if (!Src || !Tgt) {
+    ADD_FAILURE() << "missing @src or @tgt";
+    return Result;
+  }
+
+  llvm::TargetLibraryInfoWrapperPass TLI(
+      llvm::Triple(Result.M->getTargetTriple()));
+  bool OldDebug = minotaur::config::debug_tv;
+  minotaur::config::debug_tv = debug_tv;
+  AliveEngine AE(TLI);
+  Result.Good = AE.compareFunctions(*Src, *Tgt);
+  minotaur::config::debug_tv = OldDebug;
   return Result;
 }
 
@@ -401,6 +431,59 @@ entry:
 
   auto Result = synthesizeConstants(IR);
   EXPECT_FALSE(Result.Good);
+}
+
+TEST(AliveCompareFunctionsTest, RejectsSelectRewriteThatDropsUndefSensitiveArm) {
+  constexpr char IR[] = R"(
+define i1 @src(i1 %a, i1 %b, i8 %x, i1 %sel) {
+entry:
+  %c0 = select i1 %sel, i32 1, i32 3
+  %p = and i1 %a, %b
+  %v0 = select i1 %p, i32 %c0, i32 2
+  %v1 = or disjoint i32 %v0, 8
+  %neg = icmp slt i8 %x, 0
+  %v2 = select i1 %neg, i32 %v1, i32 %v0
+  %v3 = and i32 %v2, 3
+  %r = icmp eq i32 %v3, 1
+  ret i1 %r
+}
+
+define i1 @tgt(i1 %a, i1 %b, i8 %x, i1 %sel) {
+entry:
+  %p = and i1 %a, %b
+  %r = select i1 %p, i1 %sel, i1 %p
+  ret i1 %r
+}
+)";
+
+  auto Result = compareFunctions(IR);
+  EXPECT_FALSE(Result.Good);
+}
+
+TEST(AliveCompareFunctionsTest, AcceptsValidXorBooleanRewrite) {
+  constexpr char IR[] = R"(
+define i1 @src(i1 %p, i32 %x) {
+entry:
+  %c0 = icmp ne i32 %x, 22
+  %c1 = icmp ne i32 %x, 20
+  %u = or i1 %c1, %p
+  %v = and i1 %c0, %u
+  %r = xor i1 %v, true
+  ret i1 %r
+}
+
+define i1 @tgt(i1 %p, i32 %x) {
+entry:
+  %c0 = icmp ne i32 %x, 22
+  %c1 = icmp ne i32 %x, 20
+  %u = or i1 %c1, %p
+  %r = xor i1 %c0, %u
+  ret i1 %r
+}
+)";
+
+  auto Result = compareFunctions(IR);
+  EXPECT_TRUE(Result.Good);
 }
 
 } // namespace

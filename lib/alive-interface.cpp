@@ -113,14 +113,35 @@ namespace minotaur {
 
 static std::ostream NOP_OSTREAM(nullptr);
 
+namespace {
+
+struct AliveInputConfigScope {
+  bool OldDisableUndef = util::config::disable_undef_input;
+  bool OldDisablePoison = util::config::disable_poison_input;
+
+  AliveInputConfigScope(bool DisableUndef, bool DisablePoison) {
+    util::config::disable_undef_input = DisableUndef;
+    util::config::disable_poison_input = DisablePoison;
+  }
+
+  ~AliveInputConfigScope() {
+    util::config::disable_undef_input = OldDisableUndef;
+    util::config::disable_poison_input = OldDisablePoison;
+  }
+};
+
+} // namespace
+
 AliveEngine::AliveEngine(llvm::TargetLibraryInfoWrapperPass &TLI) : TLI(TLI) {
-  util::config::disable_undef_input = true;
-  util::config::disable_poison_input = false;
   debug = config::debug_tv ? &std::cerr : &NOP_OSTREAM;
 }
 
 bool
 AliveEngine::compareFunctions(llvm::Function &Func1, llvm::Function &Func2) {
+  // Match standalone alive-tv semantics for equivalence checking: undef inputs
+  // remain unconstrained, while poison inputs stay enabled.
+  AliveInputConfigScope InputConfig(/*DisableUndef=*/false,
+                                    /*DisablePoison=*/false);
   smt::smt_initializer smt_init;
   llvm_util::Verifier verifier(TLI, smt_init, *debug);
   verifier.compareFunctions(Func1, Func2);
@@ -361,6 +382,11 @@ static const llvm::fltSemantics &getFloatSemantics(unsigned BitWidth) {
 bool
 AliveEngine::constantSynthesis(llvm::Function &src, llvm::Function &tgt,
    unordered_map<llvm::Argument*, llvm::Constant*>& ConstMap) {
+  // Keep the existing synthesis search behavior: treat undef inputs as
+  // disabled while still allowing poison, then concretely re-verify with the
+  // stricter compareFunctions() path below.
+  AliveInputConfigScope InputConfig(/*DisableUndef=*/true,
+                                    /*DisablePoison=*/false);
   {
     std::optional<smt::smt_initializer> smt_init;
     smt_init.emplace();
