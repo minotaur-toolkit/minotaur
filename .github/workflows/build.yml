@@ -79,7 +79,7 @@ jobs:
 
           # Core deps
           sudo apt-get install -y --no-install-recommends \
-            re2c ninja-build libhiredis-dev redis-server
+            re2c ninja-build libgtest-dev libhiredis-dev redis-server
 
           # LLVM apt repo (for clang-18/19)
           if [[ "${{ matrix.cxx_compiler }}" == "clang++-18" || "${{ matrix.cxx_compiler }}" == "clang++-19" ]]; then
@@ -116,7 +116,8 @@ jobs:
       - name: Install dependencies (MacOS)
         if: runner.os == 'macOS'
         run: |
-          brew install re2c ninja redis hiredis
+          brew install re2c ninja redis hiredis googletest
+          echo "GTest_ROOT=$(brew --prefix googletest)" >> "${GITHUB_ENV}"
 
       - name: Build Z3 (from source)
         run: |

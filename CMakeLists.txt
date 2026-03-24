@@ -83,6 +83,11 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 find_package(Alive2)
 include_directories(${ALIVE2_SOURCE_DIR})
 
+find_package(GTest CONFIG QUIET)
+if (NOT TARGET GTest::gtest)
+  find_package(GTest REQUIRED)
+endif()
+
 set(SYNTHESIZER_SRC
   "lib/alive-interface.cpp"
   "lib/enumerator.cpp"
@@ -174,54 +179,54 @@ add_llvm_executable(minotaur-slice "tools/minotaur-slice.cpp")
 target_link_libraries(minotaur-slice
   PRIVATE slice ${ALIVE_LIBS})
 
-set(GTEST_LIBS "-lgtest_main -lgtest -lpthread")
+set(MINOTAUR_GTEST_TARGETS GTest::gtest_main GTest::gtest)
 
 option(ENABLE_PARSE_TESTS "Build parse-tests unit test" OFF)
 
 if (ENABLE_PARSE_TESTS)
   add_llvm_executable(parse-tests "unit-tests/parse-tests.cpp")
   target_link_libraries(parse-tests
-    PRIVATE synthesizer ${GTEST_LIBS} ${Z3_LIBRARIES})
+    PRIVATE synthesizer ${MINOTAUR_GTEST_TARGETS} ${Z3_LIBRARIES})
 endif()
 
 add_llvm_executable(enumerator-tests
   "unit-tests/enumerator-tests.cpp")
 target_link_libraries(enumerator-tests
-  PRIVATE synthesizer ${GTEST_LIBS}
+  PRIVATE synthesizer ${MINOTAUR_GTEST_TARGETS}
           ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS})
 
 add_llvm_executable(cost-tests
   "unit-tests/cost-tests.cpp")
 target_link_libraries(cost-tests
-  PRIVATE cost utils ${GTEST_LIBS} ${HIREDIS_LIBRARY} ${LLVM_LIBS})
+  PRIVATE cost utils ${MINOTAUR_GTEST_TARGETS} ${HIREDIS_LIBRARY} ${LLVM_LIBS})
 
 add_llvm_executable(alive-tests
   "unit-tests/alive-tests.cpp")
 target_link_libraries(alive-tests
-  PRIVATE synthesizer ${GTEST_LIBS}
+  PRIVATE synthesizer ${MINOTAUR_GTEST_TARGETS}
           ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS})
 
 add_llvm_executable(alive-compare-tests
   "unit-tests/alive-compare-tests.cpp")
 target_link_libraries(alive-compare-tests
-  PRIVATE synthesizer ${GTEST_LIBS}
+  PRIVATE synthesizer ${MINOTAUR_GTEST_TARGETS}
           ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS})
 
 add_llvm_executable(interp-tests
   "unit-tests/interp-tests.cpp")
 target_link_libraries(interp-tests
-  PRIVATE synthesizer ${GTEST_LIBS} ${LLVM_LIBS})
+  PRIVATE synthesizer ${MINOTAUR_GTEST_TARGETS} ${LLVM_LIBS})
 
 add_llvm_executable(rewrite-ordering-tests
   "unit-tests/rewrite-ordering-tests.cpp")
 target_link_libraries(rewrite-ordering-tests
-  PRIVATE synthesizer ${GTEST_LIBS}
+  PRIVATE synthesizer ${MINOTAUR_GTEST_TARGETS}
           ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS})
 
 add_llvm_executable(fp-domain-tests
   "unit-tests/fp-domain-tests.cpp")
 target_link_libraries(fp-domain-tests
-  PRIVATE synthesizer ${GTEST_LIBS}
+  PRIVATE synthesizer ${MINOTAUR_GTEST_TARGETS}
           ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS})
 
 if(APPLE)
