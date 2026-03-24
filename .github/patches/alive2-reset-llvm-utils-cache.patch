@@ -1,0 +1,22 @@
+diff --git a/llvm_util/utils.cpp b/llvm_util/utils.cpp
+index a359ede..9a02ca4 100644
+--- a/llvm_util/utils.cpp
++++ b/llvm_util/utils.cpp
+@@ -498,8 +498,16 @@ PRINT(llvm::Value)
+ 
+ 
+ void init_llvm_utils(ostream &os, const llvm::DataLayout &dataLayout) {
+-  out = &os;
++  value_cache.clear();
++  value_names.clear();
++  value_id_counter = 0;
++  type_cache.clear();
+   type_id_counter = 0;
++  current_fn = nullptr;
++
++  int_types.clear();
++  ptr_types.clear();
++  out = &os;
+   int_types.resize(65);
+   int_types[1] = make_unique<IntType>("i1", 1);
+   ptr_types.emplace_back(make_unique<PtrType>(0));

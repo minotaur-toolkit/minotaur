@@ -70,6 +70,25 @@ ensure_git_commit_checkout() {
   git -C "${dir}" checkout --force --detach FETCH_HEAD
 }
 
+apply_alive2_local_patches() {
+  local patch_file="${ROOT_DIR}/.github/patches/alive2-reset-llvm-utils-cache.patch"
+  local utils_cpp="${ALIVE2_SOURCE_DIR}/llvm_util/utils.cpp"
+
+  if [ ! -f "${patch_file}" ]; then
+    echo "missing Alive2 patch: ${patch_file}" >&2
+    exit 1
+  fi
+
+  if grep -q "type_cache.clear();" "${utils_cpp}"; then
+    echo "Alive2 cache reset patch already present"
+    return
+  fi
+
+  echo "Applying Alive2 cache reset patch"
+  git -C "${ALIVE2_SOURCE_DIR}" apply --check "${patch_file}"
+  git -C "${ALIVE2_SOURCE_DIR}" apply "${patch_file}"
+}
+
 llvm_build_matches_targets() {
   local config_file="${LLVM_BUILD_DIR}/lib/cmake/llvm/LLVMConfig.cmake"
   if [ ! -f "${config_file}" ]; then
@@ -133,6 +152,7 @@ ensure_git_commit_checkout \
   "https://github.com/AliveToolkit/alive2.git" \
   "${ALIVE2_SOURCE_DIR}" \
   "${MINOTAUR_ALIVE2_REF}"
+apply_alive2_local_patches
 
 mkdir -p "${ALIVE2_BUILD_DIR}"
 cd "${ALIVE2_BUILD_DIR}"

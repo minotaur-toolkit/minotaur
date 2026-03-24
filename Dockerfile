@@ -1,6 +1,7 @@
 FROM ubuntu:24.04
 
 COPY pinned-deps.env /tmp/pinned-deps.env
+COPY .github/patches/alive2-reset-llvm-utils-cache.patch /tmp/alive2-reset-llvm-utils-cache.patch
 
 # Install base and project-specific dependencies in a single layer.
 RUN apt-get update -qq && \
@@ -72,6 +73,7 @@ RUN . /tmp/pinned-deps.env && \
     git -C "$HOME/alive2" remote add origin https://github.com/AliveToolkit/alive2.git && \
     git -C "$HOME/alive2" fetch --depth 1 origin "${MINOTAUR_ALIVE2_REF}" && \
     git -C "$HOME/alive2" checkout --force --detach FETCH_HEAD && \
+    git -C "$HOME/alive2" apply /tmp/alive2-reset-llvm-utils-cache.patch && \
     cmake -G Ninja -B $HOME/alive2/build \
       -DLLVM_DIR=$HOME/llvm/build/lib/cmake/llvm \
       -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_TV=1 \
