@@ -1,6 +1,10 @@
-; CHECK: (lshr <16 x i16> (var <16 x i16> %__n2) (reservedconst <16 x i16> |<16 x i16> splat (i16 3)|))
-define <16 x i16> @syn_ashr_1(<16 x i16> %x, <16 x i16> %y) {
-  %ia = udiv <16 x i16> %x, <i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4>
-  %ib = udiv <16 x i16> %ia, <i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2>
-  ret <16 x i16> %ib
+; TEST-ARGS: -minotaur-no-slice
+; CHECK: [online] synthesized solution:
+; CHECK: (lshr <2 x i8> (var <2 x i8> %x) (reservedconst <2 x i8> |<2 x i8> splat (i8 3)|))
+
+define <2 x i8> @src(<2 x i8> %x) {
+entry:
+  %a = udiv <2 x i8> %x, <i8 4, i8 4>
+  %root = udiv <2 x i8> %a, <i8 2, i8 2>
+  ret <2 x i8> %root
 }

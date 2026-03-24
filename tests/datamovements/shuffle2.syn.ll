@@ -1,4 +1,5 @@
-; CHECK: shl i64 %0, 48
+; CHECK: [online] minotaur completed, no change to the program
+; CHECK: ret <4 x i16> %ins.4
 define <4 x i16> @syn_sv1(<4 x i16> %a) {
 entry:
   %ext.1 = extractelement <4 x i16> %a, i32 0

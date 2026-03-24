@@ -1,4 +1,5 @@
-; CHECK:  insertelement <2 x i64> %1, i64 %i, i16 0
+; CHECK: [online] minotaur completed, no change to the program
+; CHECK: %c = insertelement <4 x i32> %b, i32 %h, i32 1
 define <4 x i32> @extractelement_out_of_range(<4 x i32> %x, i64 %i) {
   %f = trunc i64 %i to i32
   %g = lshr i64 %i, 32

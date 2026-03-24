@@ -87,6 +87,7 @@ set(SYNTHESIZER_SRC
   "lib/alive-interface.cpp"
   "lib/enumerator.cpp"
   "lib/expr.cpp"
+  "lib/fp-domain.cpp"
   "lib/codegen.cpp"
   "lib/interp.cpp"
   "lib/parse.cpp"
@@ -217,6 +218,12 @@ target_link_libraries(rewrite-ordering-tests
   PRIVATE synthesizer ${GTEST_LIBS}
           ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS})
 
+add_llvm_executable(fp-domain-tests
+  "unit-tests/fp-domain-tests.cpp")
+target_link_libraries(fp-domain-tests
+  PRIVATE synthesizer ${GTEST_LIBS}
+          ${ALIVE_LIBS} ${Z3_LIBRARIES} ${LLVM_LIBS})
+
 if(APPLE)
     set_target_properties(online PROPERTIES
         LINK_FLAGS "-undefined dynamic_lookup"
@@ -284,7 +291,8 @@ set(MINOTAUR_UNIT_TEST_TARGETS
   alive-tests
   alive-compare-tests
   interp-tests
-  rewrite-ordering-tests)
+  rewrite-ordering-tests
+  fp-domain-tests)
 
 add_test(NAME enumerator-tests
          COMMAND $<TARGET_FILE:enumerator-tests>)
@@ -298,6 +306,8 @@ add_test(NAME interp-tests
          COMMAND $<TARGET_FILE:interp-tests>)
 add_test(NAME rewrite-ordering-tests
          COMMAND $<TARGET_FILE:rewrite-ordering-tests>)
+add_test(NAME fp-domain-tests
+         COMMAND $<TARGET_FILE:fp-domain-tests>)
 
 if (ENABLE_PARSE_TESTS)
   list(APPEND MINOTAUR_UNIT_TEST_TARGETS parse-tests)

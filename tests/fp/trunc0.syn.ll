@@ -1,5 +1,6 @@
-; CHECK: store volatile double 1.000000e+00, ptr %P, align 8
-; CHECK-NEXT: store volatile double -1.000000e+00, ptr %P, align 8
+; CHECK: [online] minotaur completed, no change to the program
+; CHECK: @llvm.trunc.f64(double 1.500000e+00)
+; CHECK: @llvm.trunc.f64(double -1.500000e+00)
 
 define void @trunc(ptr %P) {
   %B = tail call double @llvm.trunc.f64(double 1.5) nounwind

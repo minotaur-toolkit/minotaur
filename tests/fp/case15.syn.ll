@@ -1,3 +1,4 @@
+; CHECK: [online] synthesized solution:
 ; CHECK: (conv_fptosi (var half %__n2) i32)
 define i32 @src(half %0) {
 if.end27:

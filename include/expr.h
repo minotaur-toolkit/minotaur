@@ -51,6 +51,7 @@ public:
   void setValue(llvm::Value *v) { val = v; }
   void print(llvm::raw_ostream &os) const override;
   llvm::Value *getValue() { return val; }
+  llvm::Value *getValue() const { return val; }
 };
 
 // literal constants to be synthesized

@@ -1,3 +1,4 @@
+; CHECK: [online] synthesized solution:
 ; CHECK: (fcmp_ogt (var double %__n2) (reservedconst double |double 0x4058FFFFEFFFFFFF|) b1)
 define i1 @src(double %0) {
 if.end155:

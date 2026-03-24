@@ -1,4 +1,5 @@
-; CHECK: select i1 %y, i1 false, i1 %x
+; CHECK: [online] synthesized solution:
+; CHECK: (select (var i1 %__n3) (var i1 %__n1) (reservedconst i1 |i1 false|))
 ; fixme
 
 define i1 @not_false_not(i1 %x, i1 %y) {

@@ -1,4 +1,5 @@
-; CHECK: rewrite: (fcmp_oeq (var float %__n1) (reservedconst float |float 0.000000e+00|) b1)
+; CHECK: [online] synthesized solution:
+; CHECK: (fcmp_oeq (var float %__n4) (reservedconst float |float 0.000000e+00|) b1)
 define i1 @src(float %0) {
 if.end192:
   %1 = fcmp oge float %0, 0.000000e+00
@@ -7,4 +8,3 @@ if.end192:
   %4 = fcmp oeq float %3, 0.000000e+00
   ret i1 %4
 }
-

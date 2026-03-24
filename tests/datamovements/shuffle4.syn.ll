@@ -1,4 +1,5 @@
-; CHECK: shl i32 %0, 16
+; CHECK: [online] minotaur completed, no change to the program
+; CHECK: %ins.2 = insertelement <2 x i16> %ins.1, i16 %ext.2, i32 0
 define <2 x i16> @syn_sv3(<2 x i16> %a, <2 x i16> %b) {
 entry:
   %ext.1 = extractelement <2 x i16> %a, i32 0
@@ -7,4 +8,3 @@ entry:
   %ins.2 = insertelement <2 x i16> %ins.1, i16 %ext.2, i32 0
   ret <2 x i16> %ins.2
 }
-

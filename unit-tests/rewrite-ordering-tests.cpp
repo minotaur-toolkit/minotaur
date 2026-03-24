@@ -105,6 +105,74 @@ TEST(RewriteOrderingTest, PrefersFewerSynthesizedConstants) {
   EXPECT_FALSE(preferInstForSameCost(WithConst.inst(), VarsOnly.inst()));
 }
 
+TEST(RewriteOrderingTest, SearchPrefersGenericOpsBeforeTargetIntrinsics) {
+  type VecTy = type::IntegerVectorizable(16, 16);
+  Var X("%x", VecTy);
+  Var A("%a", VecTy);
+  ReservedConst ShiftAmt(VecTy);
+  BinaryOp Lshr(BinaryOp::lshr, X, ShiftAmt, VecTy);
+  SIMDBinOpInst Intr(IR::X86IntrinBinOp::Op::x86_avx2_phsub_sw, X, A);
+  SearchOrderingContext Ctx{1};
+
+  auto LshrKey = analyzeInstOrdering(Lshr);
+  auto IntrKey = analyzeInstOrdering(Intr);
+  EXPECT_EQ(LshrKey.TargetSpecificOps, 0u);
+  EXPECT_EQ(IntrKey.TargetSpecificOps, 1u);
+  EXPECT_TRUE(preferInstForSearch(Lshr, Intr, Ctx));
+  EXPECT_FALSE(preferInstForSearch(Intr, Lshr, Ctx));
+}
+
+TEST(RewriteOrderingTest, SearchPrefersFewerLiveInputsBeforeExtraVars) {
+  type VecTy = type::IntegerVectorizable(16, 16);
+  Var X("%x", VecTy);
+  Var A("%a", VecTy);
+  ReservedConst ShiftAmt(VecTy);
+  BinaryOp Lshr(BinaryOp::lshr, X, ShiftAmt, VecTy);
+  BinaryOp Add(BinaryOp::add, X, A, VecTy);
+  SearchOrderingContext Ctx{1};
+
+  auto LshrKey = analyzeInstOrdering(Lshr);
+  auto AddKey = analyzeInstOrdering(Add);
+  EXPECT_EQ(LshrKey.TargetSpecificOps, AddKey.TargetSpecificOps);
+  EXPECT_EQ(LshrKey.DistinctVars, 1u);
+  EXPECT_EQ(AddKey.DistinctVars, 2u);
+  EXPECT_TRUE(preferInstForSearch(Lshr, Add, Ctx));
+  EXPECT_FALSE(preferInstForSearch(Add, Lshr, Ctx));
+}
+
+TEST(RewriteOrderingTest, SearchPrefersMatchingSourceArityOverUnaryNoise) {
+  type HalfTy = type::Half();
+  Var X("%x", HalfTy);
+  Var Y("%y", HalfTy);
+  UnaryOp Round(UnaryOp::fround, X, HalfTy);
+  BinaryOp Max(BinaryOp::fmaxnum, X, Y, HalfTy);
+  SearchOrderingContext Ctx{2};
+
+  auto RoundKey = analyzeInstOrdering(Round);
+  auto MaxKey = analyzeInstOrdering(Max);
+  EXPECT_EQ(RoundKey.DistinctVars, 1u);
+  EXPECT_EQ(MaxKey.DistinctVars, 2u);
+  EXPECT_TRUE(preferInstForSearch(Max, Round, Ctx));
+  EXPECT_FALSE(preferInstForSearch(Round, Max, Ctx));
+}
+
+TEST(RewriteOrderingTest, SearchPrefersDomainConsistentFpOpsOverBitcasts) {
+  type HalfTy = type::Half();
+  type I16Ty = type::Integer(16);
+  Var X("%x", HalfTy);
+  Var Y("%y", HalfTy);
+  BinaryOp Max(BinaryOp::fmaxnum, X, Y, HalfTy);
+  BinaryOp And(BinaryOp::band, X, Y, I16Ty);
+  SearchOrderingContext Ctx{2};
+
+  auto MaxKey = analyzeInstOrdering(Max);
+  auto AndKey = analyzeInstOrdering(And);
+  EXPECT_EQ(MaxKey.DomainCrossings, 0u);
+  EXPECT_EQ(AndKey.DomainCrossings, 1u);
+  EXPECT_TRUE(preferInstForSearch(Max, And, Ctx));
+  EXPECT_FALSE(preferInstForSearch(And, Max, Ctx));
+}
+
 TEST(RewriteOrderingTest, PrefersSameSignIcmpWhenCostsTie) {
   auto Plain = parseRewrite(
       I1OrderingIR,

@@ -4,6 +4,7 @@
 #include "config.h"
 #include "enumerator.h"
 #include "expr.h"
+#include "fp-domain.h"
 #include "codegen.h"
 #include "cost.h"
 #include "interp.h"
@@ -135,6 +136,8 @@ void Enumerator::findInputs(llvm::Function &F,
                             llvm::Instruction *root,
                             llvm::DominatorTree &DT) {
   for (auto &A : F.args()) {
+    if (A.use_empty())
+      continue;
     auto T = make_unique<Var>(&A);
     values.emplace_back(T.get());
     exprs.emplace_back(std::move(T));
@@ -1745,13 +1748,29 @@ using Candidate = tuple<llvm::Function*, llvm::Function*, Inst*,
                         unordered_map<const llvm::Argument*, ReservedConst*>,
                         bool>;
 
+static unsigned countUsedSourceArgs(const llvm::Function &F) {
+  unsigned Count = 0;
+  for (auto &A : F.args()) {
+    if (!A.use_empty())
+      ++Count;
+  }
+  return Count;
+}
+
 static bool approx(const Candidate &f1, const Candidate &f2) {
+  auto ExpectedDistinctVars = countUsedSourceArgs(*get<1>(f1));
+  SearchOrderingContext Ctx{ExpectedDistinctVars};
+  if (preferInstForSearch(*get<2>(f1), *get<2>(f2), Ctx))
+    return true;
+  if (preferInstForSearch(*get<2>(f2), *get<2>(f1), Ctx))
+    return false;
+
   unsigned cost1 = get_approx_cost(get<0>(f1));
   unsigned cost2 = get_approx_cost(get<0>(f2));
   if (cost1 != cost2)
     return cost1 < cost2;
 
-  return preferInstForSameCost(*get<2>(f1), *get<2>(f2));
+  return false;
 }
 
 vector<string> Enumerator::enumerateSketchStringsForTesting(
@@ -1795,6 +1814,7 @@ vector<string> Enumerator::enumerateSketchStringsForTesting(
 vector<Rewrite> Enumerator::solve(llvm::Function &F, llvm::Instruction *I) {
   unsigned CANDIDATES = 0, PRUNED = 0, GOOD = 0;
   unsigned APPROX_PRUNED = 0, ILLFORMED_PRUNED = 0;
+  unsigned FP_DOMAIN_PRUNED = 0;
   unsigned VERIFY_EXCEPTIONS = 0;
   unsigned ZERO_COST_SKIPPED = 0;
   unsigned MACHINE_COST_REJECTED = 0;
@@ -1824,6 +1844,7 @@ vector<Rewrite> Enumerator::solve(llvm::Function &F, llvm::Instruction *I) {
   llvm::KnownBits KnownI(Width);
   if (I->getType()->isIntOrIntVectorTy())
     computeKnownBits(I, KnownI, DL);
+  FPValueDomain SourceFPDomain = analyzeFPValueDomain(*I);
 
   findInputs(F, I, DT);
   debug() << "[enumerator] root=" << *I
@@ -1832,6 +1853,13 @@ vector<Rewrite> Enumerator::solve(llvm::Function &F, llvm::Instruction *I) {
           << ", depth2=" << (config::enable_depth2 ? "on" : "off")
           << ", depth3=" << (config::enable_depth3 ? "on" : "off")
           << "\n";
+  if (SourceFPDomain.IsFP) {
+    debug() << "[enumerator] fp-domain: source origin="
+            << (SourceFPDomain.mustBeSelector() ? "selector"
+                : SourceFPDomain.mustBeFresh() ? "fresh"
+                                               : "unknown")
+            << ", leaves=" << SourceFPDomain.DistinctLeaves << "\n";
+  }
 
   vector<Sketch> Sketches;
 
@@ -1965,6 +1993,12 @@ vector<Rewrite> Enumerator::solve(llvm::Function &F, llvm::Instruction *I) {
   for (auto &Sketch : Sketches) {
     bool HaveC = !Sketch.second.empty();
     auto &G = Sketch.first;
+    auto TargetFPDomain = analyzeFPValueDomain(*G);
+    if (fpDomainsContradict(SourceFPDomain, TargetFPDomain)) {
+      FP_DOMAIN_PRUNED++;
+      debug() << "[enumerator] skip candidate: fp-domain contradiction\n";
+      continue;
+    }
     llvm::ValueToValueMapTy VMap;
 
     llvm::SmallVector<llvm::Type*, 8> Args;
@@ -2220,8 +2254,21 @@ vector<Rewrite> Enumerator::solve(llvm::Function &F, llvm::Instruction *I) {
 
     try {
       if (!HaveC) {
-        AliveEngine AE(TLI);
-        Good = AE.compareFunctions(*Src, *Tgt);
+        switch (classifyFPTransportRelation(*I, *G)) {
+        case FPTransportRelation::Equivalent:
+          debug() << "[enumerator] accepted by fp transport proof\n";
+          Good = true;
+          break;
+        case FPTransportRelation::Inequivalent:
+          debug() << "[enumerator] rejected by fp transport proof\n";
+          Good = false;
+          break;
+        case FPTransportRelation::Unknown: {
+          AliveEngine AE(TLI);
+          Good = AE.compareFunctions(*Src, *Tgt);
+          break;
+        }
+        }
       } else {
         AliveEngine AE(TLI);
         Good = AE.constantSynthesis(*Src, *Tgt, ConstantResults);
@@ -2316,6 +2363,7 @@ vector<Rewrite> Enumerator::solve(llvm::Function &F, llvm::Instruction *I) {
   debug() << "[enumerator] summary: candidates=" << CANDIDATES
           << ", approx_pruned=" << APPROX_PRUNED
           << ", illformed_pruned=" << ILLFORMED_PRUNED
+          << ", fp_domain_pruned=" << FP_DOMAIN_PRUNED
           << ", concrete_pruned=" << PRUNED
           << ", verified_equiv=" << GOOD
           << ", verify_exceptions=" << VERIFY_EXCEPTIONS

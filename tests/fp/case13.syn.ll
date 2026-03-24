@@ -1,3 +1,4 @@
+; CHECK: [online] synthesized solution:
 ; CHECK: (conv_fptosi (var float %__n2) i64)
 define i64 @src(float %0) {
 if.end27:
