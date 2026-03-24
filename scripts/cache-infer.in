@@ -1,176 +1,218 @@
-#!/usr/bin/env perl
+#!/usr/bin/env python3
 
 # Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 # Distributed under the MIT license that can be found in the LICENSE file.
 # borrowed from souper
 
-use warnings;
-use strict;
-use Redis;
-use Getopt::Long;
-use File::Temp;
-use Time::HiRes;
-use BSD::Resource;
+import argparse
+import os
+import subprocess
+import sys
+import tempfile
+import time
+from dataclasses import dataclass
 
-eval { require Sys::CPU; Sys::CPU->import(); };
+sys.path.insert(0, "@PROJECT_SOURCE_DIR@/scripts")
+from minotaur_redis import RedisClient, RedisError
 
-my $NPROCS = 40;
-$NPROCS = Sys::CPU::cpu_count() - 2 if defined(&Sys::CPU::cpu_count);
 
-sub usage() {
-    print <<"END";
-Options:
-  -n                        number of CPUs to use (default=$NPROCS)
-  -tag                      add this tag to cache entries, and skip entries with it
-  -separate-files           put each souper invocation's output into its own output file
-  -souper-debug-level       pass this integer debug level to Souper
-  -verbose                  print extra output
-  -unix			    talk to Redis using UNIX domain sockets
-END
-    exit -1;
-}
+def default_nprocs():
+    count = os.cpu_count()
+    if count is None:
+        return 40
+    return max(1, count - 2)
 
-my $tag = "x";
-my $VERBOSE = 0;
-my $SAVE_TEMPS=1;
-my $UNIX = 0;
 
-GetOptions(
-    "n=i" => \$NPROCS,
-    "tag=s" => \$tag,
-    "verbose" => \$VERBOSE,
-    "unix" => \$UNIX,
-    "separate-files" => \$SAVE_TEMPS,
-    ) or usage();
+def usage(default_n):
+    print(
+        "Options:\n"
+        f"  -n                        number of CPUs to use (default={default_n})\n"
+        "  -tag                      add this tag to cache entries, and skip entries with it\n"
+        "  -separate-files           put each invocation's output into its own output file\n"
+        "  -souper-debug-level       accepted for compatibility\n"
+        "  -verbose                  print extra output\n"
+        "  -unix                     talk to Redis using UNIX domain sockets"
+    )
+    raise SystemExit(-1)
 
-my $REDISPORT = 6379;
-my $CACHE_VERSION = $ENV{"MINOTAUR_CACHE_VERSION"} // "2";
-my $TIMEOUT_SEC = $ENV{"MINOTAUR_CACHE_INFER_TIMEOUT_SEC"} // 600;
 
-my $minotaur = "@CMAKE_BINARY_DIR@/infer-cut.sh";
-my $llvmdis = "@LLVM_BINARY_DIR@/bin/llvm-dis";
+DEFAULT_NPROCS = default_nprocs()
 
-sub connect_redis() {
-    if ($UNIX) {
-        return Redis->new(sock => "@CMAKE_BINARY_DIR@/cache.sock");
-    }
-    return Redis->new(server => "localhost:" . $REDISPORT);
-}
+parser = argparse.ArgumentParser(add_help=False)
+parser.add_argument("-n", type=int, default=DEFAULT_NPROCS)
+parser.add_argument("-tag", default="x")
+parser.add_argument("-verbose", action="store_true")
+parser.add_argument("-unix", action="store_true")
+parser.add_argument("-separate-files", action="store_true")
+parser.add_argument("-souper-debug-level", type=int, default=0)
+try:
+    ARGS, EXTRA = parser.parse_known_args()
+except SystemExit:
+    usage(DEFAULT_NPROCS)
 
-my $r = connect_redis();
-$r->ping || die "no server?";
-my @all_keys = $r->keys('*');
+if EXTRA:
+    usage(DEFAULT_NPROCS)
 
-sub mark_timeout($) {
-    (my $opt) = @_;
-    my $cr = connect_redis();
-    $cr->hset($opt, "rewrite", "<timeout>",
-                    "timestamp", time(),
-                    "version", $CACHE_VERSION);
-}
+REDIS_PORT = 6379
+CACHE_VERSION = os.environ.get("MINOTAUR_CACHE_VERSION", "2")
+TIMEOUT_SEC = int(os.environ.get("MINOTAUR_CACHE_INFER_TIMEOUT_SEC", "600"))
+MINOTAUR = "@CMAKE_BINARY_DIR@/infer-cut.sh"
+CACHE_SOCK = "@CMAKE_BINARY_DIR@/cache.sock"
 
-sub infer($) {
-    (my $opt) = @_;
-    (my $fh, my $tmpfn) = File::Temp::tempfile();
-    print $fh $opt;
-    $fh->flush();
 
-    my $pid = $$;
-    my $ok = 0;
+def connect_redis():
+    if ARGS.unix:
+        return RedisClient(sock_path=CACHE_SOCK)
+    return RedisClient(server=("localhost", REDIS_PORT))
 
-    my $OFN = "tmp_${pid}.log";
-    my $rc;
-    if ($TIMEOUT_SEC > 0) {
-        $rc = system "timeout --signal=TERM --kill-after=10s ${TIMEOUT_SEC}s " .
-                    "${minotaur} -S < $tmpfn > $OFN 2>&1";
-    } else {
-        $rc = system "${minotaur} -S < $tmpfn > $OFN 2>&1";
-    }
-    unlink $tmpfn;
-    if (($rc >> 8) == 124) {
-        mark_timeout($opt);
-    }
-    exit($rc >> 8);
-}
 
-my $num_running = 0;
-my $good = 0;
-my $fail = 0;
-my $timeout = 0;
+def mark_timeout(opt):
+    client = connect_redis()
+    try:
+        client.hset(
+            opt,
+            {
+                "rewrite": "<timeout>",
+                "timestamp": int(time.time()),
+                "version": CACHE_VERSION,
+            },
+        )
+    finally:
+        client.close()
 
-sub wait_for_one() {
-    my $xpid = wait();
-    die if $xpid == -1;
-    $num_running--;
-    my $result = $? >> 8;
-    if ($result == 124) {
-        $timeout++;
-    } elsif ($result == 0) {
-        $good++;
-    } else {
-        $fail++;
-    }
-}
 
-my $status_cnt = 0;
-my $status_opct = 0;
-my $status_total = 1;
+@dataclass
+class Worker:
+    opt: str
+    tmp_path: str
+    out_path: str
+    input_handle: object
+    output_handle: object
+    proc: subprocess.Popen
 
-sub status() {
-    print ".";
-    $status_cnt++;
-    my $pct = int(100.0 * $status_cnt/$status_total);
-    if ($pct > $status_opct) {
-        $status_opct = $pct;
-        print "$pct %\n";
-    }
-}
 
-my $opid = $$;
-my $skip = 0;
+class StatusPrinter:
+    def __init__(self, total):
+        self.total = max(total, 1)
+        self.count = 0
+        self.last_pct = 0
 
-print "total expressions = ".scalar(@all_keys)."\n";
+    def tick(self):
+        print(".", end="", flush=True)
+        self.count += 1
+        pct = int(100.0 * self.count / self.total)
+        if pct > self.last_pct:
+            self.last_pct = pct
+            print(f"{pct} %")
 
-my $count = 1;
-my @pending_keys;
 
-foreach my $opt (@all_keys) {
-    my ($rewrite, $version) = $r->hmget($opt, "rewrite", "version");
-    if (defined $rewrite && $rewrite ne "" &&
-        defined $version && $version eq $CACHE_VERSION) {
-        $skip++;
-        next;
-    }
+def launch_worker(opt):
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", delete=False) as tmp:
+        tmp.write(opt)
+        tmp.flush()
+        tmp_path = tmp.name
 
-    push @pending_keys, $opt;
-}
+    cmd = [MINOTAUR, "-S"]
+    if TIMEOUT_SEC > 0:
+        cmd = [
+            "timeout",
+            "--signal=TERM",
+            "--kill-after=10s",
+            f"{TIMEOUT_SEC}s",
+        ] + cmd
 
-$status_total = scalar(@pending_keys) || 1;
-print "skipping $skip already-processed current-version expressions\n";
-print "remaining expressions = ".scalar(@pending_keys)."\n";
+    input_handle = open(tmp_path, "rb")
+    output_handle = tempfile.NamedTemporaryFile(
+        mode="wb",
+        prefix="tmp_",
+        suffix=".log",
+        delete=False,
+    )
+    proc = subprocess.Popen(
+        cmd,
+        stdin=input_handle,
+        stdout=output_handle,
+        stderr=subprocess.STDOUT,
+    )
+    return Worker(
+        opt=opt,
+        tmp_path=tmp_path,
+        out_path=output_handle.name,
+        input_handle=input_handle,
+        output_handle=output_handle,
+        proc=proc,
+    )
 
-foreach my $opt (@pending_keys) {
-    status() if $VERBOSE;
-    wait_for_one() unless $num_running < $NPROCS;
-    die unless $num_running < $NPROCS;
-    print("\r\c[[Ksolving $count");
-    $count ++;
-    my $pid = fork();
-    die unless $pid >= 0;
-    if ($pid == 0) {
-        #die "setrlimit RSS" unless setrlimit(RLIMIT_RSS, $RAM_LIMIT, $RAM_LIMIT);
-        #die "setrlimit VMEM" unless setrlimit(RLIMIT_VMEM, $RAM_LIMIT, $RAM_LIMIT);
-        infer ($opt);
-    }
-    # make sure we're in the parent
-    die unless $$ == $opid;
-    $num_running++;
-}
 
-wait_for_one() while ($num_running > 0);
+def finalize_worker(worker):
+    worker.proc.wait()
+    worker.output_handle.close()
+    worker.input_handle.close()
+    os.unlink(worker.tmp_path)
+    return worker.proc.returncode
 
-print "\n";
-print "$good completed worker exits\n";
-print "$timeout timed out worker exits\n";
-print "$fail failed worker exits\n";
-print "$skip skipped already-processed current-version entries\n";
+
+def main():
+    client = connect_redis()
+    try:
+        if client.ping() != "PONG":
+            raise RedisError("no server?")
+        all_keys = client.keys("*")
+        print(f"total expressions = {len(all_keys)}")
+
+        skip = 0
+        pending = []
+        for opt in all_keys:
+            rewrite, version = client.hmget(opt, "rewrite", "version")
+            if rewrite and version == CACHE_VERSION:
+                skip += 1
+                continue
+            pending.append(opt)
+
+        print(f"skipping {skip} already-processed current-version expressions")
+        print(f"remaining expressions = {len(pending)}")
+
+        status = StatusPrinter(len(pending))
+        running = {}
+        count = 1
+        completed = 0
+        timed_out = 0
+        failed = 0
+
+        def reap_one():
+            nonlocal completed, timed_out, failed
+            pid, _ = os.wait()
+            worker = running.pop(pid)
+            result = finalize_worker(worker)
+            if result == 124:
+                timed_out += 1
+                mark_timeout(worker.opt)
+            elif result == 0:
+                completed += 1
+            else:
+                failed += 1
+
+        for opt in pending:
+            if ARGS.verbose:
+                status.tick()
+            while len(running) >= ARGS.n:
+                reap_one()
+            print(f"\r\033[Ksolving {count}", end="", flush=True)
+            count += 1
+            worker = launch_worker(opt)
+            running[worker.proc.pid] = worker
+
+        while running:
+            reap_one()
+
+        print()
+        print(f"{completed} completed worker exits")
+        print(f"{timed_out} timed out worker exits")
+        print(f"{failed} failed worker exits")
+        print(f"{skip} skipped already-processed current-version entries")
+    finally:
+        client.close()
+
+
+if __name__ == "__main__":
+    main()

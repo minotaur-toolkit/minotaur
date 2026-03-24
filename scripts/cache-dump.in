@@ -1,218 +1,141 @@
-#!/usr/bin/env perl
+#!/usr/bin/env python3
 
 # Copyright (c) 2020-present, author: Zhengyang Liu (liuz@cs.utah.edu).
 # Distributed under the MIT license that can be found in the LICENSE file.
 # borrowed from souper
 
-use warnings;
-use strict;
-use Redis;
-use Getopt::Long;
-use File::Temp;
-use Time::HiRes;
+import argparse
+import sys
 
-my $llvmas  = "@LLVM_BINARY_DIR@/bin/llvm-as";
-my $llvmopt = "@LLVM_BINARY_DIR@/bin/opt";
-
-sub runit ($) {
-    my $cmd = shift;
-    my $res = (system "$cmd");
-    return $? >> 8;
-}
-
-sub usage() {
-    print <<'END';
-Options:
-  -dumpall                                           dump all LHSs
-  -tofiles                                           dump all LHSs to files
-  -sort=timestamp|costdiff|reduce|cutsize|profile    sort optimizations
-  -verbose
-END
-    exit -1;
-}
-
-my $REDISPORT = 6379;
-my $DUMPALL = 0;
-my $TOFILES = 0;
-my $SORT = "timestamp";
-my $VERBOSE = 0;
-my $UNIX = 0;
-
-GetOptions(
-    "dumpall" => \$DUMPALL,
-    "tofiles" => \$TOFILES,
-    "redis-port=i" => \$REDISPORT,
-    "sort=s" => \$SORT,
-    "verbose" => \$VERBOSE,
-    ) or usage();
-usage() unless ($SORT eq "timestamp" ||
-                $SORT eq "costdiff"  ||
-                $SORT eq "reduce"    ||
-                $SORT eq "cutsize"   ||
-                $SORT eq "profile");
-
-my $noopt_count=0;
-
-my $r;
-if ($UNIX) {
-    $r = Redis->new(sock => "@CMAKE_BINARY_DIR@/cache.sock");
-} else {
-    $r = Redis->new(server => "localhost:" . $REDISPORT);
-}
-$r->ping || die "no server?";
-my @all_keys = $r->keys('*');
-
-print "; Inspecting ".scalar(@all_keys)." Redis values\n";
-
-sub parse($) {
-    (my $opt) = @_;
-    (my $fh, my $tmpfn) = File::Temp::tempfile();
-    print $fh $opt;
-    $fh->flush();
-    open INF, "cat < $tmpfn 2>&1 |";
-    my $output = "";
-    my $success = 0;
-    while (my $line = <INF>) {
-        $success = 1 if ($line =~ /success/);
-        next if ($line =~ /^;/);
-        $output .= $line;
-    }
-    close INF;
-    close $fh;
-    unlink $tmpfn;
-    return $output;
-}
-
-my %toprint;
-my %ir;
-my %rewrite;
-my %costafter;
-my %costbefore;
-my %costdiff;
-my %reduce;
-my %timestamp;
-my %fn_name;
-my %profile;
-my %noopt;
-my %optbc;
-my %cutsize;
-
-if ($DUMPALL) {
-    print "; Dumping all ".scalar(keys @all_keys)." rewrites\n";
-    my $count = 0;
-    foreach my $opt (@all_keys) {
-        my %h = $r->hgetall($opt);
-        my $time    = $h{"timestamp"};
-        my $fn      = $h{"fn"};
-        my $profile = $h{"profile"};
-        my $rewrite = $h{"rewrite"};
-        my $ir      = parse($opt);
-        if ($TOFILES) {
-            open(my $fh, ">", "dump_$count.ll");
-            print $fh $ir;
-            $fh->flush();
-            close $fh;
-        } else {
-            print $ir, "\n";
-            print "rewrite: $rewrite\n";
-            print "timestamp: $time\n";
-            print "profile: $profile\n";
-            print "in fn: $fn\n";
-            print "\n------------------------------------------------------\n";
-        }
-        $count = $count + 1;
-    }
-    exit(0);
-}
-
-foreach my $opt (@all_keys) {
-    my %h = $r->hgetall($opt);
-
-    my $rewrite  = $h{"rewrite"};
-    $noopt{$opt} = $rewrite eq "<no-sol>";
-
-    if ($noopt{$opt}) {
-        $noopt_count++;
-        next;
-    }
-
-    my $time    = $h{"timestamp"};
-    my $fn      = $h{"fn"};
-    my $pf      = $h{"profile"};
-    my $ca     = $h{"costafter"};
-    my $cb     = $h{"costbefore"};
-    if ($cb == 0) {
-        $cb = 1;
-    }
-    if ($ca == 0) {
-        $ca = 1;
-    }
-
-    $ir{$opt} = parse($opt);
-
-    $toprint{$opt} = 1;
-    $costafter{$opt} = $ca;
-    $costbefore{$opt} = $cb;
-    $costdiff{$opt} = $cb - $ca;
-    $reduce{$opt} = ($cb - $ca * 1.0) / $cb;
-    $rewrite{$opt} = $rewrite;
-    $cutsize{$opt} = length($optbc{$opt});
-    $profile{$opt} = $pf;
-    $fn_name{$opt} = $fn;
-    $timestamp{$opt} = $time;
-}
+sys.path.insert(0, "@PROJECT_SOURCE_DIR@/scripts")
+from minotaur_redis import RedisClient, RedisError
 
 
-print "; Discarding ${noopt_count} not-optimizations leaving ".
-    scalar(keys %toprint)." optimizations\n";
-
-# print "\n\n";
-
-sub bytimestamp { $timestamp{$b} <=> $timestamp{$a} }
-sub bycostdiff { $costdiff{$b} <=> $costdiff{$a} }
-sub byreduce { $reduce{$b} <=> $reduce{$a} }
-sub bycutsize { $cutsize{$b} <=> $cutsize{$a} }
-sub byprofile { $profile{$b} <=> $profile{$a} }
-
-my $byx;
-$byx = \&bytimestamp if ($SORT eq "timestamp");
-$byx = \&bycostdiff if ($SORT eq "costdiff");
-$byx = \&byreduce if ($SORT eq "reduce");
-$byx = \&bycutsize if ($SORT eq "cutsize");
-$byx = \&byprofile if ($SORT eq "profile");
+def usage():
+    print(
+        "Options:\n"
+        "  -dumpall                                           dump all LHSs\n"
+        "  -tofiles                                           dump all LHSs to files\n"
+        "  -sort=timestamp|costdiff|reduce|cutsize|profile    sort optimizations\n"
+        "  -verbose\n"
+        "  -unix                                              talk to Redis using UNIX domain sockets"
+    )
+    raise SystemExit(-1)
 
 
-my $count = 0;
-foreach my $opt (sort $byx keys %toprint) {
-    my $ir      = $ir{$opt};
-    my $time    = $timestamp{$opt};
-    my $fn      = $fn_name{$opt};
-    my $rewrite = $rewrite{$opt};
-    my $ca      = $costafter{$opt};
-    my $cb      = $costbefore{$opt};
-    my $pf      = $profile{$opt};
+def parse_ir(opt):
+    return "".join(line for line in opt.splitlines(True) if not line.startswith(";"))
 
-    if ($TOFILES) {
-        open(my $fh, ">", "dump_$count.src.ll");
-        print $fh $ir, "\n";
-        $fh->flush();
-        close $fh;
-    } else {
-        print "; opt ---------------------------------------------------\n";
-        print $ir;
-        print "; minotaur_rewrite: $rewrite \n";
-        print "; minotaur_cost-before: $cb\n";
-        print "; minotaur_cost-after: $ca\n";
-        print "; minotaur_timestamp: $time\n";
-        print "; minotaur_profile: $pf\n";
-        print "; minotaur_fn: $fn\n";
-    }
-    $count = $count + 1;
-}
 
-# my $cnt = 0;
-# foreach my $opt (keys %toprint) {
-#     $cnt += $sprofiles{$opt};
-# }
-# print "; overall total static profile weight = $cnt\n";
-# print "; $tagged were tagged by cache_infer, $untagged were not\n";
+def as_number(value, default=0.0):
+    if value in (None, ""):
+        return default
+    try:
+        return float(value)
+    except ValueError:
+        return default
+
+
+parser = argparse.ArgumentParser(add_help=False)
+parser.add_argument("-dumpall", action="store_true")
+parser.add_argument("-tofiles", action="store_true")
+parser.add_argument("-redis-port", type=int, default=6379)
+parser.add_argument("-sort", default="timestamp")
+parser.add_argument("-verbose", action="store_true")
+parser.add_argument("-unix", action="store_true")
+try:
+    ARGS, EXTRA = parser.parse_known_args()
+except SystemExit:
+    usage()
+
+if EXTRA or ARGS.sort not in {"timestamp", "costdiff", "reduce", "cutsize", "profile"}:
+    usage()
+
+CACHE_SOCK = "@CMAKE_BINARY_DIR@/cache.sock"
+
+
+def connect_redis():
+    if ARGS.unix:
+        return RedisClient(sock_path=CACHE_SOCK)
+    return RedisClient(server=("localhost", ARGS.redis_port))
+
+
+def main():
+    client = connect_redis()
+    try:
+        if client.ping() != "PONG":
+            raise RedisError("no server?")
+        all_keys = client.keys("*")
+        print(f"; Inspecting {len(all_keys)} Redis values")
+
+        if ARGS.dumpall:
+            print(f"; Dumping all {len(all_keys)} rewrites")
+            for count, opt in enumerate(all_keys):
+                entry = client.hgetall(opt)
+                ir = parse_ir(opt)
+                if ARGS.tofiles:
+                    with open(f"dump_{count}.ll", "w", encoding="utf-8") as out:
+                        out.write(ir)
+                else:
+                    print(ir)
+                    print(f"rewrite: {entry.get('rewrite')}")
+                    print(f"timestamp: {entry.get('timestamp')}")
+                    print(f"profile: {entry.get('profile')}")
+                    print(f"in fn: {entry.get('fn')}")
+                    print("\n------------------------------------------------------")
+            return
+
+        entries = []
+        noopt_count = 0
+        for opt in all_keys:
+            entry = client.hgetall(opt)
+            rewrite = entry.get("rewrite", "")
+            if rewrite == "<no-sol>":
+                noopt_count += 1
+                continue
+
+            cost_after = int(as_number(entry.get("costafter"), 0))
+            cost_before = int(as_number(entry.get("costbefore"), 0))
+            if cost_before == 0:
+                cost_before = 1
+            if cost_after == 0:
+                cost_after = 1
+
+            entries.append(
+                {
+                    "ir": parse_ir(opt),
+                    "rewrite": rewrite,
+                    "costafter": cost_after,
+                    "costbefore": cost_before,
+                    "costdiff": cost_before - cost_after,
+                    "reduce": (cost_before - cost_after * 1.0) / cost_before,
+                    "timestamp": as_number(entry.get("timestamp"), 0),
+                    "profile": as_number(entry.get("profile"), 0),
+                    "fn": entry.get("fn", ""),
+                    "cutsize": len(opt),
+                }
+            )
+
+        print(f"; Discarding {noopt_count} not-optimizations leaving {len(entries)} optimizations")
+        entries.sort(key=lambda entry: entry[ARGS.sort], reverse=True)
+
+        for count, entry in enumerate(entries):
+            if ARGS.tofiles:
+                with open(f"dump_{count}.src.ll", "w", encoding="utf-8") as out:
+                    out.write(entry["ir"])
+                    out.write("\n")
+            else:
+                print("; opt ---------------------------------------------------")
+                print(entry["ir"], end="" if entry["ir"].endswith("\n") else "\n")
+                print(f"; minotaur_rewrite: {entry['rewrite']} ")
+                print(f"; minotaur_cost-before: {entry['costbefore']}")
+                print(f"; minotaur_cost-after: {entry['costafter']}")
+                print(f"; minotaur_timestamp: {entry['timestamp']}")
+                print(f"; minotaur_profile: {entry['profile']}")
+                print(f"; minotaur_fn: {entry['fn']}")
+    finally:
+        client.close()
+
+
+if __name__ == "__main__":
+    main()
