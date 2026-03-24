@@ -24,7 +24,6 @@ bool ignore_machine_cost = false;
 bool smt_verbose = false;
 bool disable_avx512 = true;
 bool show_stats = false;
-bool return_first_solution = false;
 bool enable_depth2 = false;
 bool enable_depth3 = false;
 
@@ -46,4 +45,3 @@ const char minotaur_version[] = {
 
 } // namespace config
 } // namespace minotaur
-

@@ -2340,10 +2340,6 @@ vector<Rewrite> Enumerator::solve(llvm::Function &F, llvm::Instruction *I) {
 
     unsigned Duration = std::chrono::duration_cast<std::chrono::seconds>(
         std::chrono::steady_clock::now() - start).count();
-    if ((config::return_first_solution && Good)) {
-      debug() << "[enumerator] returning first solution\n";
-      break;
-    }
     if (Duration > config::slice_to) {
       debug() << "[enumerator] timeout for candidate, skipping\n";
       break;

@@ -352,9 +352,17 @@ optimize_function(llvm::Function &F, LoopInfo &LI, DominatorTree &DT,
     }
   } else {
     for (auto &BB : F) {
-      for (auto &I : make_early_inc_range(BB)) {
-        if (I.getType()->isVoidTy())
-          continue;
+      SmallVector<Instruction *, 32> WorkList;
+      for (auto &I : BB) {
+        if (!I.getType()->isVoidTy())
+          WorkList.push_back(&I);
+      }
+
+      // Visit users before defs so cross-width folds such as
+      // fptrunc(fmax(fpext x, fpext y)) can be attempted at the trunc root
+      // before earlier producer slices burn the entire slice budget.
+      for (auto It = WorkList.rbegin(); It != WorkList.rend(); ++It) {
+        auto &I = **It;
 
         minotaur::Slice S(F, LI, DT);
         auto NewF = S.extractExpr(I);
