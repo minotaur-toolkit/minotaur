@@ -18,11 +18,12 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include <algorithm>
+#include <array>
 #include <initializer_list>
 #include <memory>
+#include <set>
 #include <string>
 #include <string_view>
-#include <unordered_set>
 #include <vector>
 
 using namespace minotaur;
@@ -80,7 +81,7 @@ entry:
 
 struct SketchCase {
   const char *name;
-  std::initializer_list<std::string_view> expected;
+  std::vector<std::string> expected;
 };
 
 std::unique_ptr<llvm::Module> parseTestModule(
@@ -159,6 +160,113 @@ bool containsSketch(
       return true;
   }
   return false;
+}
+
+bool containsSketch(
+    const std::vector<std::string> &Sketches,
+    const std::vector<std::string> &Expected) {
+  for (const auto &Needle : Expected) {
+    if (containsSketch(Sketches, Needle))
+      return true;
+  }
+  return false;
+}
+
+std::vector<std::string> makeAssocComm3Variants(
+    std::string_view Op, std::string_view A,
+    std::string_view B, std::string_view C) {
+  std::array<std::string_view, 3> Terms{A, B, C};
+  std::sort(Terms.begin(), Terms.end());
+
+  std::set<std::string> Variants;
+  do {
+    auto Build = [&](std::string_view X,
+                     std::string_view Y,
+                     std::string_view Z,
+                     bool LeftAssoc) {
+      std::string S = "(";
+      S += Op;
+      S += ' ';
+      if (LeftAssoc) {
+        S += "(";
+        S += Op;
+        S += ' ';
+        S += X;
+        S += ' ';
+        S += Y;
+        S += ") ";
+        S += Z;
+      } else {
+        S += X;
+        S += " (";
+        S += Op;
+        S += ' ';
+        S += Y;
+        S += ' ';
+        S += Z;
+        S += ")";
+      }
+      S += ")";
+      Variants.insert(std::move(S));
+    };
+
+    Build(Terms[0], Terms[1], Terms[2], true);
+    Build(Terms[0], Terms[1], Terms[2], false);
+  } while (std::next_permutation(Terms.begin(), Terms.end()));
+
+  return {Variants.begin(), Variants.end()};
+}
+
+std::vector<std::string> makeComm2Variants(
+    std::string_view Op, std::string_view A,
+    std::string_view B) {
+  std::set<std::string> Variants;
+
+  auto Build = [&](std::string_view X, std::string_view Y) {
+    std::string S = "(";
+    S += Op;
+    S += ' ';
+    S += X;
+    S += ' ';
+    S += Y;
+    S += ")";
+    Variants.insert(std::move(S));
+  };
+
+  Build(A, B);
+  Build(B, A);
+  return {Variants.begin(), Variants.end()};
+}
+
+std::vector<std::string> makeVectorReduceOverComm2Variants(
+    std::string_view ReduceOp, std::string_view InnerOp,
+    std::string_view A, std::string_view B) {
+  std::vector<std::string> Variants;
+  for (const auto &Inner : makeComm2Variants(InnerOp, A, B)) {
+    std::string S = "(";
+    S += ReduceOp;
+    S += " i64 ";
+    S += Inner;
+    S += ")";
+    Variants.push_back(std::move(S));
+  }
+  return Variants;
+}
+
+std::vector<std::string> makeVectorReduceOverAssocComm3Variants(
+    std::string_view ReduceOp, std::string_view InnerOp,
+    std::string_view A, std::string_view B,
+    std::string_view C) {
+  std::vector<std::string> Variants;
+  for (const auto &Inner : makeAssocComm3Variants(InnerOp, A, B, C)) {
+    std::string S = "(";
+    S += ReduceOp;
+    S += " i64 ";
+    S += Inner;
+    S += ")";
+    Variants.push_back(std::move(S));
+  }
+  return Variants;
 }
 
 std::string dumpSketches(
@@ -255,41 +363,26 @@ TEST(EnumeratorTest, Depth2AddsVectorReduceOverVectorExpressions) {
   ASSERT_FALSE(Depth2.empty());
 
   const SketchCase Cases[] = {
-    {
-      "vector_reduce_add(add(v, w))",
-      {
-        "(vector_reduce_add i64 (add <8 x i64> (var <8 x i64> %v) "
-        "(var <8 x i64> %w)))",
-      },
-    },
-    {
-      "vector_reduce_mul(mul(v, w))",
-      {
-        "(vector_reduce_mul i64 (mul <8 x i64> (var <8 x i64> %v) "
-        "(var <8 x i64> %w)))",
-      },
-    },
-    {
-      "vector_reduce_and(and(v, w))",
-      {
-        "(vector_reduce_and i64 (and <8 x i64> (var <8 x i64> %v) "
-        "(var <8 x i64> %w)))",
-      },
-    },
-    {
-      "vector_reduce_or(or(v, w))",
-      {
-        "(vector_reduce_or i64 (or <8 x i64> (var <8 x i64> %v) "
-        "(var <8 x i64> %w)))",
-      },
-    },
-    {
-      "vector_reduce_xor(xor(v, w))",
-      {
-        "(vector_reduce_xor i64 (xor <8 x i64> (var <8 x i64> %v) "
-        "(var <8 x i64> %w)))",
-      },
-    },
+      {"vector_reduce_add(add(v, w))",
+       makeVectorReduceOverComm2Variants(
+           "vector_reduce_add", "add <8 x i64>",
+           "(var <8 x i64> %v)", "(var <8 x i64> %w)")},
+      {"vector_reduce_mul(mul(v, w))",
+       makeVectorReduceOverComm2Variants(
+           "vector_reduce_mul", "mul <8 x i64>",
+           "(var <8 x i64> %v)", "(var <8 x i64> %w)")},
+      {"vector_reduce_and(and(v, w))",
+       makeVectorReduceOverComm2Variants(
+           "vector_reduce_and", "and <8 x i64>",
+           "(var <8 x i64> %v)", "(var <8 x i64> %w)")},
+      {"vector_reduce_or(or(v, w))",
+       makeVectorReduceOverComm2Variants(
+           "vector_reduce_or", "or <8 x i64>",
+           "(var <8 x i64> %v)", "(var <8 x i64> %w)")},
+      {"vector_reduce_xor(xor(v, w))",
+       makeVectorReduceOverComm2Variants(
+           "vector_reduce_xor", "xor <8 x i64>",
+           "(var <8 x i64> %v)", "(var <8 x i64> %w)")},
   };
 
   for (const auto &C : Cases) {
@@ -311,46 +404,31 @@ TEST(EnumeratorTest, Depth3AddsVectorReduceOverDeeperVectorExpressions) {
   ASSERT_FALSE(Depth3Enabled.empty());
 
   const SketchCase Cases[] = {
-    {
-      "vector_reduce_add(add(add(v, w), u))",
-      {
-        "(vector_reduce_add i64 (add <8 x i64> "
-        "(add <8 x i64> (var <8 x i64> %v) (var <8 x i64> %w)) "
-        "(var <8 x i64> %u)))",
-      },
-    },
-    {
-      "vector_reduce_mul(mul(mul(v, w), u))",
-      {
-        "(vector_reduce_mul i64 (mul <8 x i64> "
-        "(mul <8 x i64> (var <8 x i64> %v) (var <8 x i64> %w)) "
-        "(var <8 x i64> %u)))",
-      },
-    },
-    {
-      "vector_reduce_and(and(and(v, w), u))",
-      {
-        "(vector_reduce_and i64 (and <8 x i64> "
-        "(and <8 x i64> (var <8 x i64> %v) (var <8 x i64> %w)) "
-        "(var <8 x i64> %u)))",
-      },
-    },
-    {
-      "vector_reduce_or(or(or(v, w), u))",
-      {
-        "(vector_reduce_or i64 (or <8 x i64> "
-        "(or <8 x i64> (var <8 x i64> %v) (var <8 x i64> %w)) "
-        "(var <8 x i64> %u)))",
-      },
-    },
-    {
-      "vector_reduce_xor(xor(xor(v, w), u))",
-      {
-        "(vector_reduce_xor i64 (xor <8 x i64> "
-        "(xor <8 x i64> (var <8 x i64> %v) (var <8 x i64> %w)) "
-        "(var <8 x i64> %u)))",
-      },
-    },
+      {"vector_reduce_add(add3(v, w, u))",
+       makeVectorReduceOverAssocComm3Variants(
+           "vector_reduce_add", "add <8 x i64>",
+           "(var <8 x i64> %v)", "(var <8 x i64> %w)",
+           "(var <8 x i64> %u)")},
+      {"vector_reduce_mul(mul3(v, w, u))",
+       makeVectorReduceOverAssocComm3Variants(
+           "vector_reduce_mul", "mul <8 x i64>",
+           "(var <8 x i64> %v)", "(var <8 x i64> %w)",
+           "(var <8 x i64> %u)")},
+      {"vector_reduce_and(and3(v, w, u))",
+       makeVectorReduceOverAssocComm3Variants(
+           "vector_reduce_and", "and <8 x i64>",
+           "(var <8 x i64> %v)", "(var <8 x i64> %w)",
+           "(var <8 x i64> %u)")},
+      {"vector_reduce_or(or3(v, w, u))",
+       makeVectorReduceOverAssocComm3Variants(
+           "vector_reduce_or", "or <8 x i64>",
+           "(var <8 x i64> %v)", "(var <8 x i64> %w)",
+           "(var <8 x i64> %u)")},
+      {"vector_reduce_xor(xor3(v, w, u))",
+       makeVectorReduceOverAssocComm3Variants(
+           "vector_reduce_xor", "xor <8 x i64>",
+           "(var <8 x i64> %v)", "(var <8 x i64> %w)",
+           "(var <8 x i64> %u)")},
   };
 
   for (const auto &C : Cases) {
@@ -528,9 +606,11 @@ TEST(EnumeratorTest, Depth3WorksWithoutDepth2Flag) {
   ASSERT_FALSE(Depth1.empty());
   ASSERT_FALSE(Depth3Only.empty());
 
-  const char *Expected =
-      "(or i64 (or i64 (var i64 %y) "
-      "(bswap i64 (var i64 %x))) (var i64 %z))";
+  const auto Expected = makeAssocComm3Variants(
+      "or i64",
+      "(var i64 %y)",
+      "(bswap i64 (var i64 %x))",
+      "(var i64 %z)");
 
   EXPECT_FALSE(containsSketch(Depth1, Expected))
       << dumpSketches(Depth1);
